@@ -7,7 +7,8 @@ import {
   Camera, 
   Settings, 
   Layers,
-  ChevronDown
+  ChevronDown,
+  Plus
 } from 'lucide-react';
 import { NavigationTab, ProjectProfile } from '../types';
 
@@ -17,6 +18,7 @@ interface SidebarProps {
   activeProject?: ProjectProfile;
   projects: ProjectProfile[];
   onSelectProject: (id: string) => void;
+  onOpenAddProject?: () => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -24,7 +26,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onTabChange,
   activeProject,
   projects,
-  onSelectProject
+  onSelectProject,
+  onOpenAddProject
 }) => {
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, badge: null },
@@ -84,31 +87,43 @@ export const Sidebar: React.FC<SidebarProps> = ({
         <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 700 }}>
           Active Bubble App
         </span>
-        <div style={{ position: 'relative' }}>
-          <select 
-            value={activeProject?.id || ''} 
-            onChange={(e) => onSelectProject(e.target.value)}
-            style={{
-              width: '100%',
-              background: 'transparent',
-              border: 'none',
-              color: 'var(--text-primary)',
-              fontSize: '0.85rem',
-              fontWeight: 600,
-              cursor: 'pointer',
-              outline: 'none',
-              paddingRight: '20px',
-              appearance: 'none'
-            }}
+
+        {projects.length === 0 ? (
+          <button
+            onClick={onOpenAddProject}
+            className="btn btn-primary btn-sm"
+            style={{ width: '100%', padding: '6px', fontSize: '0.75rem' }}
           >
-            {projects.map(p => (
-              <option key={p.id} value={p.id} style={{ background: '#111827', color: '#fff' }}>
-                {p.name}
-              </option>
-            ))}
-          </select>
-          <ChevronDown size={14} style={{ position: 'absolute', right: 0, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: 'var(--text-secondary)' }} />
-        </div>
+            <Plus size={13} />
+            <span>Connect First App</span>
+          </button>
+        ) : (
+          <div style={{ position: 'relative' }}>
+            <select 
+              value={activeProject?.id || ''} 
+              onChange={(e) => onSelectProject(e.target.value)}
+              style={{
+                width: '100%',
+                background: 'transparent',
+                border: 'none',
+                color: 'var(--text-primary)',
+                fontSize: '0.85rem',
+                fontWeight: 600,
+                cursor: 'pointer',
+                outline: 'none',
+                paddingRight: '20px',
+                appearance: 'none'
+              }}
+            >
+              {projects.map(p => (
+                <option key={p.id} value={p.id} style={{ background: '#111827', color: '#fff' }}>
+                  {p.name}
+                </option>
+              ))}
+            </select>
+            <ChevronDown size={14} style={{ position: 'absolute', right: 0, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: 'var(--text-secondary)' }} />
+          </div>
+        )}
       </div>
 
       {/* Navigation List */}

@@ -11,19 +11,23 @@ import {
   Layers,
   Palette,
   Zap,
-  Server
+  Server,
+  FlaskConical,
+  Compass
 } from 'lucide-react';
 import { GlobalSettings, ProjectProfile, ThemeMode } from '../types';
 
 interface SettingsViewProps {
   settings: GlobalSettings;
   onSaveSettings: (settings: GlobalSettings) => void;
+  onLoadDemoProject?: () => void;
   onLog: (module: 'system', message: string, level?: 'info' | 'success' | 'warn' | 'error') => void;
 }
 
 export const SettingsView: React.FC<SettingsViewProps> = ({
   settings,
   onSaveSettings,
+  onLoadDemoProject,
   onLog
 }) => {
   const [formData, setFormData] = useState<GlobalSettings>(settings);
@@ -36,7 +40,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     onSaveSettings(formData);
     setSavedSuccess(true);
     setTimeout(() => setSavedSuccess(false), 2500);
-    onLog('system', 'Settings, Groq & Local Llama credentials updated successfully.', 'success');
+    onLog('system', 'Settings, OpenCode, Groq & Local Llama credentials updated successfully.', 'success');
   };
 
   const handleAddProject = () => {
@@ -44,31 +48,33 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     const newProj: ProjectProfile = {
       id: `proj_${Date.now()}`,
       name: newProjName.trim(),
-      appId: newProjAppId.trim(),
+      appId: newProjAppId.trim().toLowerCase().replace(/\s+/g, '-'),
       environment: newProjEnv,
       createdAt: new Date().toISOString(),
       lastActiveAt: new Date().toISOString()
     };
-    setFormData({
+    const updated = {
       ...formData,
-      projects: [...formData.projects, newProj]
-    });
+      projects: [...formData.projects, newProj],
+      activeProjectId: newProj.id
+    };
+    setFormData(updated);
+    onSaveSettings(updated);
     setNewProjName('');
     setNewProjAppId('');
     onLog('system', `Added new Bubble project profile: '${newProj.name}'`, 'info');
   };
 
   const handleDeleteProject = (id: string) => {
-    if (formData.projects.length <= 1) {
-      alert('You must have at least one active project profile.');
-      return;
-    }
-    const updated = formData.projects.filter(p => p.id !== id);
-    setFormData({
+    const updatedProjects = formData.projects.filter(p => p.id !== id);
+    const updated = {
       ...formData,
-      projects: updated,
-      activeProjectId: formData.activeProjectId === id ? updated[0].id : formData.activeProjectId
-    });
+      projects: updatedProjects,
+      activeProjectId: formData.activeProjectId === id ? updatedProjects[0]?.id : formData.activeProjectId
+    };
+    setFormData(updated);
+    onSaveSettings(updated);
+    onLog('system', 'Project profile removed.', 'info');
   };
 
   return (
@@ -78,7 +84,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         <div>
           <h2 style={{ fontSize: '1.15rem', fontWeight: 800 }}>Workspace Settings & AI API Keys</h2>
           <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-            Configure your Groq Console, Local Llama (Ollama), OpenAI, Bubble tokens, and preferences
+            Configure your OpenCode Zen/Go, Groq, Local Llama (Ollama), OpenAI, and Bubble tokens
           </p>
         </div>
 
@@ -95,13 +101,28 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             <div>
               <div className="card-title">
                 <Key size={18} color="var(--accent-cyan)" />
-                <span>AI Providers (Cloud & Local)</span>
+                <span>AI Providers (Cloud, OpenCode & Local)</span>
               </div>
               <div className="card-subtitle">Stored securely and locally on your machine</div>
             </div>
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            {/* OpenCode Zen / Go API Key */}
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px' }}>
+                <Compass size={14} color="var(--primary)" />
+                <label className="input-label" style={{ marginBottom: 0 }}>OpenCode Zen / Go API Key (DeepSeek / Qwen)</label>
+              </div>
+              <input
+                type="password"
+                placeholder="opencode-..."
+                value={formData.opencodeApiKey || ''}
+                onChange={(e) => setFormData({ ...formData, opencodeApiKey: e.target.value })}
+                className="input"
+              />
+            </div>
+
             {/* Groq Console Key */}
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px' }}>
@@ -205,10 +226,11 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 onChange={(e) => setFormData({ ...formData, defaultAiModel: e.target.value })}
                 className="select"
               >
-                <option value="llama-3.3-70b-versatile">Groq: Llama 3.3 70B (Ultra-Fast)</option>
+                <option value="deepseek-v3">OpenCode: DeepSeek V3</option>
+                <option value="llama-3.3-70b-versatile">Groq: Llama 3.3 70B</option>
                 <option value="llama3.2">Local: Llama 3.2 (Ollama)</option>
                 <option value="gpt-4o">OpenAI: GPT-4o</option>
-                <option value="claude-3-5-sonnet">Anthropic: Claude 3.5 Sonnet</option>
+                <option value="claude-3-5-sonnet">Anthropic: Claude 3.5</option>
                 <option value="gemini-1.5-pro">Google: Gemini 1.5 Pro</option>
               </select>
             </div>
@@ -241,6 +263,13 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               Manage multiple Bubble apps, live/staging domains, and Data API tokens
             </div>
           </div>
+
+          {onLoadDemoProject && (
+            <button onClick={onLoadDemoProject} className="btn btn-secondary btn-sm">
+              <FlaskConical size={14} />
+              <span>Load Sandbox Demo App</span>
+            </button>
+          )}
         </div>
 
         {/* Add new project row */}
@@ -294,56 +323,62 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         </div>
 
         {/* Existing projects list */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-          {formData.projects.map(proj => (
-            <div
-              key={proj.id}
-              style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                padding: '14px 18px',
-                borderRadius: 'var(--radius-md)',
-                background: 'var(--bg-input)',
-                border: '1px solid var(--border-subtle)'
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-                <div style={{
-                  width: '36px',
-                  height: '36px',
-                  borderRadius: '8px',
-                  background: 'rgba(99, 102, 241, 0.15)',
+        {formData.projects.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '32px 0', color: 'var(--text-muted)' }}>
+            No Bubble applications configured yet. Use the form above to add your first application.
+          </div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            {formData.projects.map(proj => (
+              <div
+                key={proj.id}
+                style={{
                   display: 'flex',
+                  justifyContent: 'space-between',
                   alignItems: 'center',
-                  justifyContent: 'center',
-                  color: 'var(--primary)'
-                }}>
-                  <ShieldCheck size={18} />
-                </div>
-                <div>
-                  <div style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--text-primary)' }}>
-                    {proj.name}
+                  padding: '14px 18px',
+                  borderRadius: 'var(--radius-md)',
+                  background: 'var(--bg-input)',
+                  border: '1px solid var(--border-subtle)'
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                  <div style={{
+                    width: '36px',
+                    height: '36px',
+                    borderRadius: '8px',
+                    background: 'rgba(99, 102, 241, 0.15)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: 'var(--primary)'
+                  }}>
+                    <ShieldCheck size={18} />
                   </div>
-                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                    App ID: <code>{proj.appId}</code> • Env: <strong style={{ color: 'var(--accent-emerald)' }}>{proj.environment.toUpperCase()}</strong>
+                  <div>
+                    <div style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--text-primary)' }}>
+                      {proj.name}
+                    </div>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                      App ID: <code>{proj.appId}</code> • Env: <strong style={{ color: 'var(--accent-emerald)' }}>{proj.environment.toUpperCase()}</strong>
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              <div>
-                <button
-                  onClick={() => handleDeleteProject(proj.id)}
-                  className="btn btn-secondary btn-sm"
-                  title="Delete project profile"
-                >
-                  <Trash2 size={13} color="var(--accent-rose)" />
-                  <span>Remove</span>
-                </button>
+                <div>
+                  <button
+                    onClick={() => handleDeleteProject(proj.id)}
+                    className="btn btn-secondary btn-sm"
+                    title="Delete project profile"
+                  >
+                    <Trash2 size={13} color="var(--accent-rose)" />
+                    <span>Remove</span>
+                  </button>
+                </div>
               </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

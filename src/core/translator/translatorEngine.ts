@@ -126,6 +126,50 @@ String: "${text}"`;
   }
 
   /**
+   * Translates a single text using OpenCode Zen / Go API
+   */
+  private static async callOpenCodeApi(
+    text: string,
+    targetLang: string,
+    apiKey: string,
+    model: string = 'deepseek-v3',
+    tone: string = 'professional',
+    endpoint: string = 'https://api.opencode.ai/v1'
+  ): Promise<string> {
+    const cleanEndpoint = endpoint.replace(/\/$/, '');
+    const url = cleanEndpoint.endsWith('/chat/completions') ? cleanEndpoint : `${cleanEndpoint}/chat/completions`;
+
+    const prompt = `You are a professional localization expert for web applications.
+Translate the following English user interface string into ${targetLang}.
+Tone: ${tone}.
+Keep any bracketed tokens (like [amount], [user_name], {variable}) exactly as they are.
+Respond ONLY with the translated text, no explanations, no quotes.
+
+String: "${text}"`;
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`
+      },
+      body: JSON.stringify({
+        model,
+        messages: [{ role: 'user', content: prompt }],
+        temperature: 0.2
+      })
+    });
+
+    if (!response.ok) {
+      const err = await response.text();
+      throw new Error(`OpenCode Zen / Go API error (${response.status}): ${err}`);
+    }
+
+    const data = await response.json();
+    return data.choices[0]?.message?.content?.trim() || text;
+  }
+
+  /**
    * Translates a single text using Local Llama (Ollama / Local OpenAI endpoint)
    */
   private static async callLocalLlamaApi(
@@ -173,7 +217,7 @@ String: "${text}"`;
   public static async runTranslation(
     items: TranslationItem[],
     config: TranslationJobConfig,
-    apiKeys?: { openai?: string; groq?: string; ollamaEndpoint?: string },
+    apiKeys?: { openai?: string; groq?: string; opencode?: string; ollamaEndpoint?: string },
     onProgress?: (index: number, total: number) => void
   ): Promise<TranslationJobResult> {
     const translatedItems: TranslationItem[] = [];
@@ -199,7 +243,7 @@ String: "${text}"`;
         'Upgrade to Pro to unlock unlimited team members': 'Actualice a Pro para desbloquear miembros de equipo ilimitados',
         'Invalid email address or password provided. Please check your credentials.': 'Dirección de correo o contraseña no válidas. Por favor revise sus credenciales.',
         'Your payment of [amount] has been successfully processed.': 'Su pago de [amount] se ha procesado con éxito.',
-        'Are you sure you want to permanently delete this project? This action cannot be undone.': '¿Está seguro de que desea eliminar permanentemente este proyecto? Esta acción no se puede deshacer.'
+        'Are you sure you want to permanently delete this project? This action cannot be undone.': '¿Está seguro de que desea eliminar permanentemente este projecto? Esta acción no se puede deshacer.'
       },
       de: {
         'Welcome back to your workspace overview': 'Willkommen zurück in Ihrer Arbeitsbereichsübersicht',
@@ -215,7 +259,10 @@ String: "${text}"`;
       let resultText = '';
 
       try {
-        if (config.provider === 'groq' && apiKeys?.groq) {
+        if (config.provider === 'opencode' && apiKeys?.opencode) {
+          const ep = config.customEndpoint || 'https://api.opencode.ai/v1';
+          resultText = await this.callOpenCodeApi(item.sourceText, config.targetLang, apiKeys.opencode, config.model, config.tone, ep);
+        } else if (config.provider === 'groq' && apiKeys?.groq) {
           resultText = await this.callGroqApi(item.sourceText, config.targetLang, apiKeys.groq, config.model, config.tone);
         } else if (config.provider === 'ollama') {
           const endpoint = apiKeys?.ollamaEndpoint || config.customEndpoint || 'http://localhost:11434/v1';
@@ -223,7 +270,7 @@ String: "${text}"`;
         } else if (config.provider === 'openai' && apiKeys?.openai) {
           resultText = await this.callOpenAiApi(item.sourceText, config.targetLang, apiKeys.openai, config.model, config.tone);
         } else {
-          // Offline dictionary simulation
+          // Offline fallback
           await new Promise(r => setTimeout(r, 160));
           const target = config.targetLang.toLowerCase();
           resultText = dictionary[target]?.[item.sourceText] || `[${config.targetLang.toUpperCase()}] ${item.sourceText}`;

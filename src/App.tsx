@@ -4,6 +4,7 @@ import { ProjectStore } from './core/storage/projectStore';
 import { Sidebar } from './components/Sidebar';
 import { Header } from './components/Header';
 import { TerminalDrawer } from './components/TerminalDrawer';
+import { OnboardingModal } from './components/OnboardingModal';
 import { DashboardView } from './views/DashboardView';
 import { DevOpsView } from './views/DevOpsView';
 import { AuditView } from './views/AuditView';
@@ -18,6 +19,7 @@ export const App: React.FC = () => {
   const [settings, setSettings] = useState<GlobalSettings>(store.getSettings());
   const [currentTab, setCurrentTab] = useState<NavigationTab>('dashboard');
   const [isTerminalOpen, setIsTerminalOpen] = useState(false);
+  const [isOnboardingOpen, setIsOnboardingOpen] = useState(settings.projects.length === 0);
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [isBackingUp, setIsBackingUp] = useState(false);
   const [isAuditing, setIsAuditing] = useState(false);
@@ -32,7 +34,11 @@ export const App: React.FC = () => {
   // Initial welcome log
   useEffect(() => {
     addLog('system', 'Bubble.io Dev Studio v1.0.0 initialized.', 'success');
-    addLog('system', `Loaded ${settings.projects.length} project profiles. Active: ${activeProject?.name || 'Default'}.`, 'info');
+    if (settings.projects.length === 0) {
+      setIsOnboardingOpen(true);
+    } else {
+      addLog('system', `Loaded ${settings.projects.length} project profiles. Active: ${activeProject?.name || 'Default'}.`, 'info');
+    }
   }, []);
 
   const addLog = (
@@ -71,6 +77,22 @@ export const App: React.FC = () => {
   const handleSaveSettings = (newSettings: GlobalSettings) => {
     store.save(newSettings);
     setSettings(newSettings);
+  };
+
+  const handleAddProjectFromOnboarding = (projectData: Omit<ProjectProfile, 'id' | 'createdAt'>) => {
+    const newProj = store.addProject(projectData);
+    const updated = store.getSettings();
+    setSettings(updated);
+    setIsOnboardingOpen(false);
+    addLog('system', `Connected new Bubble.io application: '${newProj.name}' (${newProj.appId})`, 'success');
+  };
+
+  const handleLoadDemoProject = () => {
+    const demo = store.loadDemoProject();
+    const updated = store.getSettings();
+    setSettings(updated);
+    setIsOnboardingOpen(false);
+    addLog('system', `Loaded Sandbox Demo Application: '${demo.name}'`, 'success');
   };
 
   const handleQuickBackup = async () => {
@@ -118,6 +140,7 @@ export const App: React.FC = () => {
         activeProject={activeProject}
         projects={settings.projects}
         onSelectProject={handleSelectProject}
+        onOpenAddProject={() => setIsOnboardingOpen(true)}
       />
 
       {/* Main Content Area */}
@@ -139,6 +162,8 @@ export const App: React.FC = () => {
             onNavigate={setCurrentTab}
             onRunQuickBackup={handleQuickBackup}
             onRunQuickAudit={handleQuickAudit}
+            onOpenAddProject={() => setIsOnboardingOpen(true)}
+            onLoadDemoProject={handleLoadDemoProject}
             isBackingUp={isBackingUp}
             isAuditing={isAuditing}
             healthScore={healthScore}
@@ -176,6 +201,7 @@ export const App: React.FC = () => {
           <SettingsView
             settings={settings}
             onSaveSettings={handleSaveSettings}
+            onLoadDemoProject={handleLoadDemoProject}
             onLog={addLog}
           />
         )}
@@ -186,6 +212,13 @@ export const App: React.FC = () => {
           onClose={() => setIsTerminalOpen(false)}
           logs={logs}
           onClearLogs={() => setLogs([])}
+        />
+
+        {/* First-Time User Onboarding Modal */}
+        <OnboardingModal
+          isOpen={isOnboardingOpen}
+          onAddProject={handleAddProjectFromOnboarding}
+          onLoadDemoProject={handleLoadDemoProject}
         />
       </div>
     </div>

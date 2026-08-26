@@ -10,7 +10,8 @@ import {
   Zap,
   Server,
   FileSpreadsheet,
-  Key
+  Key,
+  Compass
 } from 'lucide-react';
 import { GlobalSettings, TranslationItem, TranslationJobConfig } from '../types';
 import { TranslatorEngine } from '../core/translator/translatorEngine';
@@ -25,7 +26,7 @@ export const TranslatorView: React.FC<TranslatorViewProps> = ({ settings, onLog 
   const [items, setItems] = useState<TranslationItem[]>(TranslatorEngine.getSampleItems());
   const [sourceLang, setSourceLang] = useState('English');
   const [targetLang, setTargetLang] = useState('ro');
-  const [provider, setProvider] = useState<'openai' | 'groq' | 'ollama' | 'anthropic' | 'gemini' | 'mock'>('groq');
+  const [provider, setProvider] = useState<'openai' | 'groq' | 'opencode' | 'ollama' | 'anthropic' | 'gemini' | 'mock'>('groq');
   const [model, setModel] = useState('llama-3.3-70b-versatile');
   const [tone, setTone] = useState<'professional' | 'casual' | 'formal' | 'concise'>('professional');
   const [isTranslating, setIsTranslating] = useState(false);
@@ -43,6 +44,8 @@ export const TranslatorView: React.FC<TranslatorViewProps> = ({ settings, onLog 
   useEffect(() => {
     if (provider === 'groq') {
       setModel('llama-3.3-70b-versatile');
+    } else if (provider === 'opencode') {
+      setModel('deepseek-v3');
     } else if (provider === 'ollama') {
       setModel(settings?.ollamaModel || 'llama3.2');
     } else if (provider === 'openai') {
@@ -55,8 +58,8 @@ export const TranslatorView: React.FC<TranslatorViewProps> = ({ settings, onLog 
   }, [provider, settings]);
 
   const hasGroqKey = Boolean(settings?.groqApiKey);
+  const hasOpenCodeKey = Boolean(settings?.opencodeApiKey);
   const hasOpenAiKey = Boolean(settings?.openaiApiKey);
-  const isOllamaSelected = provider === 'ollama';
 
   const handleRunTranslation = async () => {
     if (isTranslating || items.length === 0) return;
@@ -74,7 +77,7 @@ export const TranslatorView: React.FC<TranslatorViewProps> = ({ settings, onLog 
       tone,
       useGlossary: true,
       glossary,
-      customEndpoint: settings?.ollamaEndpoint
+      customEndpoint: provider === 'opencode' ? settings?.opencodeEndpoint : settings?.ollamaEndpoint
     };
 
     try {
@@ -84,6 +87,7 @@ export const TranslatorView: React.FC<TranslatorViewProps> = ({ settings, onLog 
         {
           openai: settings?.openaiApiKey,
           groq: settings?.groqApiKey,
+          opencode: settings?.opencodeApiKey,
           ollamaEndpoint: settings?.ollamaEndpoint
         },
         (cur, tot) => {
@@ -161,8 +165,8 @@ export const TranslatorView: React.FC<TranslatorViewProps> = ({ settings, onLog 
       bubbleLocation: 'Bubble Editor > Settings > Languages'
     },
     {
-      title: 'Choose AI: Groq, Llama or OpenAI',
-      desc: 'Select Groq (ultra-fast), Local Llama (100% offline & free), or OpenAI, choose tone and click "Translate".',
+      title: 'Choose AI Provider',
+      desc: 'Select Groq (Ultra-Fast), OpenCode Zen/Go (DeepSeek/Qwen), Local Llama, or OpenAI.',
       bubbleLocation: 'Studio > AI Provider > Translate with AI'
     },
     {
@@ -176,8 +180,8 @@ export const TranslatorView: React.FC<TranslatorViewProps> = ({ settings, onLog 
     <div className="view-container">
       {/* Interactive In-App Guide Banner */}
       <GuideBanner
-        moduleName="AI Localization Studio (Groq & Llama Enabled)"
-        summary="Translate your entire Bubble.io application using Groq Console (Llama 3.3), Local Llama (Ollama), OpenAI, or Claude while preserving Bubble tokens and brand glossaries."
+        moduleName="AI Localization Studio"
+        summary="Translate your Bubble.io app with Groq (Llama 3.3), OpenCode Zen/Go (DeepSeek/Qwen), Local Llama (Ollama), or OpenAI."
         steps={guideSteps}
         bubbleDocUrl="https://manual.bubble.io/help-guides/design/multi-language"
       />
@@ -189,7 +193,7 @@ export const TranslatorView: React.FC<TranslatorViewProps> = ({ settings, onLog 
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
               <div className="card-title">
                 <Languages size={20} color="var(--accent-cyan)" />
-                <span>AI Localization Studio & Multi-Engine</span>
+                <span>AI Localization Multi-Engine</span>
               </div>
 
               {provider === 'groq' && (
@@ -200,6 +204,18 @@ export const TranslatorView: React.FC<TranslatorViewProps> = ({ settings, onLog 
                 ) : (
                   <span className="badge badge-amber">
                     <Key size={11} /> Groq Sandbox Mode
+                  </span>
+                )
+              )}
+
+              {provider === 'opencode' && (
+                hasOpenCodeKey ? (
+                  <span className="badge badge-emerald">
+                    <Compass size={11} /> OpenCode Zen / Go Live
+                  </span>
+                ) : (
+                  <span className="badge badge-amber">
+                    <Key size={11} /> OpenCode Sandbox
                   </span>
                 )
               )}
@@ -223,7 +239,7 @@ export const TranslatorView: React.FC<TranslatorViewProps> = ({ settings, onLog 
               )}
             </div>
             <div className="card-subtitle">
-              Batch translate all Bubble.io app texts with Groq, Local Llama, OpenAI, or Claude
+              Batch translate all Bubble.io app texts with Groq, OpenCode Zen/Go, Local Llama, or OpenAI
             </div>
           </div>
 
@@ -287,6 +303,7 @@ export const TranslatorView: React.FC<TranslatorViewProps> = ({ settings, onLog 
               className="select"
             >
               <option value="groq">⚡ Groq Console (Llama 3.3 - Fast)</option>
+              <option value="opencode">🧭 OpenCode Zen / Go (DeepSeek / Qwen)</option>
               <option value="ollama">🖥️ Local Llama (Ollama / Offline)</option>
               <option value="openai">🤖 OpenAI (GPT-4o)</option>
               <option value="anthropic">🧠 Anthropic Claude</option>
@@ -303,6 +320,14 @@ export const TranslatorView: React.FC<TranslatorViewProps> = ({ settings, onLog 
                 <option value="llama-3.1-8b-instant">Llama 3.1 8B Instant (Ultra-Fast)</option>
                 <option value="mixtral-8x7b-32768">Mixtral 8x7B</option>
                 <option value="gemma2-9b-it">Gemma 2 9B</option>
+              </select>
+            ) : provider === 'opencode' ? (
+              <select value={model} onChange={(e) => setModel(e.target.value)} className="select">
+                <option value="deepseek-v3">DeepSeek V3 (Recommended)</option>
+                <option value="deepseek-r1">DeepSeek R1 (Reasoning)</option>
+                <option value="qwen-2.5-72b">Qwen 2.5 72B</option>
+                <option value="llama-3.3-70b">Llama 3.3 70B</option>
+                <option value="claude-3-5-sonnet">Claude 3.5 Sonnet</option>
               </select>
             ) : provider === 'ollama' ? (
               <select value={model} onChange={(e) => setModel(e.target.value)} className="select">

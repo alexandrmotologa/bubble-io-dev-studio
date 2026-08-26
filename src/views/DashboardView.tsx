@@ -12,7 +12,9 @@ import {
   HardDriveDownload,
   Sparkles,
   Check,
-  BookOpen
+  BookOpen,
+  Plus,
+  FlaskConical
 } from 'lucide-react';
 import { NavigationTab, ProjectProfile } from '../types';
 
@@ -21,6 +23,8 @@ interface DashboardViewProps {
   onNavigate: (tab: NavigationTab) => void;
   onRunQuickBackup: () => void;
   onRunQuickAudit: () => void;
+  onOpenAddProject?: () => void;
+  onLoadDemoProject?: () => void;
   isBackingUp: boolean;
   isAuditing: boolean;
   healthScore: number;
@@ -32,6 +36,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   onNavigate,
   onRunQuickBackup,
   onRunQuickAudit,
+  onOpenAddProject,
+  onLoadDemoProject,
   isBackingUp,
   isAuditing,
   healthScore,
@@ -40,47 +46,85 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   return (
     <div className="view-container">
       {/* Top Banner / Project Status */}
-      <div className="card" style={{
-        background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.15) 0%, rgba(6, 182, 212, 0.1) 100%)',
-        border: '1px solid var(--border-active)'
-      }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '20px' }}>
-          <div>
-            <span className="badge badge-indigo" style={{ marginBottom: '8px' }}>
-              <Sparkles size={12} /> Active Bubble.io Workspace
-            </span>
-            <h2 style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '6px' }}>
-              {activeProject?.name || 'My Bubble Application'}
-            </h2>
-            <div style={{ display: 'flex', gap: '16px', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-              <span>App ID: <strong style={{ color: 'var(--text-primary)' }}>{activeProject?.appId}</strong></span>
-              <span>•</span>
-              <span>Environment: <strong style={{ color: 'var(--accent-emerald)' }}>{activeProject?.environment.toUpperCase()}</strong></span>
-              <span>•</span>
-              <span>Domain: <strong style={{ color: 'var(--text-primary)' }}>{activeProject?.customDomain || `${activeProject?.appId}.bubbleapps.io`}</strong></span>
+      {activeProject ? (
+        <div className="card" style={{
+          background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.15) 0%, rgba(6, 182, 212, 0.1) 100%)',
+          border: '1px solid var(--border-active)'
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '20px' }}>
+            <div>
+              <span className="badge badge-indigo" style={{ marginBottom: '8px' }}>
+                <Sparkles size={12} /> Active Bubble.io Workspace
+              </span>
+              <h2 style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '6px' }}>
+                {activeProject.name}
+              </h2>
+              <div style={{ display: 'flex', gap: '16px', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                <span>App ID: <strong style={{ color: 'var(--text-primary)' }}>{activeProject.appId}</strong></span>
+                <span>•</span>
+                <span>Environment: <strong style={{ color: 'var(--accent-emerald)' }}>{activeProject.environment.toUpperCase()}</strong></span>
+                <span>•</span>
+                <span>Domain: <strong style={{ color: 'var(--text-primary)' }}>{activeProject.customDomain || `${activeProject.appId}.bubbleapps.io`}</strong></span>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: '12px' }}>
+              <button 
+                onClick={onRunQuickBackup} 
+                disabled={isBackingUp}
+                className="btn btn-primary"
+              >
+                <HardDriveDownload size={16} />
+                <span>{isBackingUp ? 'Backing up...' : 'Quick Backup'}</span>
+              </button>
+              <button 
+                onClick={onRunQuickAudit} 
+                disabled={isAuditing}
+                className="btn btn-secondary"
+              >
+                <Stethoscope size={16} />
+                <span>{isAuditing ? 'Auditing...' : 'Run Audit'}</span>
+              </button>
             </div>
           </div>
-
-          <div style={{ display: 'flex', gap: '12px' }}>
-            <button 
-              onClick={onRunQuickBackup} 
-              disabled={isBackingUp}
-              className="btn btn-primary"
-            >
-              <HardDriveDownload size={16} />
-              <span>{isBackingUp ? 'Backing up...' : 'Quick Backup'}</span>
+        </div>
+      ) : (
+        /* Empty State Banner */
+        <div className="card" style={{
+          background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.1) 0%, rgba(6, 182, 212, 0.08) 100%)',
+          border: '1px dashed var(--border-active)',
+          textAlign: 'center',
+          padding: '36px 24px'
+        }}>
+          <div style={{
+            width: '48px',
+            height: '48px',
+            borderRadius: '12px',
+            background: 'var(--primary-glow)',
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: 'var(--primary)',
+            marginBottom: '12px'
+          }}>
+            <Plus size={24} />
+          </div>
+          <h2 style={{ fontSize: '1.3rem', fontWeight: 800 }}>No Bubble.io Application Connected</h2>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', maxWidth: '480px', margin: '8px auto 20px' }}>
+            Connect your Bubble.io application to start managing backups, analyzing dead code, translating UI texts, and running visual QA tests.
+          </p>
+          <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
+            <button onClick={onOpenAddProject} className="btn btn-primary">
+              <Plus size={16} />
+              <span>Connect Your Bubble App</span>
             </button>
-            <button 
-              onClick={onRunQuickAudit} 
-              disabled={isAuditing}
-              className="btn btn-secondary"
-            >
-              <Stethoscope size={16} />
-              <span>{isAuditing ? 'Auditing...' : 'Run Audit'}</span>
+            <button onClick={onLoadDemoProject} className="btn btn-secondary">
+              <FlaskConical size={16} />
+              <span>Load Sandbox Demo</span>
             </button>
           </div>
         </div>
-      </div>
+      )}
 
       {/* Quick Start Guide Card */}
       <div className="card" style={{ padding: '18px 24px', background: 'rgba(255, 255, 255, 0.02)' }}>
@@ -110,7 +154,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           <div style={{ padding: '12px 14px', background: 'var(--bg-input)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-subtle)' }}>
             <strong style={{ color: 'var(--accent-amber)', fontSize: '0.85rem' }}>3. Translate & Visual QA</strong>
             <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
-              Batch translate app texts with AI models, and run regression tests before pushing to Live.
+              Batch translate app texts with Groq or Local Llama, and run regression tests before pushing to Live.
             </p>
           </div>
         </div>
@@ -191,7 +235,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </div>
           <h3 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: '6px' }}>AI Localization</h3>
           <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '16px' }}>
-            Translate UI texts with OpenAI / Gemini with translation memory & glossaries.
+            Translate UI texts with Groq, Local Llama, or OpenAI with glossaries.
           </p>
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.8rem', color: 'var(--accent-cyan)', fontWeight: 600 }}>
             <span>Translate App</span>

@@ -26,6 +26,8 @@ export interface GlobalSettings {
   anthropicApiKey?: string;
   geminiApiKey?: string;
   groqApiKey?: string;
+  opencodeApiKey?: string;
+  opencodeEndpoint?: string;
   ollamaEndpoint?: string;
   ollamaModel?: string;
   defaultAiModel: string;
@@ -116,7 +118,7 @@ export interface TranslationItem {
 export interface TranslationJobConfig {
   sourceLang: string;
   targetLang: string;
-  provider: 'openai' | 'anthropic' | 'gemini' | 'groq' | 'ollama' | 'mock';
+  provider: 'openai' | 'anthropic' | 'gemini' | 'groq' | 'opencode' | 'ollama' | 'mock';
   model: string;
   temperature: number;
   tone: 'professional' | 'casual' | 'formal' | 'concise';
