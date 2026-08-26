@@ -1,15 +1,10 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { 
-  Layers, 
   ChevronDown, 
   Check, 
   Plus, 
-  Globe, 
-  ShieldCheck, 
   FlaskConical, 
-  Search,
-  ExternalLink,
-  Sparkles
+  Search
 } from 'lucide-react';
 import { ProjectProfile } from '../types';
 
@@ -54,7 +49,7 @@ export const ProjectDropdown: React.FC<ProjectDropdownProps> = ({
 
   // Focus search on open
   useEffect(() => {
-    if (isOpen && projects.length > 3) {
+    if (isOpen && projects.length > 2) {
       setTimeout(() => searchInputRef.current?.focus(), 50);
     }
   }, [isOpen, projects.length]);
@@ -117,7 +112,7 @@ export const ProjectDropdown: React.FC<ProjectDropdownProps> = ({
           justifyContent: 'space-between',
           cursor: 'pointer',
           transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
-          boxShadow: isOpen ? '0 0 16px rgba(99, 102, 241, 0.25)' : 'none',
+          boxShadow: isOpen ? '0 0 16px var(--primary-glow)' : 'var(--shadow-sm)',
           textAlign: 'left'
         }}
       >
@@ -128,7 +123,7 @@ export const ProjectDropdown: React.FC<ProjectDropdownProps> = ({
             height: '28px',
             borderRadius: '8px',
             background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.25) 0%, rgba(6, 182, 212, 0.25) 100%)',
-            border: '1px solid rgba(99, 102, 241, 0.4)',
+            border: '1px solid rgba(99, 102, 241, 0.35)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -188,10 +183,10 @@ export const ProjectDropdown: React.FC<ProjectDropdownProps> = ({
           top: 'calc(100% + 8px)',
           left: 0,
           width: '300px',
-          background: 'var(--bg-sidebar)',
+          background: 'var(--bg-surface-elevated)',
           border: '1px solid var(--border-active)',
           borderRadius: 'var(--radius-lg)',
-          boxShadow: '0 18px 40px rgba(0, 0, 0, 0.75), 0 0 20px rgba(99, 102, 241, 0.2)',
+          boxShadow: 'var(--shadow-lg), 0 0 20px var(--primary-glow)',
           backdropFilter: 'blur(16px)',
           zIndex: 1000,
           overflow: 'hidden',
@@ -201,7 +196,7 @@ export const ProjectDropdown: React.FC<ProjectDropdownProps> = ({
           <div style={{
             padding: '12px 14px 10px',
             borderBottom: '1px solid var(--border-subtle)',
-            background: 'linear-gradient(180deg, rgba(255, 255, 255, 0.03) 0%, transparent 100%)',
+            background: 'var(--bg-card-hover)',
             display: 'flex',
             justifyContent: 'space-between',
             alignItems: 'center'
@@ -216,12 +211,12 @@ export const ProjectDropdown: React.FC<ProjectDropdownProps> = ({
 
           {/* Search bar if multiple projects */}
           {projects.length > 2 && (
-            <div style={{ padding: '8px 10px', borderBottom: '1px solid var(--border-subtle)' }}>
+            <div style={{ padding: '8px 10px', borderBottom: '1px solid var(--border-subtle)', background: 'var(--bg-input)' }}>
               <div style={{
                 display: 'flex',
                 alignItems: 'center',
                 gap: '6px',
-                background: 'var(--bg-input)',
+                background: 'var(--bg-surface-elevated)',
                 borderRadius: 'var(--radius-sm)',
                 padding: '4px 8px',
                 border: '1px solid var(--border-subtle)'
@@ -269,7 +264,7 @@ export const ProjectDropdown: React.FC<ProjectDropdownProps> = ({
                   style={{
                     padding: '8px 10px',
                     borderRadius: 'var(--radius-md)',
-                    background: isSelected ? 'var(--bg-surface-elevated)' : 'transparent',
+                    background: isSelected ? 'var(--bg-card-hover)' : 'transparent',
                     border: isSelected ? '1px solid var(--border-active)' : '1px solid transparent',
                     display: 'flex',
                     alignItems: 'center',
@@ -279,7 +274,7 @@ export const ProjectDropdown: React.FC<ProjectDropdownProps> = ({
                   }}
                   onMouseEnter={(e) => {
                     if (!isSelected) {
-                      e.currentTarget.style.background = 'rgba(255, 255, 255, 0.04)';
+                      e.currentTarget.style.background = 'var(--bg-card-hover)';
                     }
                   }}
                   onMouseLeave={(e) => {
@@ -293,7 +288,8 @@ export const ProjectDropdown: React.FC<ProjectDropdownProps> = ({
                       width: '26px',
                       height: '26px',
                       borderRadius: '6px',
-                      background: isSelected ? 'var(--primary)' : 'rgba(255, 255, 255, 0.06)',
+                      background: isSelected ? 'var(--primary)' : 'var(--bg-input)',
+                      border: isSelected ? 'none' : '1px solid var(--border-subtle)',
                       color: isSelected ? '#ffffff' : 'var(--text-secondary)',
                       display: 'flex',
                       alignItems: 'center',
@@ -347,7 +343,7 @@ export const ProjectDropdown: React.FC<ProjectDropdownProps> = ({
           <div style={{
             padding: '8px',
             borderTop: '1px solid var(--border-subtle)',
-            background: 'rgba(0, 0, 0, 0.2)',
+            background: 'var(--bg-card-hover)',
             display: 'flex',
             flexDirection: 'column',
             gap: '4px'
@@ -361,7 +357,7 @@ export const ProjectDropdown: React.FC<ProjectDropdownProps> = ({
                 width: '100%',
                 padding: '6px 10px',
                 borderRadius: 'var(--radius-sm)',
-                background: 'transparent',
+                background: 'var(--bg-input)',
                 border: '1px dashed var(--border-active)',
                 color: 'var(--primary)',
                 fontSize: '0.775rem',
@@ -373,8 +369,8 @@ export const ProjectDropdown: React.FC<ProjectDropdownProps> = ({
                 gap: '6px',
                 transition: 'all 0.15s ease'
               }}
-              onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(99, 102, 241, 0.1)'}
-              onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+              onMouseEnter={(e) => e.currentTarget.style.borderColor = 'var(--primary)'}
+              onMouseLeave={(e) => e.currentTarget.style.borderColor = 'var(--border-active)'}
             >
               <Plus size={13} />
               <span>Connect New Bubble App</span>

@@ -27,41 +27,46 @@ export const TerminalDrawer: React.FC<TerminalDrawerProps> = ({
     <div className="terminal-drawer" style={{ height: '230px' }}>
       <div className="terminal-header">
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <Terminal size={14} color="var(--accent-cyan)" />
-          <span style={{ fontWeight: 700, color: 'var(--text-primary)' }}>Studio Console & Live Output</span>
-          <span style={{ color: 'var(--text-muted)', fontSize: '0.725rem' }}>({filteredLogs.length} events)</span>
+          <Terminal size={15} color="var(--primary)" />
+          <span style={{ fontWeight: 800, color: 'var(--text-primary)', fontSize: '0.85rem' }}>
+            Studio Console & Live Output
+          </span>
+          <span style={{ color: 'var(--text-muted)', fontSize: '0.725rem', fontFamily: 'var(--font-mono)' }}>
+            ({filteredLogs.length} events)
+          </span>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
             <Filter size={12} color="var(--text-muted)" />
             <select
               value={filterModule}
               onChange={(e) => setFilterModule(e.target.value)}
+              className="select"
               style={{
-                background: 'transparent',
-                border: '1px solid var(--border-subtle)',
-                borderRadius: '4px',
-                color: 'var(--text-secondary)',
-                fontSize: '0.725rem',
-                padding: '2px 6px',
-                outline: 'none'
+                padding: '3px 8px',
+                fontSize: '0.75rem',
+                height: '28px',
+                minWidth: '130px',
+                background: 'var(--bg-input)',
+                color: 'var(--text-primary)',
+                borderColor: 'var(--border-subtle)'
               }}
             >
-              <option value="all" style={{ background: '#111827' }}>All Modules</option>
-              <option value="devops" style={{ background: '#111827' }}>DevOps & Schema</option>
-              <option value="audit" style={{ background: '#111827' }}>Audit & Dead Code</option>
-              <option value="translator" style={{ background: '#111827' }}>AI Translator</option>
-              <option value="visual-tester" style={{ background: '#111827' }}>Visual Tester</option>
-              <option value="system" style={{ background: '#111827' }}>System</option>
+              <option value="all">All Modules</option>
+              <option value="devops">DevOps & Schema</option>
+              <option value="audit">Audit & Dead Code</option>
+              <option value="translator">AI Translator</option>
+              <option value="visual-tester">Visual Tester</option>
+              <option value="system">System Logs</option>
             </select>
           </div>
 
           <button
             onClick={onClearLogs}
             className="btn btn-secondary btn-sm"
-            style={{ padding: '2px 8px', fontSize: '0.725rem' }}
-            title="Clear logs"
+            style={{ padding: '3px 8px', fontSize: '0.75rem', height: '28px' }}
+            title="Clear all recorded logs"
           >
             <Trash2 size={12} />
             <span>Clear</span>
@@ -72,20 +77,23 @@ export const TerminalDrawer: React.FC<TerminalDrawerProps> = ({
             style={{
               background: 'transparent',
               border: 'none',
-              color: 'var(--text-muted)',
+              color: 'var(--text-secondary)',
               cursor: 'pointer',
               display: 'flex',
-              alignItems: 'center'
+              alignItems: 'center',
+              padding: '4px',
+              borderRadius: '4px'
             }}
+            title="Close console drawer"
           >
-            <X size={15} />
+            <X size={16} />
           </button>
         </div>
       </div>
 
       <div className="terminal-body">
         {filteredLogs.length === 0 ? (
-          <div style={{ color: 'var(--text-muted)', padding: '12px 0', textAlign: 'center' }}>
+          <div style={{ color: 'var(--text-muted)', padding: '18px 0', textAlign: 'center', fontSize: '0.8rem' }}>
             No logs recorded yet. Run a backup, audit, translation, or visual test to see live output.
           </div>
         ) : (
