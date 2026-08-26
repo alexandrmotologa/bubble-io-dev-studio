@@ -141,6 +141,7 @@ export const App: React.FC = () => {
         projects={settings.projects}
         onSelectProject={handleSelectProject}
         onOpenAddProject={() => setIsOnboardingOpen(true)}
+        onLoadDemoProject={handleLoadDemoProject}
       />
 
       {/* Main Content Area */}

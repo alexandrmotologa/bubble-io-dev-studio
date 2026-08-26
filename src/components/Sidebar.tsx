@@ -6,11 +6,10 @@ import {
   Languages, 
   Camera, 
   Settings, 
-  Layers,
-  ChevronDown,
-  Plus
+  Layers
 } from 'lucide-react';
 import { NavigationTab, ProjectProfile } from '../types';
+import { ProjectDropdown } from './ProjectDropdown';
 
 interface SidebarProps {
   currentTab: NavigationTab;
@@ -19,6 +18,7 @@ interface SidebarProps {
   projects: ProjectProfile[];
   onSelectProject: (id: string) => void;
   onOpenAddProject?: () => void;
+  onLoadDemoProject?: () => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -27,7 +27,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   activeProject,
   projects,
   onSelectProject,
-  onOpenAddProject
+  onOpenAddProject,
+  onLoadDemoProject
 }) => {
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, badge: null },
@@ -47,11 +48,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
       display: 'flex',
       flexDirection: 'column',
       padding: '20px 16px',
-      gap: '24px',
-      flexShrink: 0
+      gap: '20px',
+      flexShrink: 0,
+      zIndex: 50
     }}>
       {/* App Branding */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '0 8px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '0 4px' }}>
         <div style={{
           width: '38px',
           height: '38px',
@@ -74,60 +76,23 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </div>
       </div>
 
-      {/* Project Switcher Dropdown */}
-      <div style={{
-        padding: '10px 12px',
-        backgroundColor: 'var(--bg-input)',
-        border: '1px solid var(--border-subtle)',
-        borderRadius: 'var(--radius-md)',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '6px'
-      }}>
-        <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 700 }}>
-          Active Bubble App
+      {/* Premium Active Bubble App Dropdown Selector */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+        <span style={{ fontSize: '0.675rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 800, paddingLeft: '2px' }}>
+          ACTIVE BUBBLE WORKSPACE
         </span>
 
-        {projects.length === 0 ? (
-          <button
-            onClick={onOpenAddProject}
-            className="btn btn-primary btn-sm"
-            style={{ width: '100%', padding: '6px', fontSize: '0.75rem' }}
-          >
-            <Plus size={13} />
-            <span>Connect First App</span>
-          </button>
-        ) : (
-          <div style={{ position: 'relative' }}>
-            <select 
-              value={activeProject?.id || ''} 
-              onChange={(e) => onSelectProject(e.target.value)}
-              style={{
-                width: '100%',
-                background: 'transparent',
-                border: 'none',
-                color: 'var(--text-primary)',
-                fontSize: '0.85rem',
-                fontWeight: 600,
-                cursor: 'pointer',
-                outline: 'none',
-                paddingRight: '20px',
-                appearance: 'none'
-              }}
-            >
-              {projects.map(p => (
-                <option key={p.id} value={p.id} style={{ background: '#111827', color: '#fff' }}>
-                  {p.name}
-                </option>
-              ))}
-            </select>
-            <ChevronDown size={14} style={{ position: 'absolute', right: 0, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: 'var(--text-secondary)' }} />
-          </div>
-        )}
+        <ProjectDropdown
+          activeProject={activeProject}
+          projects={projects}
+          onSelectProject={onSelectProject}
+          onOpenAddProject={onOpenAddProject}
+          onLoadDemoProject={onLoadDemoProject}
+        />
       </div>
 
       {/* Navigation List */}
-      <nav style={{ display: 'flex', flexDirection: 'column', gap: '6px', flex: 1 }}>
+      <nav style={{ display: 'flex', flexDirection: 'column', gap: '6px', flex: 1, marginTop: '4px' }}>
         {navItems.map((item) => {
           const Icon = item.icon;
           const isActive = currentTab === item.id;
