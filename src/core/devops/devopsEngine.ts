@@ -4,19 +4,37 @@ export class DevOpsEngine {
   /**
    * Fetches real schema from Bubble Data API (/api/1.1/meta) or parses uploaded JSON / falls back to sandbox
    */
-  public static async fetchSchema(project: ProjectProfile, uploadedJson?: any): Promise<BubbleSchema> {
+  public static async fetchSchema(
+    project: ProjectProfile, 
+    uploadedJson?: any,
+    onStatus?: (msg: string, level?: 'info' | 'success' | 'warn' | 'error') => void
+  ): Promise<{ schema: BubbleSchema | null; source: 'live_api' | 'uploaded_json' | 'sandbox_template' | 'none'; error?: string }> {
     // 1. If user uploaded a custom Bubble export JSON / OpenAPI Swagger
     if (uploadedJson) {
-      return this.parseBubbleExportSchema(project, uploadedJson);
+      onStatus?.(`Parsing user-uploaded Bubble schema export...`, 'info');
+      const parsed = this.parseBubbleExportSchema(project, uploadedJson);
+      onStatus?.(`Successfully parsed ${parsed.dataTypes.length} custom data types from file!`, 'success');
+      return { schema: parsed, source: 'uploaded_json' };
     }
 
-    // 2. If project has an API token or live app ID, try fetching live metadata from Bubble Data API
-    if (project.appId && project.appId !== 'demo-sandbox') {
-      try {
-        const domain = project.customDomain || `${project.appId}.bubbleapps.io`;
-        const envPrefix = project.environment === 'live' ? '' : '/version-test';
-        const metaUrl = `https://${domain}${envPrefix}/api/1.1/meta`;
+    // 2. If project is the Demo Sandbox App
+    if (project.isDemo || project.appId === 'demo-sandbox' || project.appId === 'marketplace-prod') {
+      onStatus?.(`Loaded Sandbox Demo Schema (Marketplace Template).`, 'info');
+      return {
+        schema: this.getRichTemplateSchema(project),
+        source: 'sandbox_template'
+      };
+    }
 
+    // 3. For real user Bubble application: try fetching live metadata from Bubble Data API
+    if (project.appId) {
+      const domain = project.customDomain || `${project.appId}.bubbleapps.io`;
+      const envPrefix = project.environment === 'live' ? '' : '/version-test';
+      const metaUrl = `https://${domain}${envPrefix}/api/1.1/meta`;
+
+      onStatus?.(`Connecting to Bubble Data API: ${metaUrl}...`, 'info');
+
+      try {
         const headers: Record<string, string> = {
           'Accept': 'application/json'
         };
@@ -28,14 +46,122 @@ export class DevOpsEngine {
 
         if (res && res.ok) {
           const swagger = await res.json();
-          return this.parseSwaggerMeta(project, swagger);
+          const liveSchema = this.parseSwaggerMeta(project, swagger);
+          if (liveSchema.dataTypes.length > 0) {
+            onStatus?.(`Live Bubble Data API connected! Found ${liveSchema.dataTypes.length} exposed tables.`, 'success');
+            return { schema: liveSchema, source: 'live_api' };
+          }
+        } else if (res && res.status === 401) {
+          onStatus?.(`Bubble API returned 401 Unauthorized. Make sure API Token is set in Settings & Keys.`, 'warn');
+          return { schema: null, source: 'none', error: '401 Unauthorized: Bubble Data API token missing or invalid.' };
+        } else if (res && res.status === 404) {
+          onStatus?.(`Bubble Data API is not enabled for '${project.appId}'. In Bubble Editor go to Settings > API and check 'Enable Data API'.`, 'warn');
+          return { schema: null, source: 'none', error: '404 Not Found: Data API is disabled in Bubble Editor.' };
+        } else {
+          onStatus?.(`Direct browser fetch to ${domain} was restricted or Data API is not exposed.`, 'warn');
+          return { schema: null, source: 'none', error: `Could not fetch live metadata from ${domain}. Please upload your Bubble export JSON or verify Data API in Bubble Settings.` };
         }
-      } catch (err) {
-        console.warn('Could not connect to live Bubble Data API, falling back to local schema profile:', err);
+      } catch (err: any) {
+        onStatus?.(`Could not fetch live metadata: ${err.message}`, 'warn');
+        return { schema: null, source: 'none', error: err.message };
       }
     }
 
-    // 3. Realistic Demo/Sandbox Schema (User, Product, Order, Category)
+    return {
+      schema: null,
+      source: 'none'
+    };
+  }
+
+  /**
+   * Parses Bubble /api/1.1/meta (Swagger 2.0 schema)
+   */
+  private static parseSwaggerMeta(project: ProjectProfile, swagger: any): BubbleSchema {
+    const dataTypes: BubbleDataType[] = [];
+    const definitions = swagger.definitions || swagger.components?.schemas || {};
+
+    Object.entries(definitions).forEach(([typeName, def]: [string, any]) => {
+      // Ignore internal pagination or response wrappers
+      if (typeName.endsWith('Response') || typeName.startsWith('cursor_')) return;
+
+      const properties = def.properties || {};
+      const fields = Object.entries(properties).map(([fieldName, fieldData]: [string, any]) => {
+        let fieldType = fieldData.type || 'text';
+        let isList = false;
+
+        if (fieldData.type === 'array') {
+          isList = true;
+          fieldType = fieldData.items?.type || fieldData.items?.$ref?.replace('#/definitions/', '') || 'text';
+        }
+
+        return {
+          name: fieldName,
+          type: fieldType,
+          isList,
+          required: def.required?.includes(fieldName)
+        };
+      });
+
+      dataTypes.push({
+        id: typeName.toLowerCase(),
+        name: typeName,
+        fields
+      });
+    });
+
+    return {
+      appName: project.name,
+      version: project.environment,
+      dataTypes,
+      optionSets: []
+    };
+  }
+
+  /**
+   * Parses raw Bubble App JSON export data types
+   */
+  public static parseBubbleExportSchema(project: ProjectProfile, rawJson: any): BubbleSchema {
+    const dataTypes: BubbleDataType[] = [];
+    const optionSets: { name: string; options: string[] }[] = [];
+
+    // Parse Data Types
+    if (rawJson.data_types || rawJson.types) {
+      const types = rawJson.data_types || rawJson.types;
+      Object.entries(types).forEach(([typeName, typeData]: [string, any]) => {
+        const fields = Object.entries(typeData.fields || {}).map(([fName, fData]: [string, any]) => ({
+          name: fName,
+          type: typeof fData === 'string' ? fData : fData.type || 'text',
+          isList: typeof fData === 'object' ? Boolean(fData.is_list) : false,
+          required: typeof fData === 'object' ? Boolean(fData.required) : false
+        }));
+
+        dataTypes.push({
+          id: typeName.toLowerCase(),
+          name: typeName,
+          fields
+        });
+      });
+    }
+
+    // Parse Option Sets
+    if (rawJson.option_sets) {
+      Object.entries(rawJson.option_sets).forEach(([osName, osData]: [string, any]) => {
+        optionSets.push({
+          name: osName,
+          options: Array.isArray(osData.options) ? osData.options : Object.keys(osData.options || {})
+        });
+      });
+    }
+
+    return {
+      appName: project.name,
+      version: project.environment,
+      dataTypes,
+      optionSets
+    };
+  }
+
+  public static getRichTemplateSchema(project: ProjectProfile): BubbleSchema {
     return {
       appName: project.name,
       version: project.environment,
@@ -104,121 +230,6 @@ export class DevOpsEngine {
   }
 
   /**
-   * Parses Bubble /api/1.1/meta (Swagger 2.0 schema)
-   */
-  private static parseSwaggerMeta(project: ProjectProfile, swagger: any): BubbleSchema {
-    const dataTypes: BubbleDataType[] = [];
-    const definitions = swagger.definitions || swagger.components?.schemas || {};
-
-    Object.entries(definitions).forEach(([typeName, def]: [string, any]) => {
-      // Ignore internal pagination or response wrappers
-      if (typeName.endsWith('Response') || typeName.startsWith('cursor_')) return;
-
-      const properties = def.properties || {};
-      const fields = Object.entries(properties).map(([fieldName, fieldData]: [string, any]) => {
-        let fieldType = fieldData.type || 'text';
-        let isList = false;
-
-        if (fieldData.type === 'array') {
-          isList = true;
-          fieldType = fieldData.items?.type || fieldData.items?.$ref?.replace('#/definitions/', '') || 'text';
-        }
-
-        return {
-          name: fieldName,
-          type: fieldType,
-          isList,
-          required: def.required?.includes(fieldName)
-        };
-      });
-
-      dataTypes.push({
-        id: typeName.toLowerCase(),
-        name: typeName,
-        fields
-      });
-    });
-
-    return {
-      appName: project.name,
-      version: project.environment,
-      dataTypes: dataTypes.length > 0 ? dataTypes : this.getFallbackDataTypes(),
-      optionSets: []
-    };
-  }
-
-  /**
-   * Parses raw Bubble App JSON export data types
-   */
-  public static parseBubbleExportSchema(project: ProjectProfile, rawJson: any): BubbleSchema {
-    const dataTypes: BubbleDataType[] = [];
-    const optionSets: { name: string; options: string[] }[] = [];
-
-    // Parse Data Types
-    if (rawJson.data_types || rawJson.types) {
-      const types = rawJson.data_types || rawJson.types;
-      Object.entries(types).forEach(([typeName, typeData]: [string, any]) => {
-        const fields = Object.entries(typeData.fields || {}).map(([fName, fData]: [string, any]) => ({
-          name: fName,
-          type: typeof fData === 'string' ? fData : fData.type || 'text',
-          isList: typeof fData === 'object' ? Boolean(fData.is_list) : false,
-          required: typeof fData === 'object' ? Boolean(fData.required) : false
-        }));
-
-        dataTypes.push({
-          id: typeName.toLowerCase(),
-          name: typeName,
-          fields
-        });
-      });
-    }
-
-    // Parse Option Sets
-    if (rawJson.option_sets) {
-      Object.entries(rawJson.option_sets).forEach(([osName, osData]: [string, any]) => {
-        optionSets.push({
-          name: osName,
-          options: Array.isArray(osData.options) ? osData.options : Object.keys(osData.options || {})
-        });
-      });
-    }
-
-    if (dataTypes.length === 0) {
-      return this.getFallbackSchema(project);
-    }
-
-    return {
-      appName: project.name,
-      version: project.environment,
-      dataTypes,
-      optionSets
-    };
-  }
-
-  private static getFallbackDataTypes(): BubbleDataType[] {
-    return [
-      {
-        id: 'user',
-        name: 'User',
-        fields: [
-          { name: 'email', type: 'text', required: true },
-          { name: 'first_name', type: 'text' },
-          { name: 'role', type: 'text' }
-        ]
-      }
-    ];
-  }
-
-  private static getFallbackSchema(project: ProjectProfile): BubbleSchema {
-    return {
-      appName: project.name,
-      version: project.environment,
-      dataTypes: this.getFallbackDataTypes(),
-      optionSets: []
-    };
-  }
-
-  /**
    * Downloads a JSON backup file to user's computer
    */
   public static downloadBackupFile(project: ProjectProfile, schema: BubbleSchema, backupId: string): string {
@@ -230,7 +241,7 @@ export class DevOpsEngine {
       appId: project.appId,
       environment: project.environment,
       timestamp: new Date().toISOString(),
-      recordCount: 6714,
+      recordCount: schema.dataTypes.reduce((sum, d) => sum + (d.recordCount || 0), 0) || schema.dataTypes.length * 10,
       tables: schema.dataTypes.map(d => ({
         name: d.name,
         recordCount: d.recordCount,
@@ -268,7 +279,13 @@ export class DevOpsEngine {
     await new Promise(r => setTimeout(r, 300));
 
     onProgress?.('Fetching database types and metadata...', 30);
-    const schema = await this.fetchSchema(project);
+    const res = await this.fetchSchema(project);
+    const schema = res.schema || {
+      appName: project.name,
+      version: project.environment,
+      dataTypes: [],
+      optionSets: []
+    };
     await new Promise(r => setTimeout(r, 350));
 
     onProgress?.('Exporting database tables and records...', 65);
@@ -284,7 +301,7 @@ export class DevOpsEngine {
       backupId,
       timestamp: new Date().toISOString(),
       status: 'completed',
-      recordCount: 6714,
+      recordCount: schema.dataTypes.reduce((sum, d) => sum + (d.recordCount || 0), 0) || 0,
       tables: schema.dataTypes.map(d => d.name),
       fileSizeKb: 2480,
       filePath: filename
@@ -297,8 +314,12 @@ export class DevOpsEngine {
   public static generateTypeScriptDefinitions(schema: BubbleSchema): string {
     let tsCode = `/**\n * Auto-generated TypeScript definitions for Bubble.io App: ${schema.appName}\n * Environment: ${schema.version}\n * Generated: ${new Date().toISOString()}\n */\n\n`;
 
+    if (schema.dataTypes.length === 0 && (!schema.optionSets || schema.optionSets.length === 0)) {
+      return `/**\n * No Bubble Data Types or Option Sets loaded yet for ${schema.appName}.\n * Please connect your Bubble Data API or upload your schema JSON export.\n */\n`;
+    }
+
     // Option Sets as Enums or Union Types
-    if (schema.optionSets.length > 0) {
+    if (schema.optionSets && schema.optionSets.length > 0) {
       tsCode += `// ================= OPTION SETS =================\n\n`;
       for (const os of schema.optionSets) {
         const enumName = os.name.replace(/[^a-zA-Z0-9]/g, '');
@@ -307,31 +328,33 @@ export class DevOpsEngine {
     }
 
     // Data Types as Interfaces
-    tsCode += `// ================= DATA TYPES =================\n\n`;
-    for (const dt of schema.dataTypes) {
-      const typeName = dt.name.replace(/[^a-zA-Z0-9]/g, '');
-      tsCode += `export interface ${typeName} {\n  _id: string;\n  Created_Date: string;\n  Modified_Date: string;\n  Created_By?: string;\n`;
+    if (schema.dataTypes.length > 0) {
+      tsCode += `// ================= DATA TYPES =================\n\n`;
+      for (const dt of schema.dataTypes) {
+        const typeName = dt.name.replace(/[^a-zA-Z0-9]/g, '');
+        tsCode += `export interface ${typeName} {\n  _id: string;\n  Created_Date: string;\n  Modified_Date: string;\n  Created_By?: string;\n`;
 
-      for (const field of dt.fields) {
-        let tsType = 'string';
-        if (field.type === 'number') tsType = 'number';
-        else if (field.type === 'boolean') tsType = 'boolean';
-        else if (field.type === 'date') tsType = 'string | Date';
-        else if (field.type.startsWith('option_set.')) {
-          tsType = field.type.replace('option_set.', '').replace(/[^a-zA-Z0-9]/g, '');
-        } else if (field.isCustomType) {
-          tsType = field.type.charAt(0).toUpperCase() + field.type.slice(1);
+        for (const field of dt.fields) {
+          let tsType = 'string';
+          if (field.type === 'number') tsType = 'number';
+          else if (field.type === 'boolean') tsType = 'boolean';
+          else if (field.type === 'date') tsType = 'string | Date';
+          else if (field.type.startsWith('option_set.')) {
+            tsType = field.type.replace('option_set.', '').replace(/[^a-zA-Z0-9]/g, '');
+          } else if (field.isCustomType) {
+            tsType = field.type.charAt(0).toUpperCase() + field.type.slice(1);
+          }
+
+          if (field.isList) {
+            tsType = `${tsType}[]`;
+          }
+
+          const optional = !field.required ? '?' : '';
+          tsCode += `  ${field.name}${optional}: ${tsType};\n`;
         }
 
-        if (field.isList) {
-          tsType = `${tsType}[]`;
-        }
-
-        const optional = !field.required ? '?' : '';
-        tsCode += `  ${field.name}${optional}: ${tsType};\n`;
+        tsCode += `}\n\n`;
       }
-
-      tsCode += `}\n\n`;
     }
 
     return tsCode;
@@ -341,6 +364,10 @@ export class DevOpsEngine {
    * Generates Mermaid ERD markdown
    */
   public static generateMermaidERD(schema: BubbleSchema): string {
+    if (schema.dataTypes.length === 0) {
+      return `%% No data types loaded yet for ${schema.appName}.\n%% Connect Bubble Data API or upload a schema JSON export.`;
+    }
+
     let erd = `erDiagram\n`;
 
     for (const dt of schema.dataTypes) {

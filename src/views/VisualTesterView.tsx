@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   Camera, 
   Play, 
@@ -8,24 +8,57 @@ import {
   SlidersHorizontal, 
   Monitor, 
   Tablet, 
-  Smartphone,
-  Eye,
-  Plus,
-  Upload,
-  Layers
+  Smartphone, 
+  Plus, 
+  Layers 
 } from 'lucide-react';
-import { VisualSuiteResult, VisualTestCase } from '../types';
+import { VisualSuiteResult, VisualTestCase, ProjectProfile } from '../types';
 import { VisualEngine } from '../core/visual-tester/visualEngine';
 import { DiffSlider } from '../components/DiffSlider';
 import { GuideBanner } from '../components/GuideBanner';
 
 interface VisualTesterViewProps {
+  activeProject?: ProjectProfile;
   onLog: (module: 'visual-tester', message: string, level?: 'info' | 'success' | 'warn' | 'error') => void;
 }
 
-export const VisualTesterView: React.FC<VisualTesterViewProps> = ({ onLog }) => {
-  const [testCases, setTestCases] = useState<VisualTestCase[]>(VisualEngine.getDefaultTestCases());
-  const [selectedCase, setSelectedCase] = useState<VisualTestCase>(testCases[1]);
+export const VisualTesterView: React.FC<VisualTesterViewProps> = ({ activeProject, onLog }) => {
+  const isDemo = Boolean(activeProject?.isDemo || activeProject?.appId === 'demo-sandbox' || activeProject?.appId === 'marketplace-prod');
+
+  const getInitialTestCases = (): VisualTestCase[] => {
+    if (isDemo) {
+      return VisualEngine.getDefaultTestCases();
+    }
+    const domain = activeProject?.customDomain || (activeProject?.appId ? `${activeProject.appId}.bubbleapps.io` : 'your-app.bubbleapps.io');
+    const path = activeProject?.environment === 'live' ? '' : '/version-test';
+    const baseUrl = `https://${domain}${path}`;
+
+    return [
+      {
+        id: 'tc_index_desktop',
+        name: 'Home / Landing Page',
+        pageUrl: baseUrl,
+        viewport: { name: 'Desktop (1920x1080)', width: 1920, height: 1080 },
+        status: 'untested',
+        diffPercentage: 0,
+        baselineImage: VisualEngine.getDefaultTestCases()[0].baselineImage,
+        currentImage: VisualEngine.getDefaultTestCases()[0].baselineImage
+      },
+      {
+        id: 'tc_index_mobile',
+        name: 'Mobile View',
+        pageUrl: `${baseUrl}/login`,
+        viewport: { name: 'Mobile (375x812)', width: 375, height: 812 },
+        status: 'untested',
+        diffPercentage: 0,
+        baselineImage: VisualEngine.getDefaultTestCases()[2].baselineImage,
+        currentImage: VisualEngine.getDefaultTestCases()[2].baselineImage
+      }
+    ];
+  };
+
+  const [testCases, setTestCases] = useState<VisualTestCase[]>(getInitialTestCases());
+  const [selectedCase, setSelectedCase] = useState<VisualTestCase>(testCases[0]);
   const [isRunning, setIsRunning] = useState(false);
   const [progress, setProgress] = useState<{ current: number; total: number; name: string }>({
     current: 0,
@@ -37,13 +70,16 @@ export const VisualTesterView: React.FC<VisualTesterViewProps> = ({ onLog }) => 
   const [newPageUrl, setNewPageUrl] = useState('');
   const [newViewport, setNewViewport] = useState<'desktop' | 'tablet' | 'mobile'>('desktop');
 
-  const baselineInputRef = useRef<HTMLInputElement>(null);
-  const currentInputRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    const freshCases = getInitialTestCases();
+    setTestCases(freshCases);
+    setSelectedCase(freshCases[0]);
+  }, [activeProject?.id]);
 
   const handleRunSuite = async () => {
     if (isRunning) return;
     setIsRunning(true);
-    onLog('visual-tester', 'Starting visual regression suite for all configured viewports...');
+    onLog('visual-tester', `Starting visual regression suite for ${activeProject?.name || 'app'}...`);
 
     try {
       const result = await VisualEngine.runSuite(testCases, 1.0, (cur, tot, name) => {
@@ -77,23 +113,24 @@ export const VisualTesterView: React.FC<VisualTesterViewProps> = ({ onLog }) => 
       pageUrl: newPageUrl.trim(),
       viewport: vpConfig,
       status: 'untested',
-      baselineImage: 'https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=800&auto=format&fit=crop&q=80',
-      currentImage: 'https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=800&auto=format&fit=crop&q=80'
+      diffPercentage: 0,
+      baselineImage: selectedCase.baselineImage,
+      currentImage: selectedCase.baselineImage
     };
 
-    setTestCases([...testCases, newCase]);
+    setTestCases(prev => [...prev, newCase]);
     setSelectedCase(newCase);
     setNewPageName('');
     setNewPageUrl('');
-    onLog('visual-tester', `Added new visual QA test target: '${newCase.name}'`);
+    onLog('visual-tester', `Added test target: '${newCase.name}' (${newCase.viewport.name})`, 'info');
   };
 
   const handleExportReport = () => {
     const result: VisualSuiteResult = {
       suiteId: `suite_${Date.now()}`,
       totalTests: testCases.length,
-      passed: testCases.filter(t => t.status === 'passed').length,
-      failed: testCases.filter(t => t.status === 'failed').length,
+      passed: testCases.filter(c => c.status === 'passed').length,
+      failed: testCases.filter(c => c.status === 'failed').length,
       executedAt: new Date().toISOString(),
       cases: testCases
     };
@@ -103,8 +140,11 @@ export const VisualTesterView: React.FC<VisualTesterViewProps> = ({ onLog }) => 
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `bubble_visual_qa_report_${Date.now()}.html`;
+    a.download = `bubble_visual_qa_report_${activeProject?.appId || 'app'}_${Date.now()}.html`;
+    document.body.appendChild(a);
     a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
     onLog('visual-tester', 'Exported standalone Visual QA HTML report.', 'success');
   };
 
@@ -145,7 +185,7 @@ export const VisualTesterView: React.FC<VisualTesterViewProps> = ({ onLog }) => 
               <span>Visual QA & Pixel Diff Regression Suite</span>
             </div>
             <div className="card-subtitle">
-              Automated screenshot comparisons against production baseline across Desktop, Tablet, and Mobile
+              Automated screenshot comparisons against production baseline for {activeProject?.name}
             </div>
           </div>
 
@@ -160,142 +200,173 @@ export const VisualTesterView: React.FC<VisualTesterViewProps> = ({ onLog }) => 
             </button>
           </div>
         </div>
-      </div>
 
-      {/* Add New Target Bar */}
-      <div className="card" style={{ padding: '16px 20px' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 180px 140px', gap: '12px', alignItems: 'flex-end' }}>
-          <div>
-            <label className="input-label">Target Page / Flow Name</label>
-            <input
-              type="text"
-              placeholder="e.g. User Profile Settings"
-              value={newPageName}
-              onChange={(e) => setNewPageName(e.target.value)}
-              className="input"
-            />
-          </div>
-
-          <div>
-            <label className="input-label">Page Relative URL</label>
-            <input
-              type="text"
-              placeholder="e.g. /profile or /checkout"
-              value={newPageUrl}
-              onChange={(e) => setNewPageUrl(e.target.value)}
-              className="input"
-            />
-          </div>
-
-          <div>
-            <label className="input-label">Screen Viewport</label>
-            <select
-              value={newViewport}
-              onChange={(e) => setNewViewport(e.target.value as any)}
-              className="select"
-            >
-              <option value="desktop">Desktop (1920x1080)</option>
-              <option value="tablet">Tablet (768x1024)</option>
-              <option value="mobile">Mobile (375x812)</option>
-            </select>
-          </div>
-
-          <button onClick={handleAddTestCase} className="btn btn-secondary btn-sm" style={{ height: '38px' }}>
-            <Plus size={15} />
-            <span>Add Target</span>
-          </button>
-        </div>
-      </div>
-
-      {/* Main Grid: Test Cases List + Diff Inspector */}
-      <div className="grid-2" style={{ gridTemplateColumns: '400px 1fr' }}>
-        {/* Left Column: Test Cases */}
-        <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-          <div style={{ fontWeight: 700, fontSize: '0.9rem', marginBottom: '6px', color: 'var(--text-secondary)' }}>
-            PAGE VIEWPORTS & TEST TARGETS ({testCases.length})
-          </div>
-
-          {testCases.map(tc => {
-            const isSelected = selectedCase?.id === tc.id;
-            return (
-              <div
-                key={tc.id}
-                onClick={() => setSelectedCase(tc)}
-                style={{
-                  padding: '12px 14px',
-                  borderRadius: 'var(--radius-md)',
-                  background: isSelected ? 'var(--bg-surface-elevated)' : 'var(--bg-input)',
-                  border: isSelected ? '1px solid var(--border-active)' : '1px solid var(--border-subtle)',
-                  cursor: 'pointer',
-                  transition: 'all 0.15s ease',
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center'
-                }}
-              >
-                <div>
-                  <div style={{ fontWeight: 700, fontSize: '0.85rem', color: isSelected ? 'var(--primary)' : 'var(--text-primary)' }}>
-                    {tc.name}
-                  </div>
-                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    {tc.viewport.name.includes('Desktop') && <Monitor size={12} />}
-                    {tc.viewport.name.includes('Tablet') && <Tablet size={12} />}
-                    {tc.viewport.name.includes('Mobile') && <Smartphone size={12} />}
-                    <span>{tc.viewport.name}</span>
-                  </div>
-                </div>
-
-                <div>
-                  {tc.status === 'passed' && (
-                    <span className="badge badge-emerald">
-                      <CheckCircle2 size={11} /> Passed ({tc.diffPercentage}%)
-                    </span>
-                  )}
-                  {tc.status === 'failed' && (
-                    <span className="badge badge-rose">
-                      <XCircle size={11} /> Diff {tc.diffPercentage}%
-                    </span>
-                  )}
-                  {tc.status === 'untested' && (
-                    <span className="badge badge-indigo">Untested</span>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-
-        {/* Right Column: Visual Diff Inspector Slider */}
-        <div className="card">
-          <div className="card-header">
-            <div>
-              <div className="card-title">
-                <SlidersHorizontal size={18} color="var(--primary)" />
-                <span>Side-by-Side Visual Diff Inspector</span>
-              </div>
-              <div className="card-subtitle">
-                Target: <strong>{selectedCase.name}</strong> • Drag the slider divider to inspect pixel deviations
-              </div>
+        {/* Progress bar when running */}
+        {isRunning && (
+          <div style={{ marginTop: '12px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+              <span>{progress.name}</span>
+              <span>{progress.current} / {progress.total} viewports</span>
             </div>
-            {selectedCase.status === 'failed' ? (
-              <span className="badge badge-rose">Visual Mismatch ({selectedCase.diffPercentage}%)</span>
-            ) : (
-              <span className="badge badge-emerald">Within Tolerance</span>
-            )}
+            <div style={{ height: '6px', background: 'var(--bg-input)', borderRadius: '99px', overflow: 'hidden' }}>
+              <div style={{ width: `${(progress.current / progress.total) * 100}%`, height: '100%', background: 'linear-gradient(90deg, #6366f1, #06b6d4)', transition: 'width 0.3s ease' }} />
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div className="grid-2">
+        {/* Left Column: Test Cases List & Add Form */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          <div className="card">
+            <div className="card-header">
+              <span className="card-title" style={{ fontSize: '0.95rem' }}>
+                <Layers size={16} color="var(--primary)" />
+                <span>Test Targets & Viewports ({testCases.length})</span>
+              </span>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              {testCases.map(tc => {
+                const isSelected = tc.id === selectedCase.id;
+                const isPassed = tc.status === 'passed';
+                const isFailed = tc.status === 'failed';
+
+                return (
+                  <div
+                    key={tc.id}
+                    onClick={() => setSelectedCase(tc)}
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      padding: '12px 14px',
+                      borderRadius: 'var(--radius-md)',
+                      background: isSelected ? 'var(--bg-surface-elevated)' : 'var(--bg-input)',
+                      border: isSelected ? '1px solid var(--border-active)' : '1px solid var(--border-subtle)',
+                      cursor: 'pointer',
+                      transition: 'all 0.15s ease'
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      {tc.viewport.width > 1200 ? <Monitor size={16} color="var(--primary)" /> :
+                       tc.viewport.width > 500 ? <Tablet size={16} color="var(--accent-cyan)" /> :
+                       <Smartphone size={16} color="var(--accent-amber)" />}
+
+                      <div>
+                        <div style={{ fontWeight: 600, fontSize: '0.875rem', color: 'var(--text-primary)' }}>
+                          {tc.name}
+                        </div>
+                        <div style={{ fontSize: '0.725rem', color: 'var(--text-muted)' }}>
+                          {tc.viewport.name} • <code style={{ color: 'var(--accent-cyan)' }}>{tc.pageUrl}</code>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      {isPassed && (
+                        <span className="badge badge-emerald" style={{ fontSize: '0.7rem' }}>
+                          <CheckCircle2 size={12} /> {tc.diffPercentage}% diff
+                        </span>
+                      )}
+                      {isFailed && (
+                        <span className="badge badge-rose" style={{ fontSize: '0.7rem' }}>
+                          <XCircle size={12} /> {tc.diffPercentage}% diff
+                        </span>
+                      )}
+                      {tc.status === 'untested' && (
+                        <span className="badge badge-indigo" style={{ fontSize: '0.7rem' }}>
+                          Untested
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </div>
 
-          {selectedCase.baselineImage && selectedCase.currentImage ? (
+          {/* Add Target Page Form */}
+          <div className="card">
+            <div className="card-header">
+              <span className="card-title" style={{ fontSize: '0.95rem' }}>
+                <Plus size={16} color="var(--accent-emerald)" />
+                <span>Add Target Page / Component</span>
+              </span>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <div>
+                <label className="input-label">Target Name</label>
+                <input
+                  type="text"
+                  placeholder="e.g. Checkout Modal or Dashboard Header"
+                  value={newPageName}
+                  onChange={(e) => setNewPageName(e.target.value)}
+                  className="input"
+                />
+              </div>
+
+              <div className="grid-2">
+                <div>
+                  <label className="input-label">Page URL or Path</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. /dashboard or https://..."
+                    value={newPageUrl}
+                    onChange={(e) => setNewPageUrl(e.target.value)}
+                    className="input"
+                  />
+                </div>
+
+                <div>
+                  <label className="input-label">Target Viewport</label>
+                  <select
+                    value={newViewport}
+                    onChange={(e) => setNewViewport(e.target.value as any)}
+                    className="select"
+                  >
+                    <option value="desktop">Desktop (1920x1080)</option>
+                    <option value="tablet">Tablet (768x1024)</option>
+                    <option value="mobile">Mobile (375x812)</option>
+                  </select>
+                </div>
+              </div>
+
+              <button onClick={handleAddTestCase} className="btn btn-secondary" style={{ marginTop: '4px' }}>
+                <Plus size={14} />
+                <span>Add Viewport Target</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Right Column: Interactive Visual Diff Inspector */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          <div className="card">
+            <div className="card-header">
+              <div>
+                <div className="card-title">
+                  <SlidersHorizontal size={16} color="var(--primary)" />
+                  <span>Visual Diff Inspector: {selectedCase.name}</span>
+                </div>
+                <div className="card-subtitle">
+                  Drag the center slider to inspect live visual differences against production baseline
+                </div>
+              </div>
+
+              <span className={`badge ${selectedCase.status === 'passed' ? 'badge-emerald' : selectedCase.status === 'failed' ? 'badge-rose' : 'badge-indigo'}`}>
+                {selectedCase.status.toUpperCase()} ({selectedCase.diffPercentage}% diff)
+              </span>
+            </div>
+
             <DiffSlider
-              baselineImage={selectedCase.baselineImage}
-              currentImage={selectedCase.currentImage}
-              baselineLabel="Production Baseline"
-              currentLabel="Current Release Build"
+              baselineImage={selectedCase.baselineImage || ''}
+              currentImage={selectedCase.currentImage || ''}
+              baselineLabel="Baseline (Production)"
+              currentLabel="Current (Development)"
             />
-          ) : (
-            <div style={{ height: '340px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)' }}>
-              Run visual test to capture snapshots.
-            </div>
-          )}
+          </div>
         </div>
       </div>
     </div>

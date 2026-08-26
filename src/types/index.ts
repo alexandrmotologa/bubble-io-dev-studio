@@ -15,6 +15,7 @@ export interface ProjectProfile {
   environment: 'development' | 'staging' | 'live';
   apiToken?: string;
   customDomain?: string;
+  isDemo?: boolean;
   createdAt: string;
   lastActiveAt?: string;
 }

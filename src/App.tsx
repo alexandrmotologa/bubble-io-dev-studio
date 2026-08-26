@@ -189,6 +189,7 @@ export const App: React.FC = () => {
 
         {currentTab === 'audit' && (
           <AuditView
+            activeProject={activeProject}
             currentReport={currentAuditReport}
             onReportUpdate={handleAuditReportUpdate}
             onLog={addLog}
@@ -204,6 +205,7 @@ export const App: React.FC = () => {
 
         {currentTab === 'visual-tester' && (
           <VisualTesterView
+            activeProject={activeProject}
             onLog={addLog}
           />
         )}

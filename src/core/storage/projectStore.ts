@@ -67,6 +67,7 @@ export class ProjectStore {
     const newProject: ProjectProfile = {
       ...project,
       id: 'proj_' + Math.random().toString(36).substring(2, 9),
+      isDemo: false,
       createdAt: new Date().toISOString(),
       lastActiveAt: new Date().toISOString()
     };
@@ -83,6 +84,7 @@ export class ProjectStore {
       appId: 'marketplace-prod',
       environment: 'live',
       customDomain: 'marketplace.bubbleapps.io',
+      isDemo: true,
       createdAt: new Date().toISOString(),
       lastActiveAt: new Date().toISOString()
     };
