@@ -215,11 +215,13 @@ export const App: React.FC = () => {
           onClearLogs={() => setLogs([])}
         />
 
-        {/* First-Time User Onboarding Modal */}
+        {/* First-Time User Onboarding & Add App Modal */}
         <OnboardingModal
           isOpen={isOnboardingOpen}
+          onClose={() => setIsOnboardingOpen(false)}
           onAddProject={handleAddProjectFromOnboarding}
           onLoadDemoProject={handleLoadDemoProject}
+          hasExistingProjects={settings.projects.length > 0}
         />
       </div>
     </div>

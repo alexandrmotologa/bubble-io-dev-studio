@@ -1,22 +1,36 @@
-import React, { useState } from 'react';
-import { Layers, Sparkles, Plus, FlaskConical, ArrowRight, ShieldCheck } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Layers, Plus, FlaskConical, ArrowRight, X } from 'lucide-react';
 import { ProjectProfile } from '../types';
 
 interface OnboardingModalProps {
   isOpen: boolean;
+  onClose?: () => void;
   onAddProject: (project: Omit<ProjectProfile, 'id' | 'createdAt'>) => void;
   onLoadDemoProject: () => void;
+  hasExistingProjects?: boolean;
 }
 
 export const OnboardingModal: React.FC<OnboardingModalProps> = ({
   isOpen,
+  onClose,
   onAddProject,
-  onLoadDemoProject
+  onLoadDemoProject,
+  hasExistingProjects = false
 }) => {
   const [name, setName] = useState('');
   const [appId, setAppId] = useState('');
   const [environment, setEnvironment] = useState<'development' | 'staging' | 'live'>('development');
   const [customDomain, setCustomDomain] = useState('');
+
+  // Reset form fields every time the modal is opened
+  useEffect(() => {
+    if (isOpen) {
+      setName('');
+      setAppId('');
+      setEnvironment('development');
+      setCustomDomain('');
+    }
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -30,13 +44,19 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
       environment,
       customDomain: customDomain.trim() || undefined
     });
+
+    // Clear state after adding
+    setName('');
+    setAppId('');
+    setEnvironment('development');
+    setCustomDomain('');
   };
 
   return (
     <div style={{
       position: 'fixed',
       inset: 0,
-      background: 'rgba(5, 8, 14, 0.88)',
+      background: 'rgba(5, 8, 14, 0.75)',
       backdropFilter: 'blur(12px)',
       display: 'flex',
       alignItems: 'center',
@@ -45,14 +65,43 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
       padding: '20px'
     }}>
       <div style={{
-        background: 'var(--bg-sidebar)',
+        background: 'var(--bg-surface-elevated)',
         border: '1px solid var(--border-active)',
         borderRadius: 'var(--radius-lg)',
         width: '100%',
         maxWidth: '560px',
-        boxShadow: '0 20px 50px rgba(0, 0, 0, 0.7), var(--shadow-glow)',
-        overflow: 'hidden'
+        boxShadow: 'var(--shadow-lg), 0 0 30px var(--primary-glow)',
+        overflow: 'hidden',
+        position: 'relative'
       }}>
+        {/* Close button if user already has other projects */}
+        {hasExistingProjects && onClose && (
+          <button
+            type="button"
+            onClick={onClose}
+            style={{
+              position: 'absolute',
+              top: '16px',
+              right: '16px',
+              background: 'var(--bg-input)',
+              border: '1px solid var(--border-subtle)',
+              borderRadius: '50%',
+              width: '32px',
+              height: '32px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: 'var(--text-secondary)',
+              cursor: 'pointer',
+              zIndex: 10,
+              transition: 'all 0.15s ease'
+            }}
+            title="Close modal"
+          >
+            <X size={16} />
+          </button>
+        )}
+
         {/* Modal Header */}
         <div style={{
           padding: '28px 32px 20px',
@@ -75,10 +124,12 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
           </div>
 
           <h2 style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--text-primary)' }}>
-            Welcome to Bubble.io Dev Studio! 🚀
+            {hasExistingProjects ? 'Connect Another Bubble App 🚀' : 'Welcome to Bubble.io Dev Studio! 🚀'}
           </h2>
           <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '6px', maxWidth: '420px', margin: '6px auto 0' }}>
-            Let's connect your first Bubble application to unlock automated backups, dead code audits, AI translation, and visual regression tests.
+            {hasExistingProjects
+              ? 'Enter the details for your new Bubble workspace to start backups, dead code audits, and AI translation.'
+              : "Let's connect your first Bubble application to unlock automated backups, dead code audits, AI translation, and visual regression tests."}
           </p>
         </div>
 
@@ -152,7 +203,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
         <div style={{
           padding: '16px 32px',
           borderTop: '1px solid var(--border-subtle)',
-          background: 'rgba(255, 255, 255, 0.02)',
+          background: 'var(--bg-card-hover)',
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center'
