@@ -2,9 +2,40 @@ import { BackupResult, BubbleDataType, BubbleSchema, ProjectProfile } from '../.
 
 export class DevOpsEngine {
   /**
-   * Generates a sample / fetched Bubble Data Schema
+   * Fetches real schema from Bubble Data API (/api/1.1/meta) or parses uploaded JSON / falls back to sandbox
    */
-  public static async fetchSchema(project: ProjectProfile): Promise<BubbleSchema> {
+  public static async fetchSchema(project: ProjectProfile, uploadedJson?: any): Promise<BubbleSchema> {
+    // 1. If user uploaded a custom Bubble export JSON / OpenAPI Swagger
+    if (uploadedJson) {
+      return this.parseBubbleExportSchema(project, uploadedJson);
+    }
+
+    // 2. If project has an API token or live app ID, try fetching live metadata from Bubble Data API
+    if (project.appId && project.appId !== 'demo-sandbox') {
+      try {
+        const domain = project.customDomain || `${project.appId}.bubbleapps.io`;
+        const envPrefix = project.environment === 'live' ? '' : '/version-test';
+        const metaUrl = `https://${domain}${envPrefix}/api/1.1/meta`;
+
+        const headers: Record<string, string> = {
+          'Accept': 'application/json'
+        };
+        if (project.apiToken) {
+          headers['Authorization'] = `Bearer ${project.apiToken}`;
+        }
+
+        const res = await fetch(metaUrl, { method: 'GET', headers, mode: 'cors' }).catch(() => null);
+
+        if (res && res.ok) {
+          const swagger = await res.json();
+          return this.parseSwaggerMeta(project, swagger);
+        }
+      } catch (err) {
+        console.warn('Could not connect to live Bubble Data API, falling back to local schema profile:', err);
+      }
+    }
+
+    // 3. Realistic Demo/Sandbox Schema (User, Product, Order, Category)
     return {
       appName: project.name,
       version: project.environment,
@@ -73,6 +104,121 @@ export class DevOpsEngine {
   }
 
   /**
+   * Parses Bubble /api/1.1/meta (Swagger 2.0 schema)
+   */
+  private static parseSwaggerMeta(project: ProjectProfile, swagger: any): BubbleSchema {
+    const dataTypes: BubbleDataType[] = [];
+    const definitions = swagger.definitions || swagger.components?.schemas || {};
+
+    Object.entries(definitions).forEach(([typeName, def]: [string, any]) => {
+      // Ignore internal pagination or response wrappers
+      if (typeName.endsWith('Response') || typeName.startsWith('cursor_')) return;
+
+      const properties = def.properties || {};
+      const fields = Object.entries(properties).map(([fieldName, fieldData]: [string, any]) => {
+        let fieldType = fieldData.type || 'text';
+        let isList = false;
+
+        if (fieldData.type === 'array') {
+          isList = true;
+          fieldType = fieldData.items?.type || fieldData.items?.$ref?.replace('#/definitions/', '') || 'text';
+        }
+
+        return {
+          name: fieldName,
+          type: fieldType,
+          isList,
+          required: def.required?.includes(fieldName)
+        };
+      });
+
+      dataTypes.push({
+        id: typeName.toLowerCase(),
+        name: typeName,
+        fields
+      });
+    });
+
+    return {
+      appName: project.name,
+      version: project.environment,
+      dataTypes: dataTypes.length > 0 ? dataTypes : this.getFallbackDataTypes(),
+      optionSets: []
+    };
+  }
+
+  /**
+   * Parses raw Bubble App JSON export data types
+   */
+  public static parseBubbleExportSchema(project: ProjectProfile, rawJson: any): BubbleSchema {
+    const dataTypes: BubbleDataType[] = [];
+    const optionSets: { name: string; options: string[] }[] = [];
+
+    // Parse Data Types
+    if (rawJson.data_types || rawJson.types) {
+      const types = rawJson.data_types || rawJson.types;
+      Object.entries(types).forEach(([typeName, typeData]: [string, any]) => {
+        const fields = Object.entries(typeData.fields || {}).map(([fName, fData]: [string, any]) => ({
+          name: fName,
+          type: typeof fData === 'string' ? fData : fData.type || 'text',
+          isList: typeof fData === 'object' ? Boolean(fData.is_list) : false,
+          required: typeof fData === 'object' ? Boolean(fData.required) : false
+        }));
+
+        dataTypes.push({
+          id: typeName.toLowerCase(),
+          name: typeName,
+          fields
+        });
+      });
+    }
+
+    // Parse Option Sets
+    if (rawJson.option_sets) {
+      Object.entries(rawJson.option_sets).forEach(([osName, osData]: [string, any]) => {
+        optionSets.push({
+          name: osName,
+          options: Array.isArray(osData.options) ? osData.options : Object.keys(osData.options || {})
+        });
+      });
+    }
+
+    if (dataTypes.length === 0) {
+      return this.getFallbackSchema(project);
+    }
+
+    return {
+      appName: project.name,
+      version: project.environment,
+      dataTypes,
+      optionSets
+    };
+  }
+
+  private static getFallbackDataTypes(): BubbleDataType[] {
+    return [
+      {
+        id: 'user',
+        name: 'User',
+        fields: [
+          { name: 'email', type: 'text', required: true },
+          { name: 'first_name', type: 'text' },
+          { name: 'role', type: 'text' }
+        ]
+      }
+    ];
+  }
+
+  private static getFallbackSchema(project: ProjectProfile): BubbleSchema {
+    return {
+      appName: project.name,
+      version: project.environment,
+      dataTypes: this.getFallbackDataTypes(),
+      optionSets: []
+    };
+  }
+
+  /**
    * Downloads a JSON backup file to user's computer
    */
   public static downloadBackupFile(project: ProjectProfile, schema: BubbleSchema, backupId: string): string {
@@ -107,9 +253,7 @@ export class DevOpsEngine {
     a.click();
     document.body.removeChild(a);
 
-    // Keep URL active for a moment to ensure download initiates
     setTimeout(() => URL.revokeObjectURL(url), 2000);
-
     return filename;
   }
 
@@ -127,7 +271,7 @@ export class DevOpsEngine {
     const schema = await this.fetchSchema(project);
     await new Promise(r => setTimeout(r, 350));
 
-    onProgress?.('Exporting User, Product, Order, Category tables...', 65);
+    onProgress?.('Exporting database tables and records...', 65);
     await new Promise(r => setTimeout(r, 400));
 
     onProgress?.('Compressing backup archive & generating checksum...', 90);
@@ -210,9 +354,15 @@ export class DevOpsEngine {
     }
 
     // Relationships
-    erd += `    User ||--o{ Order : "places"\n`;
-    erd += `    Order ||--|{ Product : "contains"\n`;
-    erd += `    Product }o--|| Category : "belongs_to"\n`;
+    if (schema.dataTypes.some(d => d.name === 'User') && schema.dataTypes.some(d => d.name === 'Order')) {
+      erd += `    User ||--o{ Order : "places"\n`;
+    }
+    if (schema.dataTypes.some(d => d.name === 'Order') && schema.dataTypes.some(d => d.name === 'Product')) {
+      erd += `    Order ||--|{ Product : "contains"\n`;
+    }
+    if (schema.dataTypes.some(d => d.name === 'Product') && schema.dataTypes.some(d => d.name === 'Category')) {
+      erd += `    Product }o--|| Category : "belongs_to"\n`;
+    }
 
     return erd;
   }

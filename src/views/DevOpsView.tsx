@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   Database, 
   Code, 
@@ -8,10 +8,12 @@ import {
   Check, 
   Layers, 
   Table, 
-  ExternalLink,
-  RefreshCw,
-  Sparkles,
-  Info
+  ExternalLink, 
+  RefreshCw, 
+  Sparkles, 
+  Info, 
+  Upload, 
+  FileCode 
 } from 'lucide-react';
 import { BackupResult, BubbleSchema, ProjectProfile } from '../types';
 import { DevOpsEngine } from '../core/devops/devopsEngine';
@@ -32,6 +34,8 @@ export const DevOpsView: React.FC<DevOpsViewProps> = ({ activeProject, onLog }) 
   const [backupProgress, setBackupProgress] = useState(0);
   const [backupStatusText, setBackupStatusText] = useState('');
   const [backupsList, setBackupsList] = useState<BackupResult[]>([]);
+  const [uploadedFileName, setUploadedFileName] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (activeProject) {
@@ -39,16 +43,34 @@ export const DevOpsView: React.FC<DevOpsViewProps> = ({ activeProject, onLog }) 
     }
   }, [activeProject]);
 
-  const loadSchema = async () => {
+  const loadSchema = async (customJson?: any, fileName?: string) => {
     if (!activeProject) return;
-    onLog('devops', `Fetching schema for project: ${activeProject.name}...`);
-    const s = await DevOpsEngine.fetchSchema(activeProject);
+    onLog('devops', customJson ? `Parsing uploaded schema file: ${fileName}...` : `Fetching schema for project: ${activeProject.name}...`);
+    const s = await DevOpsEngine.fetchSchema(activeProject, customJson);
     setSchema(s);
     const ts = DevOpsEngine.generateTypeScriptDefinitions(s);
     setTsDefinitions(ts);
     const erd = DevOpsEngine.generateMermaidERD(s);
     setMermaidErd(erd);
+    if (fileName) setUploadedFileName(fileName);
     onLog('devops', `Loaded ${s.dataTypes.length} data types and ${s.optionSets.length} option sets.`, 'success');
+  };
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const json = JSON.parse(event.target?.result as string);
+        loadSchema(json, file.name);
+      } catch (err: any) {
+        onLog('devops', `Failed to parse JSON file: ${err.message}`, 'error');
+        alert('Invalid JSON format. Please upload a valid Bubble export or OpenAPI/Swagger JSON.');
+      }
+    };
+    reader.readAsText(file);
   };
 
   const handleCopyTs = () => {
@@ -153,10 +175,30 @@ export const DevOpsView: React.FC<DevOpsViewProps> = ({ activeProject, onLog }) 
           </button>
         </div>
 
-        <div style={{ display: 'flex', gap: '10px' }}>
-          <button onClick={loadSchema} className="btn btn-secondary btn-sm" title="Refresh Schema">
+        <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+          <input
+            type="file"
+            ref={fileInputRef}
+            accept=".json"
+            style={{ display: 'none' }}
+            onChange={handleFileUpload}
+          />
+          {uploadedFileName && (
+            <span className="badge badge-cyan" style={{ fontSize: '0.725rem' }}>
+              <FileCode size={11} /> {uploadedFileName}
+            </span>
+          )}
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            className="btn btn-secondary btn-sm"
+            title="Upload your Bubble App export JSON or Swagger OpenAPI file"
+          >
+            <Upload size={14} />
+            <span>Upload Schema JSON</span>
+          </button>
+          <button onClick={() => loadSchema()} className="btn btn-secondary btn-sm" title="Refresh Live Schema from Bubble Data API">
             <RefreshCw size={14} />
-            <span>Refresh</span>
+            <span>Fetch Live API</span>
           </button>
           <button onClick={handleRunBackup} disabled={isBackingUp} className="btn btn-primary btn-sm">
             <HardDriveDownload size={14} />
