@@ -419,6 +419,8 @@ export const AiProvidersConfigurator: React.FC<AiProvidersConfiguratorProps> = (
             const isSelected = provider.id === selectedProviderId;
             const Icon = provider.icon;
             const hasKey = Boolean(settings[provider.keyName]) || provider.id === 'ollama';
+            const isProviderGloballyActive = provider.models.some(m => m.id === settings.defaultAiModel);
+            const activeModelInProvider = provider.models.find(m => m.id === settings.defaultAiModel);
 
             return (
               <div
@@ -454,15 +456,19 @@ export const AiProvidersConfigurator: React.FC<AiProvidersConfiguratorProps> = (
                       {provider.name}
                     </div>
                     <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
-                      {provider.badge}
+                      {isProviderGloballyActive ? `Active: ${activeModelInProvider?.name}` : provider.badge}
                     </div>
                   </div>
                 </div>
 
                 <div>
-                  {hasKey ? (
+                  {isProviderGloballyActive ? (
                     <span className="badge badge-emerald" style={{ fontSize: '0.65rem' }}>
-                      <CheckCircle2 size={10} /> Active
+                      <Check size={10} /> Active
+                    </span>
+                  ) : hasKey ? (
+                    <span className="badge badge-cyan" style={{ fontSize: '0.65rem' }}>
+                      Key Set
                     </span>
                   ) : (
                     <span className="badge" style={{ fontSize: '0.65rem', background: 'rgba(255,255,255,0.05)', color: 'var(--text-muted)' }}>
@@ -542,13 +548,20 @@ export const AiProvidersConfigurator: React.FC<AiProvidersConfiguratorProps> = (
               AVAILABLE LLMs FOR {currentProvider.name.toUpperCase()} ({currentProvider.models.length} MODELS)
             </div>
             <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-              Click any model to set it as your default AI translation engine
+              Select a model from {currentProvider.name} to use as default translation engine
             </div>
           </div>
 
-          <span className="badge badge-indigo">
-            Active Default: <strong>{settings.defaultAiModel}</strong>
-          </span>
+          {currentProvider.models.find(m => m.id === settings.defaultAiModel) ? (
+            <span className="badge badge-emerald" style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+              <Check size={12} />
+              <span>Active Model: <strong>{currentProvider.models.find(m => m.id === settings.defaultAiModel)?.name}</strong></span>
+            </span>
+          ) : (
+            <span className="badge" style={{ background: 'rgba(255,255,255,0.06)', color: 'var(--text-muted)' }}>
+              Default for {currentProvider.name}: <strong>{currentProvider.models[0]?.name}</strong>
+            </span>
+          )}
         </div>
 
         {/* Models Grid */}
