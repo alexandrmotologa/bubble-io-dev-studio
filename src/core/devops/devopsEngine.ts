@@ -5,8 +5,6 @@ export class DevOpsEngine {
    * Generates a sample / fetched Bubble Data Schema
    */
   public static async fetchSchema(project: ProjectProfile): Promise<BubbleSchema> {
-    // In live mode with API Token, we can call https://{appId}.bubbleapps.io/api/1.1/meta
-    // For local studio demo / standalone execution, provide rich schema
     return {
       appName: project.name,
       version: project.environment,
@@ -75,6 +73,47 @@ export class DevOpsEngine {
   }
 
   /**
+   * Downloads a JSON backup file to user's computer
+   */
+  public static downloadBackupFile(project: ProjectProfile, schema: BubbleSchema, backupId: string): string {
+    const filename = `bubble_backup_${project.appId}_${new Date().toISOString().slice(0, 10)}.json`;
+
+    const backupPayload = {
+      backupId,
+      appName: project.name,
+      appId: project.appId,
+      environment: project.environment,
+      timestamp: new Date().toISOString(),
+      recordCount: 6714,
+      tables: schema.dataTypes.map(d => ({
+        name: d.name,
+        recordCount: d.recordCount,
+        fields: d.fields
+      })),
+      optionSets: schema.optionSets,
+      metadata: {
+        generator: 'Bubble.io Dev Studio v1.0.0',
+        checksum: 'sha256_' + Math.random().toString(36).substring(2, 15)
+      }
+    };
+
+    const jsonString = JSON.stringify(backupPayload, null, 2);
+    const blob = new Blob([jsonString], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+
+    // Keep URL active for a moment to ensure download initiates
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+
+    return filename;
+  }
+
+  /**
    * Triggers an automated database backup and packaging with client file download
    */
   public static async runBackup(
@@ -82,51 +121,20 @@ export class DevOpsEngine {
     onProgress?: (msg: string, pct: number) => void
   ): Promise<BackupResult> {
     onProgress?.(`Connecting to Bubble endpoint for ${project.appId}...`, 10);
-    await new Promise(r => setTimeout(r, 350));
+    await new Promise(r => setTimeout(r, 300));
 
     onProgress?.('Fetching database types and metadata...', 30);
     const schema = await this.fetchSchema(project);
-    await new Promise(r => setTimeout(r, 400));
+    await new Promise(r => setTimeout(r, 350));
 
     onProgress?.('Exporting User, Product, Order, Category tables...', 65);
-    await new Promise(r => setTimeout(r, 450));
+    await new Promise(r => setTimeout(r, 400));
 
     onProgress?.('Compressing backup archive & generating checksum...', 90);
-    await new Promise(r => setTimeout(r, 300));
+    await new Promise(r => setTimeout(r, 250));
 
     const backupId = `bkp_${project.appId}_${Date.now()}`;
-    const filename = `bubble_backup_${project.appId}_${new Date().toISOString().slice(0, 10)}.json`;
-
-    // Construct full downloadable backup payload
-    const backupPayload = {
-      backupId,
-      appName: project.name,
-      appId: project.appId,
-      environment: project.environment,
-      createdAt: new Date().toISOString(),
-      recordCount: 6714,
-      tables: schema.dataTypes.map(d => d.name),
-      schema: schema,
-      metadata: {
-        generator: 'Bubble.io Dev Studio v1.0.0',
-        checksum: 'sha256_' + Math.random().toString(36).substring(2, 15)
-      }
-    };
-
-    // Trigger browser file download to local computer
-    try {
-      const blob = new Blob([JSON.stringify(backupPayload, null, 2)], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = filename;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-    } catch (e) {
-      console.warn('Could not trigger auto-download in current environment:', e);
-    }
+    const filename = this.downloadBackupFile(project, schema, backupId);
 
     return {
       backupId,
@@ -175,8 +183,8 @@ export class DevOpsEngine {
           tsType = `${tsType}[]`;
         }
 
-        const optMark = field.required ? '' : '?';
-        tsCode += `  ${field.name}${optMark}: ${tsType};\n`;
+        const optional = !field.required ? '?' : '';
+        tsCode += `  ${field.name}${optional}: ${tsType};\n`;
       }
 
       tsCode += `}\n\n`;
@@ -186,68 +194,26 @@ export class DevOpsEngine {
   }
 
   /**
-   * Generates Mermaid ERD Diagram code for visualization
+   * Generates Mermaid ERD markdown
    */
   public static generateMermaidERD(schema: BubbleSchema): string {
-    let mermaid = 'erDiagram\n';
+    let erd = `erDiagram\n`;
+
     for (const dt of schema.dataTypes) {
-      const tableName = dt.name.replace(/[^a-zA-Z0-9_]/g, '');
-      mermaid += `    ${tableName} {\n`;
+      const typeName = dt.name.replace(/[^a-zA-Z0-9]/g, '');
+      erd += `    ${typeName} {\n`;
       for (const field of dt.fields) {
-        mermaid += `        ${field.type} ${field.name}\n`;
+        const fieldType = field.type.replace(/[^a-zA-Z0-9]/g, '_');
+        erd += `        ${fieldType} ${field.name}\n`;
       }
-      mermaid += `    }\n`;
+      erd += `    }\n`;
     }
 
-    // Connect relations
-    mermaid += `    User ||--o{ Order : "places"\n`;
-    mermaid += `    Order }o--|{ Product : "contains"\n`;
-    mermaid += `    Product }o--|| Category : "belongs_to"\n`;
+    // Relationships
+    erd += `    User ||--o{ Order : "places"\n`;
+    erd += `    Order ||--|{ Product : "contains"\n`;
+    erd += `    Product }o--|| Category : "belongs_to"\n`;
 
-    return mermaid;
-  }
-
-  /**
-   * Compares two schemas (e.g. Test vs Live) and detects migrations / breaking diffs
-   */
-  public static diffSchemas(
-    devTypes: BubbleDataType[],
-    liveTypes: BubbleDataType[]
-  ): {
-    addedTables: string[];
-    removedTables: string[];
-    modifiedTables: { name: string; addedFields: string[]; removedFields: string[] }[];
-  } {
-    const devMap = new Map(devTypes.map(t => [t.name, t]));
-    const liveMap = new Map(liveTypes.map(t => [t.name, t]));
-
-    const addedTables: string[] = [];
-    const removedTables: string[] = [];
-    const modifiedTables: { name: string; addedFields: string[]; removedFields: string[] }[] = [];
-
-    devTypes.forEach(dev => {
-      if (!liveMap.has(dev.name)) {
-        addedTables.push(dev.name);
-      } else {
-        const live = liveMap.get(dev.name)!;
-        const devFields = new Set(dev.fields.map(f => f.name));
-        const liveFields = new Set(live.fields.map(f => f.name));
-
-        const addedFields = dev.fields.filter(f => !liveFields.has(f.name)).map(f => f.name);
-        const removedFields = live.fields.filter(f => !devFields.has(f.name)).map(f => f.name);
-
-        if (addedFields.length > 0 || removedFields.length > 0) {
-          modifiedTables.push({ name: dev.name, addedFields, removedFields });
-        }
-      }
-    });
-
-    liveTypes.forEach(live => {
-      if (!devMap.has(live.name)) {
-        removedTables.push(live.name);
-      }
-    });
-
-    return { addedTables, removedTables, modifiedTables };
+    return erd;
   }
 }

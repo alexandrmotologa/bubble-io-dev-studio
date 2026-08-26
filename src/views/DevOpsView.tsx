@@ -362,9 +362,18 @@ export const DevOpsView: React.FC<DevOpsViewProps> = ({ activeProject, onLog }) 
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                     <span className="badge badge-emerald">{(b.fileSizeKb / 1024).toFixed(2)} MB</span>
-                    <button className="btn btn-secondary btn-sm" onClick={() => onLog('devops', `Downloaded ${b.filePath}`, 'success')}>
+                    <button 
+                      className="btn btn-secondary btn-sm" 
+                      onClick={async () => {
+                        if (activeProject && schema) {
+                          const filename = DevOpsEngine.downloadBackupFile(activeProject, schema, b.backupId);
+                          onLog('devops', `Downloaded backup file: ${filename}`, 'success');
+                        }
+                      }}
+                      title="Download JSON backup file"
+                    >
                       <HardDriveDownload size={14} />
-                      <span>Download</span>
+                      <span>Download JSON</span>
                     </button>
                   </div>
                 </div>
