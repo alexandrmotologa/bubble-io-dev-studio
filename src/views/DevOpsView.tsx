@@ -55,6 +55,7 @@ export const DevOpsView: React.FC<DevOpsViewProps> = ({ activeProject, onUpdateP
       setSchemaError(null);
       setUploadedFileName(null);
       setInputApiToken(activeProject.apiToken || '');
+      setBackupsList(DevOpsEngine.getPersistedBackups(activeProject.id));
       loadSchema();
     }
   }, [activeProject?.id]);
