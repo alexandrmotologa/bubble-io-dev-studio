@@ -53,11 +53,16 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   };
 
   const handleAddProject = () => {
-    if (!newProjName.trim() || !newProjAppId.trim()) return;
+    const cleanAppId = newProjAppId.trim().toLowerCase()
+      .replace(/^https?:\/\//, '')
+      .replace(/\.bubbleapps\.io.*$/, '')
+      .replace(/[\/\s]+/g, '-');
+
+    if (!newProjName.trim() || !cleanAppId) return;
     const newProj: ProjectProfile = {
       id: `proj_${Date.now()}`,
       name: newProjName.trim(),
-      appId: newProjAppId.trim().toLowerCase().replace(/\s+/g, '-'),
+      appId: cleanAppId,
       environment: newProjEnv,
       apiToken: newProjApiToken.trim() || undefined,
       isDemo: false,
