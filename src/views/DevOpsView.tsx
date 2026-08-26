@@ -9,10 +9,13 @@ import {
   Layers, 
   Table, 
   ExternalLink,
-  RefreshCw
+  RefreshCw,
+  Sparkles,
+  Info
 } from 'lucide-react';
 import { BackupResult, BubbleSchema, ProjectProfile } from '../types';
 import { DevOpsEngine } from '../core/devops/devopsEngine';
+import { GuideBanner } from '../components/GuideBanner';
 
 interface DevOpsViewProps {
   activeProject?: ProjectProfile;
@@ -77,8 +80,34 @@ export const DevOpsView: React.FC<DevOpsViewProps> = ({ activeProject, onLog }) 
     }
   };
 
+  const guideSteps = [
+    {
+      title: 'Enable Bubble Data API',
+      desc: 'In your Bubble.io editor, go to Settings > API and check "Enable Data API" for the tables you want to inspect.',
+      bubbleLocation: 'Bubble Editor > Settings > API'
+    },
+    {
+      title: 'Generate API Token',
+      desc: 'Create an API token in Bubble API Settings and paste it under "Settings & Keys" in this studio.',
+      bubbleLocation: 'Bubble Editor > Settings > API > API Tokens'
+    },
+    {
+      title: 'Inspect & Export Types',
+      desc: 'Use the TypeScript Definitions tab to copy strongly-typed interfaces directly into your external code or plugins.',
+      bubbleLocation: 'Studio > TypeScript Definitions > Copy'
+    }
+  ];
+
   return (
     <div className="view-container">
+      {/* Interactive In-App Guide Banner */}
+      <GuideBanner
+        moduleName="DevOps & Schema Studio"
+        summary="Automate Bubble database backups, export type-safe TypeScript interfaces, and visualize entity relationships."
+        steps={guideSteps}
+        bubbleDocUrl="https://manual.bubble.io/core-resources/api/data-api"
+      />
+
       {/* Sub Navigation Bar */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
         <div style={{ display: 'flex', gap: '8px', background: 'var(--bg-input)', padding: '4px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-subtle)' }}>

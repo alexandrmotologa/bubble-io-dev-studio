@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { 
   Languages, 
   Sparkles, 
@@ -9,16 +9,20 @@ import {
   Clock, 
   BookOpen,
   ArrowRight,
-  Play
+  Play,
+  FileSpreadsheet,
+  Key
 } from 'lucide-react';
-import { TranslationItem, TranslationJobConfig } from '../types';
+import { GlobalSettings, TranslationItem, TranslationJobConfig } from '../types';
 import { TranslatorEngine } from '../core/translator/translatorEngine';
+import { GuideBanner } from '../components/GuideBanner';
 
 interface TranslatorViewProps {
+  settings?: GlobalSettings;
   onLog: (module: 'translator', message: string, level?: 'info' | 'success' | 'warn' | 'error') => void;
 }
 
-export const TranslatorView: React.FC<TranslatorViewProps> = ({ onLog }) => {
+export const TranslatorView: React.FC<TranslatorViewProps> = ({ settings, onLog }) => {
   const [items, setItems] = useState<TranslationItem[]>(TranslatorEngine.getSampleItems());
   const [sourceLang, setSourceLang] = useState('English');
   const [targetLang, setTargetLang] = useState('ro');
@@ -33,11 +37,17 @@ export const TranslatorView: React.FC<TranslatorViewProps> = ({ onLog }) => {
   });
   const [newSourceText, setNewSourceText] = useState('');
   const [newKey, setNewKey] = useState('');
+  const [uploadedFileName, setUploadedFileName] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const hasApiKey = Boolean(settings?.openaiApiKey || settings?.geminiApiKey || settings?.anthropicApiKey);
 
   const handleRunTranslation = async () => {
     if (isTranslating || items.length === 0) return;
     setIsTranslating(true);
     setProgress({ current: 0, total: items.length });
+
+    const key = provider === 'openai' ? settings?.openaiApiKey : undefined;
     onLog('translator', `Starting AI batch translation to ${targetLang.toUpperCase()} using ${provider.toUpperCase()} (${model})...`);
 
     const config: TranslationJobConfig = {
@@ -52,7 +62,7 @@ export const TranslatorView: React.FC<TranslatorViewProps> = ({ onLog }) => {
     };
 
     try {
-      const result = await TranslatorEngine.runTranslation(items, config, (cur, tot) => {
+      const result = await TranslatorEngine.runTranslation(items, config, key, (cur, tot) => {
         setProgress({ current: cur, total: tot });
         onLog('translator', `Translated item ${cur}/${tot}...`);
       });
@@ -64,6 +74,29 @@ export const TranslatorView: React.FC<TranslatorViewProps> = ({ onLog }) => {
     } finally {
       setIsTranslating(false);
     }
+  };
+
+  const handleCsvUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const text = event.target?.result as string;
+        const parsed = TranslatorEngine.parseBubbleCsv(text);
+        if (parsed.length > 0) {
+          setItems(parsed);
+          setUploadedFileName(file.name);
+          onLog('translator', `Successfully imported ${parsed.length} strings from ${file.name}.`, 'success');
+        } else {
+          alert('Could not parse any strings from CSV. Please check formatting.');
+        }
+      } catch (err: any) {
+        onLog('translator', `CSV parse error: ${err.message}`, 'error');
+      }
+    };
+    reader.readAsText(file);
   };
 
   const handleExportCsv = () => {
@@ -96,26 +129,80 @@ export const TranslatorView: React.FC<TranslatorViewProps> = ({ onLog }) => {
     setItems(items.map(item => item.id === id ? { ...item, translatedText: text, status: 'reviewed' } : item));
   };
 
+  const guideSteps = [
+    {
+      title: 'Export CSV from Bubble',
+      desc: 'In Bubble Editor, go to Settings > Languages and click "Export application text as CSV".',
+      bubbleLocation: 'Bubble Editor > Settings > Languages'
+    },
+    {
+      title: 'Import & Batch Translate',
+      desc: 'Upload your CSV here, select your desired language and tone, and click "Translate with AI".',
+      bubbleLocation: 'Studio > Upload Bubble CSV > Translate'
+    },
+    {
+      title: 'Import back to Bubble',
+      desc: 'Export the translated CSV and import it into Bubble Languages to instantly localize your entire app.',
+      bubbleLocation: 'Bubble Editor > Settings > Languages > Import'
+    }
+  ];
+
   return (
     <div className="view-container">
+      {/* Interactive In-App Guide Banner */}
+      <GuideBanner
+        moduleName="AI Localization Studio"
+        summary="Translate your entire Bubble.io application into any language while preserving formatting tokens, variables, and brand terms."
+        steps={guideSteps}
+        bubbleDocUrl="https://manual.bubble.io/help-guides/design/multi-language"
+      />
+
       {/* Top Configuration Card */}
       <div className="card">
         <div className="card-header">
           <div>
-            <div className="card-title">
-              <Languages size={20} color="var(--accent-cyan)" />
-              <span>AI Localization Studio & Engine</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <div className="card-title">
+                <Languages size={20} color="var(--accent-cyan)" />
+                <span>AI Localization Studio & Engine</span>
+              </div>
+              {hasApiKey ? (
+                <span className="badge badge-emerald">
+                  <CheckCircle2 size={11} /> Live AI API Connected
+                </span>
+              ) : (
+                <span className="badge badge-amber">
+                  <Key size={11} /> Sandbox Local Mode
+                </span>
+              )}
             </div>
             <div className="card-subtitle">
               Batch translate all Bubble.io app texts with context-aware AI models & glossaries
             </div>
           </div>
 
-          <div style={{ display: 'flex', gap: '12px' }}>
+          <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+            <input
+              type="file"
+              ref={fileInputRef}
+              accept=".csv"
+              style={{ display: 'none' }}
+              onChange={handleCsvUpload}
+            />
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              className="btn btn-secondary btn-sm"
+              title="Upload your Bubble.io App Text CSV export"
+            >
+              <Upload size={14} />
+              <span>Upload Bubble CSV</span>
+            </button>
+
             <button onClick={handleExportCsv} className="btn btn-secondary btn-sm">
               <Download size={14} />
               <span>Export Bubble CSV</span>
             </button>
+
             <button 
               onClick={handleRunTranslation} 
               disabled={isTranslating} 
@@ -155,7 +242,7 @@ export const TranslatorView: React.FC<TranslatorViewProps> = ({ onLog }) => {
               <option value="openai">OpenAI</option>
               <option value="anthropic">Anthropic Claude</option>
               <option value="gemini">Google Gemini</option>
-              <option value="mock">Offline / Local Engine</option>
+              <option value="mock">Offline / Local Sandbox</option>
             </select>
           </div>
 
@@ -223,8 +310,15 @@ export const TranslatorView: React.FC<TranslatorViewProps> = ({ onLog }) => {
       <div className="card">
         <div className="card-header">
           <div>
-            <div className="card-title">
-              <span>App Texts & Live Translations ({items.length})</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <div className="card-title">
+                <span>App Texts & Live Translations ({items.length})</span>
+              </div>
+              {uploadedFileName && (
+                <span className="badge badge-cyan" style={{ fontSize: '0.7rem' }}>
+                  <FileSpreadsheet size={11} /> {uploadedFileName}
+                </span>
+              )}
             </div>
             <div className="card-subtitle">
               Edit translations directly or batch update with the selected AI model

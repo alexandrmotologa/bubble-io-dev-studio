@@ -10,7 +10,9 @@ import {
   ArrowRight, 
   ShieldCheck, 
   HardDriveDownload,
-  Sparkles
+  Sparkles,
+  Check,
+  BookOpen
 } from 'lucide-react';
 import { NavigationTab, ProjectProfile } from '../types';
 
@@ -76,6 +78,40 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               <Stethoscope size={16} />
               <span>{isAuditing ? 'Auditing...' : 'Run Audit'}</span>
             </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Quick Start Guide Card */}
+      <div className="card" style={{ padding: '18px 24px', background: 'rgba(255, 255, 255, 0.02)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <BookOpen size={18} color="var(--primary)" />
+            <h3 style={{ fontSize: '1rem', fontWeight: 800 }}>Quick Start: Master Your Bubble App in 3 Steps</h3>
+          </div>
+          <span className="badge badge-emerald">Ready for Development</span>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '16px' }}>
+          <div style={{ padding: '12px 14px', background: 'var(--bg-input)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-subtle)' }}>
+            <strong style={{ color: 'var(--accent-cyan)', fontSize: '0.85rem' }}>1. Check App Health</strong>
+            <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
+              Run a Dead Code Scan to find orphaned elements and unused workflows. Follow the interactive fix guides.
+            </p>
+          </div>
+
+          <div style={{ padding: '12px 14px', background: 'var(--bg-input)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-subtle)' }}>
+            <strong style={{ color: 'var(--accent-emerald)', fontSize: '0.85rem' }}>2. Export Types & Backups</strong>
+            <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
+              In DevOps & Schema, trigger an automated database backup and generate TypeScript types for external APIs.
+            </p>
+          </div>
+
+          <div style={{ padding: '12px 14px', background: 'var(--bg-input)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-subtle)' }}>
+            <strong style={{ color: 'var(--accent-amber)', fontSize: '0.85rem' }}>3. Translate & Visual QA</strong>
+            <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
+              Batch translate app texts with AI models, and run regression tests before pushing to Live.
+            </p>
           </div>
         </div>
       </div>

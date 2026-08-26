@@ -161,6 +161,7 @@ export const App: React.FC = () => {
 
         {currentTab === 'translator' && (
           <TranslatorView
+            settings={settings}
             onLog={addLog}
           />
         )}

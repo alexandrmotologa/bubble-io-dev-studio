@@ -46,17 +46,57 @@ export class TranslatorEngine {
   }
 
   /**
+   * Translates a single text using real OpenAI API if API key is provided
+   */
+  private static async callOpenAiApi(
+    text: string,
+    targetLang: string,
+    apiKey: string,
+    model: string = 'gpt-4o',
+    tone: string = 'professional'
+  ): Promise<string> {
+    const prompt = `You are a professional localization expert for web applications.
+Translate the following English user interface string into ${targetLang}.
+Tone: ${tone}.
+Keep any bracketed tokens (like [amount], [user_name], {variable}) exactly as they are.
+Respond ONLY with the translated text, no explanations, no quotes.
+
+String: "${text}"`;
+
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`
+      },
+      body: JSON.stringify({
+        model,
+        messages: [{ role: 'user', content: prompt }],
+        temperature: 0.3
+      })
+    });
+
+    if (!response.ok) {
+      const err = await response.text();
+      throw new Error(`OpenAI API error (${response.status}): ${err}`);
+    }
+
+    const data = await response.json();
+    return data.choices[0]?.message?.content?.trim() || text;
+  }
+
+  /**
    * Executes AI translation job with glossary support and token preservation
    */
   public static async runTranslation(
     items: TranslationItem[],
     config: TranslationJobConfig,
+    apiKey?: string,
     onProgress?: (index: number, total: number) => void
   ): Promise<TranslationJobResult> {
     const translatedItems: TranslationItem[] = [];
     let totalTokens = 0;
 
-    // Dictionary of mock translations for demo/offline and AI fallback
     const dictionary: Record<string, Record<string, string>> = {
       ro: {
         'Welcome back to your workspace overview': 'Bine ai revenit în panoul de control al spațiului tău de lucru',
@@ -69,7 +109,7 @@ export class TranslatorEngine {
         'Welcome back to your workspace overview': 'Bienvenue dans votre aperçu d\'espace de travail',
         'Upgrade to Pro to unlock unlimited team members': 'Passez à Pro pour débloquer un nombre illimité de membres',
         'Invalid email address or password provided. Please check your credentials.': 'Adresse e-mail ou mot de passe invalide. Veuillez vérifier vos identifiants.',
-        'Your payment of [amount] has been successfully processed.': 'Votre paiement de [amount] a été traité avec succès.',
+        'Your payment of [amount] has been processed.': 'Votre paiement a été traité.',
         'Are you sure you want to permanently delete this project? This action cannot be undone.': 'Êtes-vous sûr de vouloir supprimer définitivement ce projet ? Cette action est irréversible.'
       },
       es: {
@@ -90,16 +130,20 @@ export class TranslatorEngine {
 
     for (let i = 0; i < items.length; i++) {
       const item = items[i];
-      await new Promise(r => setTimeout(r, 220));
-
       let resultText = '';
-      const targetLang = config.targetLang.toLowerCase();
 
-      if (dictionary[targetLang] && dictionary[targetLang][item.sourceText]) {
-        resultText = dictionary[targetLang][item.sourceText];
+      if (apiKey && config.provider === 'openai') {
+        try {
+          resultText = await this.callOpenAiApi(item.sourceText, config.targetLang, apiKey, config.model, config.tone);
+        } catch (e) {
+          console.warn('Fallback to local engine for string:', item.sourceText, e);
+          const target = config.targetLang.toLowerCase();
+          resultText = dictionary[target]?.[item.sourceText] || `[${config.targetLang.toUpperCase()}] ${item.sourceText}`;
+        }
       } else {
-        // AI translation approximation with prefix
-        resultText = `[${config.targetLang.toUpperCase()}] ${item.sourceText}`;
+        await new Promise(r => setTimeout(r, 180));
+        const target = config.targetLang.toLowerCase();
+        resultText = dictionary[target]?.[item.sourceText] || `[${config.targetLang.toUpperCase()}] ${item.sourceText}`;
       }
 
       // Apply glossary overrides if present
@@ -156,9 +200,9 @@ export class TranslatorEngine {
     const parsed = Papa.parse<any>(csvString, { header: true, skipEmptyLines: true });
     return parsed.data.map((row, idx) => ({
       id: `imported_${idx}_${Date.now()}`,
-      key: row['App Text ID'] || row['Key'] || `key_${idx}`,
-      sourceText: row['Source Text'] || row['Text'] || row['English'] || '',
-      translatedText: row['Translation'] || undefined,
+      key: row['App Text ID'] || row['Key'] || row['Identifier'] || `key_${idx}`,
+      sourceText: row['Source Text'] || row['Text'] || row['English'] || row['Default Text'] || '',
+      translatedText: row['Translation'] || row[`Translation (${row['Language'] || 'RO'})`] || undefined,
       category: (row['Category'] as any) || 'ui',
       status: row['Translation'] ? 'translated' : 'pending'
     }));
