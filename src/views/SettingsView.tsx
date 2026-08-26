@@ -9,7 +9,9 @@ import {
   Check, 
   Sparkles,
   Layers,
-  Palette
+  Palette,
+  Zap,
+  Server
 } from 'lucide-react';
 import { GlobalSettings, ProjectProfile, ThemeMode } from '../types';
 
@@ -34,7 +36,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     onSaveSettings(formData);
     setSavedSuccess(true);
     setTimeout(() => setSavedSuccess(false), 2500);
-    onLog('system', 'Settings and API credentials updated successfully.', 'success');
+    onLog('system', 'Settings, Groq & Local Llama credentials updated successfully.', 'success');
   };
 
   const handleAddProject = () => {
@@ -74,9 +76,9 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       {/* Save bar */}
       <div className="card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 24px' }}>
         <div>
-          <h2 style={{ fontSize: '1.15rem', fontWeight: 800 }}>Workspace Settings & API Keys</h2>
+          <h2 style={{ fontSize: '1.15rem', fontWeight: 800 }}>Workspace Settings & AI API Keys</h2>
           <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-            Configure your Bubble API tokens, AI model credentials, and studio preferences
+            Configure your Groq Console, Local Llama (Ollama), OpenAI, Bubble tokens, and preferences
           </p>
         </div>
 
@@ -93,13 +95,47 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             <div>
               <div className="card-title">
                 <Key size={18} color="var(--accent-cyan)" />
-                <span>AI Localization API Keys</span>
+                <span>AI Providers (Cloud & Local)</span>
               </div>
-              <div className="card-subtitle">Stored securely in your local desktop environment</div>
+              <div className="card-subtitle">Stored securely and locally on your machine</div>
             </div>
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            {/* Groq Console Key */}
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px' }}>
+                <Zap size={14} color="var(--accent-amber)" />
+                <label className="input-label" style={{ marginBottom: 0 }}>Groq API Key (Llama 3.3 70B - Ultra Fast)</label>
+              </div>
+              <input
+                type="password"
+                placeholder="gsk_..."
+                value={formData.groqApiKey || ''}
+                onChange={(e) => setFormData({ ...formData, groqApiKey: e.target.value })}
+                className="input"
+              />
+            </div>
+
+            {/* Local Llama / Ollama Endpoint */}
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px' }}>
+                <Server size={14} color="var(--accent-cyan)" />
+                <label className="input-label" style={{ marginBottom: 0 }}>Local Llama / Ollama Endpoint (Offline & Free)</label>
+              </div>
+              <input
+                type="text"
+                placeholder="http://localhost:11434/v1"
+                value={formData.ollamaEndpoint || ''}
+                onChange={(e) => setFormData({ ...formData, ollamaEndpoint: e.target.value })}
+                className="input"
+              />
+              <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '4px', display: 'block' }}>
+                Works with Ollama, LM Studio, LocalAI or llama.cpp OpenAI-compatible servers.
+              </span>
+            </div>
+
+            {/* OpenAI Key */}
             <div>
               <label className="input-label">OpenAI API Key (GPT-4o)</label>
               <input
@@ -111,8 +147,9 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               />
             </div>
 
+            {/* Anthropic Key */}
             <div>
-              <label className="input-label">Anthropic API Key (Claude 3.5)</label>
+              <label className="input-label">Anthropic API Key (Claude 3.5 Sonnet)</label>
               <input
                 type="password"
                 placeholder="sk-ant-..."
@@ -122,6 +159,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               />
             </div>
 
+            {/* Gemini Key */}
             <div>
               <label className="input-label">Google Gemini API Key</label>
               <input
@@ -167,9 +205,11 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 onChange={(e) => setFormData({ ...formData, defaultAiModel: e.target.value })}
                 className="select"
               >
-                <option value="gpt-4o">GPT-4o</option>
-                <option value="claude-3-5-sonnet">Claude 3.5 Sonnet</option>
-                <option value="gemini-1.5-pro">Gemini 1.5 Pro</option>
+                <option value="llama-3.3-70b-versatile">Groq: Llama 3.3 70B (Ultra-Fast)</option>
+                <option value="llama3.2">Local: Llama 3.2 (Ollama)</option>
+                <option value="gpt-4o">OpenAI: GPT-4o</option>
+                <option value="claude-3-5-sonnet">Anthropic: Claude 3.5 Sonnet</option>
+                <option value="gemini-1.5-pro">Google: Gemini 1.5 Pro</option>
               </select>
             </div>
 

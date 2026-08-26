@@ -25,6 +25,9 @@ export interface GlobalSettings {
   openaiApiKey?: string;
   anthropicApiKey?: string;
   geminiApiKey?: string;
+  groqApiKey?: string;
+  ollamaEndpoint?: string;
+  ollamaModel?: string;
   defaultAiModel: string;
   autoSaveReports: boolean;
   projects: ProjectProfile[];
@@ -113,12 +116,13 @@ export interface TranslationItem {
 export interface TranslationJobConfig {
   sourceLang: string;
   targetLang: string;
-  provider: 'openai' | 'anthropic' | 'gemini' | 'mock';
+  provider: 'openai' | 'anthropic' | 'gemini' | 'groq' | 'ollama' | 'mock';
   model: string;
   temperature: number;
   tone: 'professional' | 'casual' | 'formal' | 'concise';
   useGlossary: boolean;
   glossary?: Record<string, string>;
+  customEndpoint?: string;
 }
 
 export interface TranslationJobResult {

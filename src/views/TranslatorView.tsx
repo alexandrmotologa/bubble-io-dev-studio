@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { 
   Languages, 
   Sparkles, 
@@ -7,9 +7,8 @@ import {
   Plus, 
   CheckCircle2, 
   Clock, 
-  BookOpen,
-  ArrowRight,
-  Play,
+  Zap,
+  Server,
   FileSpreadsheet,
   Key
 } from 'lucide-react';
@@ -26,8 +25,8 @@ export const TranslatorView: React.FC<TranslatorViewProps> = ({ settings, onLog 
   const [items, setItems] = useState<TranslationItem[]>(TranslatorEngine.getSampleItems());
   const [sourceLang, setSourceLang] = useState('English');
   const [targetLang, setTargetLang] = useState('ro');
-  const [provider, setProvider] = useState<'openai' | 'anthropic' | 'gemini' | 'mock'>('openai');
-  const [model, setModel] = useState('gpt-4o');
+  const [provider, setProvider] = useState<'openai' | 'groq' | 'ollama' | 'anthropic' | 'gemini' | 'mock'>('groq');
+  const [model, setModel] = useState('llama-3.3-70b-versatile');
   const [tone, setTone] = useState<'professional' | 'casual' | 'formal' | 'concise'>('professional');
   const [isTranslating, setIsTranslating] = useState(false);
   const [progress, setProgress] = useState<{ current: number; total: number }>({ current: 0, total: 0 });
@@ -40,32 +39,58 @@ export const TranslatorView: React.FC<TranslatorViewProps> = ({ settings, onLog 
   const [uploadedFileName, setUploadedFileName] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const hasApiKey = Boolean(settings?.openaiApiKey || settings?.geminiApiKey || settings?.anthropicApiKey);
+  // Update default model when provider changes
+  useEffect(() => {
+    if (provider === 'groq') {
+      setModel('llama-3.3-70b-versatile');
+    } else if (provider === 'ollama') {
+      setModel(settings?.ollamaModel || 'llama3.2');
+    } else if (provider === 'openai') {
+      setModel('gpt-4o');
+    } else if (provider === 'anthropic') {
+      setModel('claude-3-5-sonnet');
+    } else if (provider === 'gemini') {
+      setModel('gemini-1.5-pro');
+    }
+  }, [provider, settings]);
+
+  const hasGroqKey = Boolean(settings?.groqApiKey);
+  const hasOpenAiKey = Boolean(settings?.openaiApiKey);
+  const isOllamaSelected = provider === 'ollama';
 
   const handleRunTranslation = async () => {
     if (isTranslating || items.length === 0) return;
     setIsTranslating(true);
     setProgress({ current: 0, total: items.length });
 
-    const key = provider === 'openai' ? settings?.openaiApiKey : undefined;
-    onLog('translator', `Starting AI batch translation to ${targetLang.toUpperCase()} using ${provider.toUpperCase()} (${model})...`);
+    onLog('translator', `Starting AI batch translation to ${targetLang.toUpperCase()} via ${provider.toUpperCase()} (${model})...`);
 
     const config: TranslationJobConfig = {
       sourceLang,
       targetLang,
       provider,
       model,
-      temperature: 0.3,
+      temperature: 0.2,
       tone,
       useGlossary: true,
-      glossary
+      glossary,
+      customEndpoint: settings?.ollamaEndpoint
     };
 
     try {
-      const result = await TranslatorEngine.runTranslation(items, config, key, (cur, tot) => {
-        setProgress({ current: cur, total: tot });
-        onLog('translator', `Translated item ${cur}/${tot}...`);
-      });
+      const result = await TranslatorEngine.runTranslation(
+        items,
+        config,
+        {
+          openai: settings?.openaiApiKey,
+          groq: settings?.groqApiKey,
+          ollamaEndpoint: settings?.ollamaEndpoint
+        },
+        (cur, tot) => {
+          setProgress({ current: cur, total: tot });
+          onLog('translator', `Translated item ${cur}/${tot}...`);
+        }
+      );
 
       setItems(result.items);
       onLog('translator', `Translation job completed! ${result.successCount} items translated (${result.tokensUsed} tokens used).`, 'success');
@@ -136,9 +161,9 @@ export const TranslatorView: React.FC<TranslatorViewProps> = ({ settings, onLog 
       bubbleLocation: 'Bubble Editor > Settings > Languages'
     },
     {
-      title: 'Import & Batch Translate',
-      desc: 'Upload your CSV here, select your desired language and tone, and click "Translate with AI".',
-      bubbleLocation: 'Studio > Upload Bubble CSV > Translate'
+      title: 'Choose AI: Groq, Llama or OpenAI',
+      desc: 'Select Groq (ultra-fast), Local Llama (100% offline & free), or OpenAI, choose tone and click "Translate".',
+      bubbleLocation: 'Studio > AI Provider > Translate with AI'
     },
     {
       title: 'Import back to Bubble',
@@ -151,8 +176,8 @@ export const TranslatorView: React.FC<TranslatorViewProps> = ({ settings, onLog 
     <div className="view-container">
       {/* Interactive In-App Guide Banner */}
       <GuideBanner
-        moduleName="AI Localization Studio"
-        summary="Translate your entire Bubble.io application into any language while preserving formatting tokens, variables, and brand terms."
+        moduleName="AI Localization Studio (Groq & Llama Enabled)"
+        summary="Translate your entire Bubble.io application using Groq Console (Llama 3.3), Local Llama (Ollama), OpenAI, or Claude while preserving Bubble tokens and brand glossaries."
         steps={guideSteps}
         bubbleDocUrl="https://manual.bubble.io/help-guides/design/multi-language"
       />
@@ -164,20 +189,41 @@ export const TranslatorView: React.FC<TranslatorViewProps> = ({ settings, onLog 
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
               <div className="card-title">
                 <Languages size={20} color="var(--accent-cyan)" />
-                <span>AI Localization Studio & Engine</span>
+                <span>AI Localization Studio & Multi-Engine</span>
               </div>
-              {hasApiKey ? (
-                <span className="badge badge-emerald">
-                  <CheckCircle2 size={11} /> Live AI API Connected
+
+              {provider === 'groq' && (
+                hasGroqKey ? (
+                  <span className="badge badge-emerald">
+                    <Zap size={11} /> Groq Cloud (Llama 3.3) Live
+                  </span>
+                ) : (
+                  <span className="badge badge-amber">
+                    <Key size={11} /> Groq Sandbox Mode
+                  </span>
+                )
+              )}
+
+              {provider === 'ollama' && (
+                <span className="badge badge-cyan">
+                  <Server size={11} /> Local Llama (Ollama / Offline)
                 </span>
-              ) : (
-                <span className="badge badge-amber">
-                  <Key size={11} /> Sandbox Local Mode
-                </span>
+              )}
+
+              {provider === 'openai' && (
+                hasOpenAiKey ? (
+                  <span className="badge badge-emerald">
+                    <CheckCircle2 size={11} /> OpenAI API Live
+                  </span>
+                ) : (
+                  <span className="badge badge-amber">
+                    <Key size={11} /> OpenAI Sandbox
+                  </span>
+                )
               )}
             </div>
             <div className="card-subtitle">
-              Batch translate all Bubble.io app texts with context-aware AI models & glossaries
+              Batch translate all Bubble.io app texts with Groq, Local Llama, OpenAI, or Claude
             </div>
           </div>
 
@@ -229,34 +275,49 @@ export const TranslatorView: React.FC<TranslatorViewProps> = ({ settings, onLog 
               <option value="de">German (Deutsch)</option>
               <option value="it">Italian (Italiano)</option>
               <option value="pt">Portuguese (Português)</option>
+              <option value="uk">Ukrainian (Українська)</option>
             </select>
           </div>
 
           <div>
-            <label className="input-label">AI Provider</label>
+            <label className="input-label">AI Engine / Provider</label>
             <select
               value={provider}
               onChange={(e) => setProvider(e.target.value as any)}
               className="select"
             >
-              <option value="openai">OpenAI</option>
-              <option value="anthropic">Anthropic Claude</option>
-              <option value="gemini">Google Gemini</option>
-              <option value="mock">Offline / Local Sandbox</option>
+              <option value="groq">⚡ Groq Console (Llama 3.3 - Fast)</option>
+              <option value="ollama">🖥️ Local Llama (Ollama / Offline)</option>
+              <option value="openai">🤖 OpenAI (GPT-4o)</option>
+              <option value="anthropic">🧠 Anthropic Claude</option>
+              <option value="gemini">✨ Google Gemini</option>
+              <option value="mock">📦 Local Sandbox Engine</option>
             </select>
           </div>
 
           <div>
-            <label className="input-label">Model</label>
-            <select
-              value={model}
-              onChange={(e) => setModel(e.target.value)}
-              className="select"
-            >
-              <option value="gpt-4o">GPT-4o (Multilingual)</option>
-              <option value="claude-3-5-sonnet">Claude 3.5 Sonnet</option>
-              <option value="gemini-1.5-pro">Gemini 1.5 Pro</option>
-            </select>
+            <label className="input-label">AI Model</label>
+            {provider === 'groq' ? (
+              <select value={model} onChange={(e) => setModel(e.target.value)} className="select">
+                <option value="llama-3.3-70b-versatile">Llama 3.3 70B (Recommended)</option>
+                <option value="llama-3.1-8b-instant">Llama 3.1 8B Instant (Ultra-Fast)</option>
+                <option value="mixtral-8x7b-32768">Mixtral 8x7B</option>
+                <option value="gemma2-9b-it">Gemma 2 9B</option>
+              </select>
+            ) : provider === 'ollama' ? (
+              <select value={model} onChange={(e) => setModel(e.target.value)} className="select">
+                <option value="llama3.2">llama3.2 (Default)</option>
+                <option value="llama3.1:8b">llama3.1:8b</option>
+                <option value="mistral">mistral:7b</option>
+                <option value="qwen2.5">qwen2.5:7b</option>
+              </select>
+            ) : (
+              <select value={model} onChange={(e) => setModel(e.target.value)} className="select">
+                <option value="gpt-4o">GPT-4o (Multilingual)</option>
+                <option value="claude-3-5-sonnet">Claude 3.5 Sonnet</option>
+                <option value="gemini-1.5-pro">Gemini 1.5 Pro</option>
+              </select>
+            )}
           </div>
 
           <div>

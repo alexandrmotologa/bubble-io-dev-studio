@@ -46,7 +46,7 @@ export class TranslatorEngine {
   }
 
   /**
-   * Translates a single text using real OpenAI API if API key is provided
+   * Translates a single text using real OpenAI API
    */
   private static async callOpenAiApi(
     text: string,
@@ -86,12 +86,94 @@ String: "${text}"`;
   }
 
   /**
+   * Translates a single text using Groq Console API (Ultra-Fast Llama 3.3 / 3.1)
+   */
+  private static async callGroqApi(
+    text: string,
+    targetLang: string,
+    apiKey: string,
+    model: string = 'llama-3.3-70b-versatile',
+    tone: string = 'professional'
+  ): Promise<string> {
+    const prompt = `You are a professional localization expert for web applications.
+Translate the following English user interface string into ${targetLang}.
+Tone: ${tone}.
+Keep any bracketed tokens (like [amount], [user_name], {variable}) exactly as they are.
+Respond ONLY with the translated text, no explanations, no quotes.
+
+String: "${text}"`;
+
+    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`
+      },
+      body: JSON.stringify({
+        model,
+        messages: [{ role: 'user', content: prompt }],
+        temperature: 0.2
+      })
+    });
+
+    if (!response.ok) {
+      const err = await response.text();
+      throw new Error(`Groq API error (${response.status}): ${err}`);
+    }
+
+    const data = await response.json();
+    return data.choices[0]?.message?.content?.trim() || text;
+  }
+
+  /**
+   * Translates a single text using Local Llama (Ollama / Local OpenAI endpoint)
+   */
+  private static async callLocalLlamaApi(
+    text: string,
+    targetLang: string,
+    endpoint: string = 'http://localhost:11434/v1',
+    model: string = 'llama3.2',
+    tone: string = 'professional'
+  ): Promise<string> {
+    const cleanEndpoint = endpoint.replace(/\/$/, '');
+    const url = cleanEndpoint.endsWith('/chat/completions') ? cleanEndpoint : `${cleanEndpoint}/chat/completions`;
+
+    const prompt = `You are a professional localization expert for web applications.
+Translate the following English user interface string into ${targetLang}.
+Tone: ${tone}.
+Keep any bracketed tokens (like [amount], [user_name], {variable}) exactly as they are.
+Respond ONLY with the translated text, no explanations, no quotes.
+
+String: "${text}"`;
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        model,
+        messages: [{ role: 'user', content: prompt }],
+        temperature: 0.2
+      })
+    });
+
+    if (!response.ok) {
+      const err = await response.text();
+      throw new Error(`Local Llama / Ollama error (${response.status}): ${err}`);
+    }
+
+    const data = await response.json();
+    return data.choices[0]?.message?.content?.trim() || text;
+  }
+
+  /**
    * Executes AI translation job with glossary support and token preservation
    */
   public static async runTranslation(
     items: TranslationItem[],
     config: TranslationJobConfig,
-    apiKey?: string,
+    apiKeys?: { openai?: string; groq?: string; ollamaEndpoint?: string },
     onProgress?: (index: number, total: number) => void
   ): Promise<TranslationJobResult> {
     const translatedItems: TranslationItem[] = [];
@@ -132,16 +214,22 @@ String: "${text}"`;
       const item = items[i];
       let resultText = '';
 
-      if (apiKey && config.provider === 'openai') {
-        try {
-          resultText = await this.callOpenAiApi(item.sourceText, config.targetLang, apiKey, config.model, config.tone);
-        } catch (e) {
-          console.warn('Fallback to local engine for string:', item.sourceText, e);
+      try {
+        if (config.provider === 'groq' && apiKeys?.groq) {
+          resultText = await this.callGroqApi(item.sourceText, config.targetLang, apiKeys.groq, config.model, config.tone);
+        } else if (config.provider === 'ollama') {
+          const endpoint = apiKeys?.ollamaEndpoint || config.customEndpoint || 'http://localhost:11434/v1';
+          resultText = await this.callLocalLlamaApi(item.sourceText, config.targetLang, endpoint, config.model, config.tone);
+        } else if (config.provider === 'openai' && apiKeys?.openai) {
+          resultText = await this.callOpenAiApi(item.sourceText, config.targetLang, apiKeys.openai, config.model, config.tone);
+        } else {
+          // Offline dictionary simulation
+          await new Promise(r => setTimeout(r, 160));
           const target = config.targetLang.toLowerCase();
           resultText = dictionary[target]?.[item.sourceText] || `[${config.targetLang.toUpperCase()}] ${item.sourceText}`;
         }
-      } else {
-        await new Promise(r => setTimeout(r, 180));
+      } catch (e: any) {
+        console.warn(`Translation fallback on item '${item.key}':`, e.message);
         const target = config.targetLang.toLowerCase();
         resultText = dictionary[target]?.[item.sourceText] || `[${config.targetLang.toUpperCase()}] ${item.sourceText}`;
       }
