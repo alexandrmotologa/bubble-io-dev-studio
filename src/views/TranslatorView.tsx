@@ -7,11 +7,13 @@ import {
   Plus, 
   CheckCircle2, 
   Clock, 
-  Zap,
-  Server,
-  FileSpreadsheet,
-  Key,
-  Compass
+  Zap, 
+  Server, 
+  FileSpreadsheet, 
+  Key, 
+  Compass,
+  Edit3,
+  Bot
 } from 'lucide-react';
 import { GlobalSettings, TranslationItem, TranslationJobConfig } from '../types';
 import { TranslatorEngine } from '../core/translator/translatorEngine';
@@ -26,8 +28,8 @@ export const TranslatorView: React.FC<TranslatorViewProps> = ({ settings, onLog 
   const [items, setItems] = useState<TranslationItem[]>(TranslatorEngine.getSampleItems());
   const [sourceLang, setSourceLang] = useState('English');
   const [targetLang, setTargetLang] = useState('ro');
-  const [provider, setProvider] = useState<'openai' | 'groq' | 'opencode' | 'ollama' | 'anthropic' | 'gemini' | 'mock'>('groq');
-  const [model, setModel] = useState('llama-3.3-70b-versatile');
+  const [provider, setProvider] = useState<'openai' | 'groq' | 'opencode' | 'ollama' | 'anthropic' | 'gemini' | 'mock'>('gemini');
+  const [model, setModel] = useState('gemini-3.7-flash');
   const [tone, setTone] = useState<'professional' | 'casual' | 'formal' | 'concise'>('professional');
   const [isTranslating, setIsTranslating] = useState(false);
   const [progress, setProgress] = useState<{ current: number; total: number }>({ current: 0, total: 0 });
@@ -42,31 +44,32 @@ export const TranslatorView: React.FC<TranslatorViewProps> = ({ settings, onLog 
 
   // Update default model when provider changes
   useEffect(() => {
-    if (provider === 'groq') {
+    if (provider === 'gemini') {
+      setModel('gemini-3.7-flash');
+    } else if (provider === 'openai') {
+      setModel('gpt-4.5-preview');
+    } else if (provider === 'groq') {
       setModel('llama-3.3-70b-versatile');
     } else if (provider === 'opencode') {
       setModel('deepseek-v3');
-    } else if (provider === 'ollama') {
-      setModel(settings?.ollamaModel || 'llama3.2');
-    } else if (provider === 'openai') {
-      setModel('gpt-4o');
     } else if (provider === 'anthropic') {
       setModel('claude-3-5-sonnet');
-    } else if (provider === 'gemini') {
-      setModel('gemini-1.5-pro');
+    } else if (provider === 'ollama') {
+      setModel(settings?.ollamaModel || 'llama3.2');
     }
   }, [provider, settings]);
 
   const hasGroqKey = Boolean(settings?.groqApiKey);
   const hasOpenCodeKey = Boolean(settings?.opencodeApiKey);
   const hasOpenAiKey = Boolean(settings?.openaiApiKey);
+  const hasGeminiKey = Boolean(settings?.geminiApiKey);
 
   const handleRunTranslation = async () => {
     if (isTranslating || items.length === 0) return;
     setIsTranslating(true);
     setProgress({ current: 0, total: items.length });
 
-    onLog('translator', `Starting AI batch translation to ${targetLang.toUpperCase()} via ${provider.toUpperCase()} (${model})...`);
+    onLog('translator', `Starting AI batch translation to ${targetLang.toUpperCase()} via ${provider.toUpperCase()} (Model: ${model})...`);
 
     const config: TranslationJobConfig = {
       sourceLang,
@@ -165,9 +168,9 @@ export const TranslatorView: React.FC<TranslatorViewProps> = ({ settings, onLog 
       bubbleLocation: 'Bubble Editor > Settings > Languages'
     },
     {
-      title: 'Choose AI Provider',
-      desc: 'Select Groq (Ultra-Fast), OpenCode Zen/Go (DeepSeek/Qwen), Local Llama, or OpenAI.',
-      bubbleLocation: 'Studio > AI Provider > Translate with AI'
+      title: 'Choose AI Provider & Model',
+      desc: 'Pick Google Gemini (3.7/3.5/3.1), OpenAI (GPT-4.5/o3/o1), Groq (Llama 3.3), or type any manual custom model ID.',
+      bubbleLocation: 'Studio > AI Provider & Manual Model'
     },
     {
       title: 'Import back to Bubble',
@@ -181,7 +184,7 @@ export const TranslatorView: React.FC<TranslatorViewProps> = ({ settings, onLog 
       {/* Interactive In-App Guide Banner */}
       <GuideBanner
         moduleName="AI Localization Studio"
-        summary="Translate your Bubble.io app with Groq (Llama 3.3), OpenCode Zen/Go (DeepSeek/Qwen), Local Llama (Ollama), or OpenAI."
+        summary="Translate your Bubble.io app with Google Gemini (3.7/3.5/3.1), OpenAI (GPT-4.5/o3/o1), Groq (Llama 3.3), or enter any custom model manually."
         steps={guideSteps}
         bubbleDocUrl="https://manual.bubble.io/help-guides/design/multi-language"
       />
@@ -196,10 +199,34 @@ export const TranslatorView: React.FC<TranslatorViewProps> = ({ settings, onLog 
                 <span>AI Localization Multi-Engine</span>
               </div>
 
+              {provider === 'gemini' && (
+                hasGeminiKey ? (
+                  <span className="badge badge-emerald">
+                    <Sparkles size={11} /> Google Gemini Live
+                  </span>
+                ) : (
+                  <span className="badge badge-amber">
+                    <Key size={11} /> Gemini Sandbox Mode
+                  </span>
+                )
+              )}
+
+              {provider === 'openai' && (
+                hasOpenAiKey ? (
+                  <span className="badge badge-emerald">
+                    <CheckCircle2 size={11} /> OpenAI Live
+                  </span>
+                ) : (
+                  <span className="badge badge-amber">
+                    <Key size={11} /> OpenAI Sandbox Mode
+                  </span>
+                )
+              )}
+
               {provider === 'groq' && (
                 hasGroqKey ? (
                   <span className="badge badge-emerald">
-                    <Zap size={11} /> Groq Cloud (Llama 3.3) Live
+                    <Zap size={11} /> Groq Cloud Live
                   </span>
                 ) : (
                   <span className="badge badge-amber">
@@ -211,7 +238,7 @@ export const TranslatorView: React.FC<TranslatorViewProps> = ({ settings, onLog 
               {provider === 'opencode' && (
                 hasOpenCodeKey ? (
                   <span className="badge badge-emerald">
-                    <Compass size={11} /> OpenCode Zen / Go Live
+                    <Compass size={11} /> OpenCode Zen Live
                   </span>
                 ) : (
                   <span className="badge badge-amber">
@@ -225,21 +252,9 @@ export const TranslatorView: React.FC<TranslatorViewProps> = ({ settings, onLog 
                   <Server size={11} /> Local Llama (Ollama / Offline)
                 </span>
               )}
-
-              {provider === 'openai' && (
-                hasOpenAiKey ? (
-                  <span className="badge badge-emerald">
-                    <CheckCircle2 size={11} /> OpenAI API Live
-                  </span>
-                ) : (
-                  <span className="badge badge-amber">
-                    <Key size={11} /> OpenAI Sandbox
-                  </span>
-                )
-              )}
             </div>
             <div className="card-subtitle">
-              Batch translate all Bubble.io app texts with Groq, OpenCode Zen/Go, Local Llama, or OpenAI
+              Active model: <strong style={{ color: 'var(--primary)' }}>{model}</strong> • Batch translate all Bubble.io app texts
             </div>
           </div>
 
@@ -302,22 +317,43 @@ export const TranslatorView: React.FC<TranslatorViewProps> = ({ settings, onLog 
               onChange={(e) => setProvider(e.target.value as any)}
               className="select"
             >
-              <option value="groq">⚡ Groq Console (Llama 3.3 - Fast)</option>
+              <option value="gemini">✨ Google Gemini (3.7 / 3.5 / 3.1)</option>
+              <option value="openai">🤖 OpenAI (GPT-4.5 / o3-mini / GPT-4o)</option>
+              <option value="groq">⚡ Groq Cloud (Llama 3.3 - Fast)</option>
               <option value="opencode">🧭 OpenCode Zen / Go (DeepSeek / Qwen)</option>
+              <option value="anthropic">🧠 Anthropic Claude (3.5 Sonnet / Haiku)</option>
               <option value="ollama">🖥️ Local Llama (Ollama / Offline)</option>
-              <option value="openai">🤖 OpenAI (GPT-4o)</option>
-              <option value="anthropic">🧠 Anthropic Claude</option>
-              <option value="gemini">✨ Google Gemini</option>
               <option value="mock">📦 Local Sandbox Engine</option>
             </select>
           </div>
 
           <div>
-            <label className="input-label">AI Model</label>
-            {provider === 'groq' ? (
+            <label className="input-label">Preset Model</label>
+            {provider === 'gemini' ? (
+              <select value={model} onChange={(e) => setModel(e.target.value)} className="select">
+                <option value="gemini-3.7-flash">Gemini 3.7 Flash (Hybrid Reasoning)</option>
+                <option value="gemini-3.5-flash">Gemini 3.5 Flash</option>
+                <option value="gemini-3.1-pro">Gemini 3.1 Pro (Deep Reasoning)</option>
+                <option value="gemini-2.0-flash">Gemini 2.0 Flash (Real-Time)</option>
+                <option value="gemini-2.0-flash-thinking-exp">Gemini 2.0 Flash Thinking</option>
+                <option value="gemini-1.5-pro">Gemini 1.5 Pro (2M Context)</option>
+                <option value="gemini-1.5-flash">Gemini 1.5 Flash</option>
+              </select>
+            ) : provider === 'openai' ? (
+              <select value={model} onChange={(e) => setModel(e.target.value)} className="select">
+                <option value="gpt-4.5-preview">GPT-4.5 (Orion / Frontier Flagship)</option>
+                <option value="o3-mini">OpenAI o3-mini (High-Speed Reasoning)</option>
+                <option value="o1">OpenAI o1 (Full Reasoning)</option>
+                <option value="gpt-4o">GPT-4o (Omni Multilingual)</option>
+                <option value="gpt-4o-mini">GPT-4o Mini (Fast & Cheap)</option>
+                <option value="chatgpt-4o-latest">ChatGPT-4o (Latest Snapshot)</option>
+                <option value="gpt-4-turbo">GPT-4 Turbo</option>
+              </select>
+            ) : provider === 'groq' ? (
               <select value={model} onChange={(e) => setModel(e.target.value)} className="select">
                 <option value="llama-3.3-70b-versatile">Llama 3.3 70B (Recommended)</option>
                 <option value="llama-3.1-8b-instant">Llama 3.1 8B Instant (Ultra-Fast)</option>
+                <option value="deepseek-r1-distill-llama-70b">DeepSeek R1 Distill 70B</option>
                 <option value="mixtral-8x7b-32768">Mixtral 8x7B</option>
                 <option value="gemma2-9b-it">Gemma 2 9B</option>
               </select>
@@ -326,21 +362,28 @@ export const TranslatorView: React.FC<TranslatorViewProps> = ({ settings, onLog 
                 <option value="deepseek-v3">DeepSeek V3 (Recommended)</option>
                 <option value="deepseek-r1">DeepSeek R1 (Reasoning)</option>
                 <option value="qwen-2.5-72b">Qwen 2.5 72B</option>
+                <option value="qwen-2.5-coder-32b">Qwen 2.5 Coder 32B</option>
                 <option value="llama-3.3-70b">Llama 3.3 70B</option>
                 <option value="claude-3-5-sonnet">Claude 3.5 Sonnet</option>
               </select>
+            ) : provider === 'anthropic' ? (
+              <select value={model} onChange={(e) => setModel(e.target.value)} className="select">
+                <option value="claude-3-5-sonnet">Claude 3.5 Sonnet (Latest)</option>
+                <option value="claude-3-5-haiku">Claude 3.5 Haiku (Fast & Smart)</option>
+                <option value="claude-3-opus">Claude 3 Opus (Deep Context)</option>
+              </select>
             ) : provider === 'ollama' ? (
               <select value={model} onChange={(e) => setModel(e.target.value)} className="select">
+                <option value="llama3.3:70b">llama3.3:70b</option>
                 <option value="llama3.2">llama3.2 (Default)</option>
                 <option value="llama3.1:8b">llama3.1:8b</option>
+                <option value="deepseek-r1:8b">deepseek-r1:8b</option>
                 <option value="mistral">mistral:7b</option>
                 <option value="qwen2.5">qwen2.5:7b</option>
               </select>
             ) : (
               <select value={model} onChange={(e) => setModel(e.target.value)} className="select">
-                <option value="gpt-4o">GPT-4o (Multilingual)</option>
-                <option value="claude-3-5-sonnet">Claude 3.5 Sonnet</option>
-                <option value="gemini-1.5-pro">Gemini 1.5 Pro</option>
+                <option value="local-sandbox">Sandbox Local Engine</option>
               </select>
             )}
           </div>
@@ -358,6 +401,34 @@ export const TranslatorView: React.FC<TranslatorViewProps> = ({ settings, onLog 
               <option value="concise">Concise & Direct</option>
             </select>
           </div>
+        </div>
+
+        {/* Manual / Custom Model Input Row */}
+        <div style={{
+          marginTop: '12px',
+          padding: '10px 14px',
+          background: 'rgba(255, 255, 255, 0.02)',
+          borderRadius: 'var(--radius-md)',
+          border: '1px dashed var(--border-subtle)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '12px'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', whiteSpace: 'nowrap' }}>
+            <Edit3 size={14} color="var(--primary)" />
+            <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
+              Or type custom Model ID manually:
+            </span>
+          </div>
+
+          <input
+            type="text"
+            placeholder="Type any model ID (e.g. gemini-3.7-flash, gpt-4.5-preview, ft:custom...)"
+            value={model}
+            onChange={(e) => setModel(e.target.value)}
+            className="input"
+            style={{ padding: '6px 12px', fontSize: '0.825rem', fontFamily: 'var(--font-mono)' }}
+          />
         </div>
       </div>
 

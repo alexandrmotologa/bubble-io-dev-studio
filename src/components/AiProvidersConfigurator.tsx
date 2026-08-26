@@ -39,9 +39,145 @@ export interface ProviderDefinition {
 
 export const AI_PROVIDERS_CATALOG: ProviderDefinition[] = [
   {
+    id: 'gemini',
+    name: 'Google Gemini',
+    badge: 'Gemini 3.7 & 2.0 Series',
+    badgeColor: 'cyan',
+    icon: Sparkles,
+    keyName: 'geminiApiKey',
+    placeholderKey: 'AIzaSy...',
+    docUrl: 'https://aistudio.google.com/app/apikey',
+    models: [
+      {
+        id: 'gemini-3.7-flash',
+        name: 'Gemini 3.7 Flash',
+        description: 'Next-gen hybrid reasoning & high-speed multilingual intelligence',
+        tag: 'Flagship 2026',
+        tagColor: 'var(--accent-cyan)',
+        contextWindow: '1M tokens'
+      },
+      {
+        id: 'gemini-3.5-flash',
+        name: 'Gemini 3.5 Flash',
+        description: 'Ultra-fast inference with exceptional context awareness',
+        tag: 'Fast & Smart',
+        tagColor: 'var(--accent-emerald)',
+        contextWindow: '1M tokens'
+      },
+      {
+        id: 'gemini-3.1-pro',
+        name: 'Gemini 3.1 Pro',
+        description: 'Advanced reasoning and deep structural analysis for complex UI trees',
+        tag: 'Deep Reasoning',
+        tagColor: 'var(--primary)',
+        contextWindow: '2M tokens'
+      },
+      {
+        id: 'gemini-2.0-flash',
+        name: 'Gemini 2.0 Flash',
+        description: 'Low-latency real-time response model with multimodal fluency',
+        tag: 'Real-Time',
+        tagColor: 'var(--accent-amber)',
+        contextWindow: '1M tokens'
+      },
+      {
+        id: 'gemini-2.0-flash-thinking-exp',
+        name: 'Gemini 2.0 Flash (Thinking)',
+        description: 'Explicit reasoning process before producing translation output',
+        tag: 'Thinking Mode',
+        tagColor: 'var(--accent-purple)',
+        contextWindow: '1M tokens'
+      },
+      {
+        id: 'gemini-1.5-pro',
+        name: 'Gemini 1.5 Pro',
+        description: 'Massive 2M token context for translating entire Bubble applications at once',
+        tag: '2M Context',
+        tagColor: 'var(--accent-emerald)',
+        contextWindow: '2M tokens'
+      },
+      {
+        id: 'gemini-1.5-flash',
+        name: 'Gemini 1.5 Flash',
+        description: 'Cost-effective high-volume batch string translator',
+        tag: 'Lightweight',
+        tagColor: 'var(--text-muted)',
+        contextWindow: '1M tokens'
+      }
+    ]
+  },
+  {
+    id: 'openai',
+    name: 'OpenAI',
+    badge: 'GPT-4.5, o3-mini & GPT-4o',
+    badgeColor: 'emerald',
+    icon: Bot,
+    keyName: 'openaiApiKey',
+    placeholderKey: 'sk-proj-...',
+    docUrl: 'https://platform.openai.com/api-keys',
+    models: [
+      {
+        id: 'gpt-4.5-preview',
+        name: 'GPT-4.5 (Orion / Flagship)',
+        description: 'Next-generation frontier model with broad world knowledge and tone nuance',
+        tag: 'State-of-the-Art',
+        tagColor: 'var(--accent-emerald)',
+        contextWindow: '128k tokens'
+      },
+      {
+        id: 'o3-mini',
+        name: 'OpenAI o3-mini',
+        description: 'High-speed reasoning model tailored for technical strings, code, and logic',
+        tag: 'Reasoning Fast',
+        tagColor: 'var(--primary)',
+        contextWindow: '200k tokens'
+      },
+      {
+        id: 'o1',
+        name: 'OpenAI o1',
+        description: 'Full-scale reasoning model for difficult translations and domain terminology',
+        tag: 'Deep Reasoning',
+        tagColor: 'var(--accent-purple)',
+        contextWindow: '200k tokens'
+      },
+      {
+        id: 'gpt-4o',
+        name: 'GPT-4o (Omni)',
+        description: 'Flagship multilingual model with high nuance & style preservation',
+        tag: 'Recommended',
+        tagColor: 'var(--accent-emerald)',
+        contextWindow: '128k tokens'
+      },
+      {
+        id: 'gpt-4o-mini',
+        name: 'GPT-4o Mini',
+        description: 'High speed and low cost for massive translation batches',
+        tag: 'Fast & Cheap',
+        tagColor: 'var(--accent-cyan)',
+        contextWindow: '128k tokens'
+      },
+      {
+        id: 'chatgpt-4o-latest',
+        name: 'ChatGPT-4o (Latest Snapshot)',
+        description: 'Dynamically updated continuously evolving model checkpoint',
+        tag: 'Latest',
+        tagColor: 'var(--accent-amber)',
+        contextWindow: '128k tokens'
+      },
+      {
+        id: 'gpt-4-turbo',
+        name: 'GPT-4 Turbo',
+        description: 'Reliable workhorse model for production deployments',
+        tag: 'Stable',
+        tagColor: 'var(--text-muted)',
+        contextWindow: '128k tokens'
+      }
+    ]
+  },
+  {
     id: 'groq',
     name: 'Groq Cloud',
-    badge: 'Ultra-Fast Inference',
+    badge: 'Ultra-Fast Inference (750+ t/s)',
     badgeColor: 'amber',
     icon: Zap,
     keyName: 'groqApiKey',
@@ -145,6 +281,42 @@ export const AI_PROVIDERS_CATALOG: ProviderDefinition[] = [
     ]
   },
   {
+    id: 'anthropic',
+    name: 'Anthropic Claude',
+    badge: 'Claude 3.5 Series',
+    badgeColor: 'indigo',
+    icon: Brain,
+    keyName: 'anthropicApiKey',
+    placeholderKey: 'sk-ant-...',
+    docUrl: 'https://console.anthropic.com/settings/keys',
+    models: [
+      {
+        id: 'claude-3-5-sonnet',
+        name: 'Claude 3.5 Sonnet (Latest)',
+        description: 'Top-tier writing style, natural fluency, and precise formatting',
+        tag: 'Best Quality',
+        tagColor: 'var(--primary)',
+        contextWindow: '200k tokens'
+      },
+      {
+        id: 'claude-3-5-haiku',
+        name: 'Claude 3.5 Haiku',
+        description: 'Ultra-fast and cost efficient with near Sonnet-level translation',
+        tag: 'Fast & Smart',
+        tagColor: 'var(--accent-amber)',
+        contextWindow: '200k tokens'
+      },
+      {
+        id: 'claude-3-opus',
+        name: 'Claude 3 Opus',
+        description: 'Deep contextual analysis for complex terminology',
+        tag: 'Deep Context',
+        tagColor: 'var(--accent-purple)',
+        contextWindow: '200k tokens'
+      }
+    ]
+  },
+  {
     id: 'ollama',
     name: 'Local Llama (Ollama / LM Studio)',
     badge: '100% Offline & Free',
@@ -156,6 +328,14 @@ export const AI_PROVIDERS_CATALOG: ProviderDefinition[] = [
     placeholderKey: 'No API key needed (Local Server)',
     docUrl: 'https://ollama.ai',
     models: [
+      {
+        id: 'llama3.3:70b',
+        name: 'Llama 3.3 70B Local',
+        description: 'Full-power local model for high-end GPUs',
+        tag: 'High End',
+        tagColor: 'var(--primary)',
+        contextWindow: '128k tokens'
+      },
       {
         id: 'llama3.2',
         name: 'Llama 3.2 (3B / 1B)',
@@ -177,7 +357,7 @@ export const AI_PROVIDERS_CATALOG: ProviderDefinition[] = [
         name: 'DeepSeek R1 8B Local',
         description: 'Reasoning model distilled for local execution',
         tag: 'Reasoning',
-        tagColor: 'var(--primary)',
+        tagColor: 'var(--accent-purple)',
         contextWindow: '64k tokens'
       },
       {
@@ -197,122 +377,6 @@ export const AI_PROVIDERS_CATALOG: ProviderDefinition[] = [
         contextWindow: '32k tokens'
       }
     ]
-  },
-  {
-    id: 'openai',
-    name: 'OpenAI',
-    badge: 'GPT-4o & o1',
-    badgeColor: 'emerald',
-    icon: Bot,
-    keyName: 'openaiApiKey',
-    placeholderKey: 'sk-proj-...',
-    docUrl: 'https://platform.openai.com/api-keys',
-    models: [
-      {
-        id: 'gpt-4o',
-        name: 'GPT-4o (Omni)',
-        description: 'Flagship multilingual model with high nuance & style preservation',
-        tag: 'Recommended',
-        tagColor: 'var(--accent-emerald)',
-        contextWindow: '128k tokens'
-      },
-      {
-        id: 'gpt-4o-mini',
-        name: 'GPT-4o Mini',
-        description: 'High speed and low cost for massive translation batches',
-        tag: 'Fast & Cheap',
-        tagColor: 'var(--accent-cyan)',
-        contextWindow: '128k tokens'
-      },
-      {
-        id: 'o1-mini',
-        name: 'OpenAI o1 Mini',
-        description: 'Reasoning model for complex technical UI documentation',
-        tag: 'Reasoning',
-        tagColor: 'var(--primary)',
-        contextWindow: '128k tokens'
-      },
-      {
-        id: 'gpt-4-turbo',
-        name: 'GPT-4 Turbo',
-        description: 'Previous generation flagship model',
-        tag: 'Legacy',
-        tagColor: 'var(--text-muted)',
-        contextWindow: '128k tokens'
-      }
-    ]
-  },
-  {
-    id: 'anthropic',
-    name: 'Anthropic Claude',
-    badge: 'Claude 3.5 Series',
-    badgeColor: 'indigo',
-    icon: Brain,
-    keyName: 'anthropicApiKey',
-    placeholderKey: 'sk-ant-...',
-    docUrl: 'https://console.anthropic.com/settings/keys',
-    models: [
-      {
-        id: 'claude-3-5-sonnet',
-        name: 'Claude 3.5 Sonnet',
-        description: 'Top-tier writing style, natural fluency, and precise formatting',
-        tag: 'Best Quality',
-        tagColor: 'var(--primary)',
-        contextWindow: '200k tokens'
-      },
-      {
-        id: 'claude-3-5-haiku',
-        name: 'Claude 3.5 Haiku',
-        description: 'Ultra-fast and cost efficient with near Sonnet-level translation',
-        tag: 'Fast',
-        tagColor: 'var(--accent-amber)',
-        contextWindow: '200k tokens'
-      },
-      {
-        id: 'claude-3-opus',
-        name: 'Claude 3 Opus',
-        description: 'Deep contextual analysis for complex terminology',
-        tag: 'Deep Context',
-        tagColor: 'var(--accent-purple)',
-        contextWindow: '200k tokens'
-      }
-    ]
-  },
-  {
-    id: 'gemini',
-    name: 'Google Gemini',
-    badge: 'Gemini 2.0 & 1.5',
-    badgeColor: 'cyan',
-    icon: Sparkles,
-    keyName: 'geminiApiKey',
-    placeholderKey: 'AIzaSy...',
-    docUrl: 'https://aistudio.google.com/app/apikey',
-    models: [
-      {
-        id: 'gemini-2.0-flash',
-        name: 'Gemini 2.0 Flash',
-        description: 'Next-gen real-time speed and low latency',
-        tag: 'Next-Gen',
-        tagColor: 'var(--accent-cyan)',
-        contextWindow: '1M tokens'
-      },
-      {
-        id: 'gemini-1.5-pro',
-        name: 'Gemini 1.5 Pro',
-        description: '2 Million token context for translating entire applications at once',
-        tag: 'Huge Context',
-        tagColor: 'var(--accent-emerald)',
-        contextWindow: '2M tokens'
-      },
-      {
-        id: 'gemini-1.5-flash',
-        name: 'Gemini 1.5 Flash',
-        description: 'Fast, lightweight and highly versatile',
-        tag: 'Fast',
-        tagColor: 'var(--accent-amber)',
-        contextWindow: '1M tokens'
-      }
-    ]
   }
 ];
 
@@ -325,7 +389,7 @@ export const AiProvidersConfigurator: React.FC<AiProvidersConfiguratorProps> = (
   settings,
   onChange
 }) => {
-  const [selectedProviderId, setSelectedProviderId] = useState<string>('groq');
+  const [selectedProviderId, setSelectedProviderId] = useState<string>('gemini');
   const [customModelInput, setCustomModelInput] = useState<string>('');
 
   const currentProvider = AI_PROVIDERS_CATALOG.find(p => p.id === selectedProviderId) || AI_PROVIDERS_CATALOG[0];
@@ -347,7 +411,7 @@ export const AiProvidersConfigurator: React.FC<AiProvidersConfiguratorProps> = (
       {/* Left Column: Provider Selection & API Key Input */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
         <div style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-secondary)' }}>
-          SELECT AI PROVIDER
+          SELECT AI PROVIDER ({AI_PROVIDERS_CATALOG.length} PROVIDERS)
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -577,7 +641,7 @@ export const AiProvidersConfigurator: React.FC<AiProvidersConfiguratorProps> = (
             <label className="input-label" style={{ marginBottom: '4px' }}>Want a custom / unlisted model?</label>
             <input
               type="text"
-              placeholder={`e.g. ${currentProvider.id === 'ollama' ? 'codellama:13b' : 'ft:gpt-4o-custom...'}`}
+              placeholder={`e.g. ${currentProvider.id === 'gemini' ? 'gemini-3.7-flash-custom' : currentProvider.id === 'openai' ? 'gpt-4.5-custom' : 'custom-model-id'}`}
               value={customModelInput}
               onChange={(e) => setCustomModelInput(e.target.value)}
               className="input"
