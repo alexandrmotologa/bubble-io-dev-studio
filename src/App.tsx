@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { GlobalSettings, LogEntry, NavigationTab, ProjectProfile, ThemeMode } from './types';
+import { GlobalSettings, LogEntry, NavigationTab, ProjectProfile, ThemeMode, AuditHealthReport } from './types';
 import { ProjectStore } from './core/storage/projectStore';
 import { Sidebar } from './components/Sidebar';
 import { Header } from './components/Header';
@@ -23,8 +23,10 @@ export const App: React.FC = () => {
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [isBackingUp, setIsBackingUp] = useState(false);
   const [isAuditing, setIsAuditing] = useState(false);
-  const [healthScore, setHealthScore] = useState(92);
-  const [healthGrade, setHealthGrade] = useState('A');
+  const [auditReports, setAuditReports] = useState<Record<string, AuditHealthReport>>({});
+
+  const activeProject = settings.projects.find(p => p.id === settings.activeProjectId) || settings.projects[0];
+  const currentAuditReport = activeProject ? auditReports[activeProject.id] || null : null;
 
   // Apply theme to document
   useEffect(() => {
@@ -55,8 +57,6 @@ export const App: React.FC = () => {
     };
     setLogs(prev => [newEntry, ...prev.slice(0, 199)]);
   };
-
-  const activeProject = settings.projects.find(p => p.id === settings.activeProjectId) || settings.projects[0];
 
   const handleToggleTheme = () => {
     const nextTheme: ThemeMode = settings.theme === 'dark' ? 'light' : 'dark';
@@ -95,17 +95,26 @@ export const App: React.FC = () => {
     addLog('system', `Loaded Sandbox Demo Application: '${demo.name}'`, 'success');
   };
 
+  const handleAuditReportUpdate = (report: AuditHealthReport) => {
+    if (activeProject) {
+      setAuditReports(prev => ({
+        ...prev,
+        [activeProject.id]: report
+      }));
+    }
+  };
+
   const handleQuickBackup = async () => {
     if (!activeProject || isBackingUp) return;
     setIsBackingUp(true);
     setIsTerminalOpen(true);
-    addLog('devops', `[Quick Backup] Triggering backup for ${activeProject.appId}...`);
+    addLog('devops', `[Quick Backup] Triggering automated database snapshot for ${activeProject.name} (${activeProject.appId})...`);
 
     try {
       const result = await DevOpsEngine.runBackup(activeProject, (msg) => {
         addLog('devops', msg);
       });
-      addLog('devops', `[Quick Backup] Backup completed successfully (${result.recordCount} records).`, 'success');
+      addLog('devops', `[Quick Backup] Backup completed successfully (${result.recordCount} records exported).`, 'success');
     } catch (e: any) {
       addLog('devops', `[Quick Backup] Error: ${e.message}`, 'error');
     } finally {
@@ -114,16 +123,15 @@ export const App: React.FC = () => {
   };
 
   const handleQuickAudit = async () => {
-    if (isAuditing) return;
+    if (isAuditing || !activeProject) return;
     setIsAuditing(true);
     setIsTerminalOpen(true);
-    addLog('audit', `[Quick Audit] Running full AST dead code inspection...`);
+    addLog('audit', `[Quick Audit] Running full AST dead code inspection for ${activeProject.name}...`);
 
     try {
       const report = await AuditEngine.analyzeApp();
-      setHealthScore(report.score);
-      setHealthGrade(report.grade);
-      addLog('audit', `[Quick Audit] Completed: Health Score ${report.score}% (Grade ${report.grade}).`, 'success');
+      handleAuditReportUpdate(report);
+      addLog('audit', `[Quick Audit] Completed: Health Score ${report.score}% (Grade ${report.grade}) with ${report.deadItems.length} issues identified.`, 'success');
     } catch (e: any) {
       addLog('audit', `[Quick Audit] Error: ${e.message}`, 'error');
     } finally {
@@ -167,8 +175,7 @@ export const App: React.FC = () => {
             onLoadDemoProject={handleLoadDemoProject}
             isBackingUp={isBackingUp}
             isAuditing={isAuditing}
-            healthScore={healthScore}
-            healthGrade={healthGrade}
+            auditReport={currentAuditReport}
           />
         )}
 
@@ -181,6 +188,8 @@ export const App: React.FC = () => {
 
         {currentTab === 'audit' && (
           <AuditView
+            currentReport={currentAuditReport}
+            onReportUpdate={handleAuditReportUpdate}
             onLog={addLog}
           />
         )}

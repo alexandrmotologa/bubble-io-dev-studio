@@ -20,11 +20,13 @@ import { GuideBanner } from '../components/GuideBanner';
 import { FixGuideModal } from '../components/FixGuideModal';
 
 interface AuditViewProps {
+  currentReport?: AuditHealthReport | null;
+  onReportUpdate?: (report: AuditHealthReport) => void;
   onLog: (module: 'audit', message: string, level?: 'info' | 'success' | 'warn' | 'error') => void;
 }
 
-export const AuditView: React.FC<AuditViewProps> = ({ onLog }) => {
-  const [report, setReport] = useState<AuditHealthReport | null>(null);
+export const AuditView: React.FC<AuditViewProps> = ({ currentReport, onReportUpdate, onLog }) => {
+  const [report, setReport] = useState<AuditHealthReport | null>(currentReport || null);
   const [filterType, setFilterType] = useState<string>('all');
   const [isScanning, setIsScanning] = useState(false);
   const [cleanedIds, setCleanedIds] = useState<Set<string>>(new Set());
@@ -33,8 +35,12 @@ export const AuditView: React.FC<AuditViewProps> = ({ onLog }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    runAudit();
-  }, []);
+    if (currentReport) {
+      setReport(currentReport);
+    } else {
+      runAudit();
+    }
+  }, [currentReport]);
 
   const runAudit = async (customJson?: any, fileName?: string) => {
     setIsScanning(true);
@@ -42,6 +48,7 @@ export const AuditView: React.FC<AuditViewProps> = ({ onLog }) => {
     try {
       const rep = await AuditEngine.analyzeApp(customJson);
       setReport(rep);
+      onReportUpdate?.(rep);
       if (fileName) setUploadedFileName(fileName);
       onLog('audit', `Audit completed. Health Score: ${rep.score}% (Grade ${rep.grade}) with ${rep.deadItems.length} dead items detected.`, 'success');
     } finally {

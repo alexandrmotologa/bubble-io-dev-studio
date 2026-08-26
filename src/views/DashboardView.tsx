@@ -4,19 +4,18 @@ import {
   Stethoscope, 
   Languages, 
   Camera, 
-  Play, 
   CheckCircle2, 
   AlertTriangle, 
   ArrowRight, 
   ShieldCheck, 
   HardDriveDownload,
   Sparkles,
-  Check,
   BookOpen,
   Plus,
-  FlaskConical
+  FlaskConical,
+  Clock
 } from 'lucide-react';
-import { NavigationTab, ProjectProfile } from '../types';
+import { NavigationTab, ProjectProfile, AuditHealthReport } from '../types';
 
 interface DashboardViewProps {
   activeProject?: ProjectProfile;
@@ -27,8 +26,7 @@ interface DashboardViewProps {
   onLoadDemoProject?: () => void;
   isBackingUp: boolean;
   isAuditing: boolean;
-  healthScore: number;
-  healthGrade: string;
+  auditReport: AuditHealthReport | null;
 }
 
 export const DashboardView: React.FC<DashboardViewProps> = ({
@@ -40,15 +38,18 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   onLoadDemoProject,
   isBackingUp,
   isAuditing,
-  healthScore,
-  healthGrade
+  auditReport
 }) => {
+  const hasAudit = auditReport !== null;
+  const healthScore = auditReport?.score || 0;
+  const healthGrade = auditReport?.grade || '-';
+
   return (
     <div className="view-container">
       {/* Top Banner / Project Status */}
       {activeProject ? (
         <div className="card" style={{
-          background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.15) 0%, rgba(6, 182, 212, 0.1) 100%)',
+          background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.12) 0%, rgba(6, 182, 212, 0.08) 100%)',
           border: '1px solid var(--border-active)'
         }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '20px' }}>
@@ -73,6 +74,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 onClick={onRunQuickBackup} 
                 disabled={isBackingUp}
                 className="btn btn-primary"
+                title="Fetch database schema and download JSON snapshot"
               >
                 <HardDriveDownload size={16} />
                 <span>{isBackingUp ? 'Backing up...' : 'Quick Backup'}</span>
@@ -81,6 +83,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 onClick={onRunQuickAudit} 
                 disabled={isAuditing}
                 className="btn btn-secondary"
+                title="Run AST scan for orphaned elements and dead workflows"
               >
                 <Stethoscope size={16} />
                 <span>{isAuditing ? 'Auditing...' : 'Run Audit'}</span>
@@ -204,7 +207,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             }}>
               <Stethoscope size={22} />
             </div>
-            <span className="badge badge-emerald">Grade {healthGrade}</span>
+            <span className="badge badge-emerald">
+              {hasAudit ? `Grade ${healthGrade}` : 'Audit Studio'}
+            </span>
           </div>
           <h3 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: '6px' }}>Dead Code Detector</h3>
           <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '16px' }}>
@@ -235,7 +240,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </div>
           <h3 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: '6px' }}>AI Localization</h3>
           <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '16px' }}>
-            Translate UI texts with Groq, Local Llama, or OpenAI with glossaries.
+            Translate UI texts with Gemini, OpenAI, Groq, or Local Llama.
           </p>
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.8rem', color: 'var(--accent-cyan)', fontWeight: 600 }}>
             <span>Translate App</span>
@@ -271,8 +276,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         </div>
       </div>
 
-      {/* Bottom Row: App Health & Recommendations */}
+      {/* Bottom Row: Dynamic App Health & Dynamic Recommendations */}
       <div className="grid-2">
+        {/* Dynamic Health Card */}
         <div className="card">
           <div className="card-header">
             <div>
@@ -280,43 +286,76 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 <ShieldCheck size={20} color="var(--accent-emerald)" />
                 <span>Overall App Health & Quality</span>
               </div>
-              <div className="card-subtitle">Based on latest AST dead code scan</div>
+              <div className="card-subtitle">
+                {hasAudit 
+                  ? `Calculated from AST scan on ${new Date(auditReport.analyzedAt).toLocaleTimeString()}`
+                  : 'No AST audit run yet for this workspace'}
+              </div>
             </div>
-            <span className="badge badge-emerald">Optimal</span>
+            {hasAudit ? (
+              <span className={`badge ${healthScore >= 80 ? 'badge-emerald' : 'badge-amber'}`}>
+                {healthScore >= 80 ? 'Optimal' : 'Needs Cleanup'}
+              </span>
+            ) : (
+              <span className="badge badge-indigo">
+                <Clock size={11} /> Pending Scan
+              </span>
+            )}
           </div>
 
-          <div className="health-score-container" style={{ marginTop: '12px' }}>
-            <div 
-              className="gauge-circle" 
-              style={{ '--score-pct': healthScore } as React.CSSProperties}
-            >
-              <div className="gauge-inner">
-                <span className="gauge-number">{healthScore}%</span>
-                <span className="gauge-grade">Grade {healthGrade}</span>
+          {hasAudit ? (
+            <div className="health-score-container" style={{ marginTop: '12px' }}>
+              <div 
+                className="gauge-circle" 
+                style={{ '--score-pct': healthScore } as React.CSSProperties}
+              >
+                <div className="gauge-inner">
+                  <span className="gauge-number">{healthScore}%</span>
+                  <span className="gauge-grade">Grade {healthGrade}</span>
+                </div>
               </div>
-            </div>
 
-            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem' }}>
-                <span style={{ color: 'var(--text-secondary)' }}>Orphaned UI Elements:</span>
-                <strong style={{ color: 'var(--accent-amber)' }}>8 items</strong>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem' }}>
-                <span style={{ color: 'var(--text-secondary)' }}>Dead Workflows:</span>
-                <strong style={{ color: 'var(--accent-rose)' }}>6 items</strong>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem' }}>
-                <span style={{ color: 'var(--text-secondary)' }}>Unused Database Fields:</span>
-                <strong style={{ color: 'var(--accent-cyan)' }}>5 fields</strong>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem' }}>
-                <span style={{ color: 'var(--text-secondary)' }}>Unreferenced Styles:</span>
-                <strong style={{ color: 'var(--text-primary)' }}>4 styles</strong>
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem' }}>
+                  <span style={{ color: 'var(--text-secondary)' }}>Orphaned UI Elements:</span>
+                  <strong style={{ color: auditReport.deadElementsCount > 0 ? 'var(--accent-amber)' : 'var(--accent-emerald)' }}>
+                    {auditReport.deadElementsCount} items
+                  </strong>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem' }}>
+                  <span style={{ color: 'var(--text-secondary)' }}>Dead Workflows & Events:</span>
+                  <strong style={{ color: auditReport.deadWorkflowsCount > 0 ? 'var(--accent-rose)' : 'var(--accent-emerald)' }}>
+                    {auditReport.deadWorkflowsCount} items
+                  </strong>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem' }}>
+                  <span style={{ color: 'var(--text-secondary)' }}>Unused Database Fields:</span>
+                  <strong style={{ color: auditReport.deadFieldsCount > 0 ? 'var(--accent-cyan)' : 'var(--accent-emerald)' }}>
+                    {auditReport.deadFieldsCount} fields
+                  </strong>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem' }}>
+                  <span style={{ color: 'var(--text-secondary)' }}>Unreferenced Styles:</span>
+                  <strong style={{ color: 'var(--text-primary)' }}>
+                    {auditReport.deadStylesCount} styles
+                  </strong>
+                </div>
               </div>
             </div>
-          </div>
+          ) : (
+            <div style={{ textAlign: 'center', padding: '24px 12px' }}>
+              <div style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginBottom: '14px' }}>
+                Click <strong>"Run Audit"</strong> above or upload your Bubble export JSON to calculate your application's health score.
+              </div>
+              <button onClick={onRunQuickAudit} disabled={isAuditing} className="btn btn-primary btn-sm">
+                <Stethoscope size={14} />
+                <span>{isAuditing ? 'Analyzing AST...' : 'Run First Audit Scan'}</span>
+              </button>
+            </div>
+          )}
         </div>
 
+        {/* Dynamic Recommendations Card */}
         <div className="card">
           <div className="card-header">
             <div>
@@ -328,39 +367,38 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             </div>
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            <div style={{
-              padding: '10px 14px',
-              borderRadius: 'var(--radius-md)',
-              background: 'rgba(245, 158, 11, 0.08)',
-              border: '1px solid rgba(245, 158, 11, 0.2)',
-              fontSize: '0.85rem',
-              display: 'flex',
-              gap: '10px',
-              alignItems: 'flex-start'
-            }}>
-              <CheckCircle2 size={16} color="var(--accent-amber)" style={{ marginTop: '2px', flexShrink: 0 }} />
-              <div>
-                <strong>Purge 6 orphaned workflow actions:</strong> Prevents silent backend execution errors and queue stalls.
-              </div>
+          {hasAudit && auditReport.recommendations.length > 0 ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              {auditReport.recommendations.map((rec, idx) => (
+                <div 
+                  key={idx}
+                  style={{
+                    padding: '10px 14px',
+                    borderRadius: 'var(--radius-md)',
+                    background: idx === 0 ? 'rgba(245, 158, 11, 0.08)' : 'rgba(99, 102, 241, 0.08)',
+                    border: idx === 0 ? '1px solid rgba(245, 158, 11, 0.2)' : '1px solid rgba(99, 102, 241, 0.2)',
+                    fontSize: '0.835rem',
+                    display: 'flex',
+                    gap: '10px',
+                    alignItems: 'flex-start'
+                  }}
+                >
+                  <CheckCircle2 
+                    size={16} 
+                    color={idx === 0 ? 'var(--accent-amber)' : 'var(--primary)'} 
+                    style={{ marginTop: '2px', flexShrink: 0 }} 
+                  />
+                  <div>
+                    {rec}
+                  </div>
+                </div>
+              ))}
             </div>
-
-            <div style={{
-              padding: '10px 14px',
-              borderRadius: 'var(--radius-md)',
-              background: 'rgba(99, 102, 241, 0.08)',
-              border: '1px solid rgba(99, 102, 241, 0.2)',
-              fontSize: '0.85rem',
-              display: 'flex',
-              gap: '10px',
-              alignItems: 'flex-start'
-            }}>
-              <CheckCircle2 size={16} color="var(--primary)" style={{ marginTop: '2px', flexShrink: 0 }} />
-              <div>
-                <strong>Generate TypeScript definitions:</strong> Export current Bubble schema interfaces to your external frontend or API repo.
-              </div>
+          ) : (
+            <div style={{ textAlign: 'center', padding: '24px 12px', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+              Run an audit to generate intelligent refactoring recommendations for this workspace.
             </div>
-          </div>
+          )}
         </div>
       </div>
     </div>
