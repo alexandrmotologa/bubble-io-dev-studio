@@ -26,14 +26,16 @@ import { GuideBanner } from '../components/GuideBanner';
 
 interface DevOpsViewProps {
   activeProject?: ProjectProfile;
+  onUpdateProjectToken?: (id: string, token: string) => void;
   onLog: (module: 'devops', message: string, level?: 'info' | 'success' | 'warn' | 'error') => void;
 }
 
-export const DevOpsView: React.FC<DevOpsViewProps> = ({ activeProject, onLog }) => {
+export const DevOpsView: React.FC<DevOpsViewProps> = ({ activeProject, onUpdateProjectToken, onLog }) => {
   const [subTab, setSubTab] = useState<'schema' | 'erd' | 'types' | 'diff' | 'backups'>('schema');
   const [schema, setSchema] = useState<BubbleSchema | null>(null);
   const [schemaSource, setSchemaSource] = useState<'live_api' | 'uploaded_json' | 'sandbox_template' | 'none'>('none');
   const [schemaError, setSchemaError] = useState<string | null>(null);
+  const [inputApiToken, setInputApiToken] = useState(activeProject?.apiToken || '');
   const [tsDefinitions, setTsDefinitions] = useState<string>('');
   const [mermaidErd, setMermaidErd] = useState<string>('');
   const [copied, setCopied] = useState(false);
@@ -52,6 +54,7 @@ export const DevOpsView: React.FC<DevOpsViewProps> = ({ activeProject, onLog }) 
       setSchemaSource('none');
       setSchemaError(null);
       setUploadedFileName(null);
+      setInputApiToken(activeProject.apiToken || '');
       loadSchema();
     }
   }, [activeProject?.id]);
@@ -354,6 +357,53 @@ export const DevOpsView: React.FC<DevOpsViewProps> = ({ activeProject, onLog }) 
               <div>{schemaError}</div>
             </div>
           )}
+
+          {/* Quick API Token Input Card */}
+          <div style={{
+            maxWidth: '520px',
+            margin: '0 auto 24px',
+            padding: '16px 20px',
+            background: 'var(--bg-input)',
+            borderRadius: 'var(--radius-md)',
+            border: '1px solid var(--border-subtle)',
+            textAlign: 'left'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+              <span style={{ fontWeight: 600, fontSize: '0.875rem', color: 'var(--text-primary)' }}>
+                🔑 Bubble Data API Token
+              </span>
+              <span style={{ fontSize: '0.7rem', color: 'var(--accent-cyan)' }}>
+                Bubble Editor &gt; Settings &gt; API
+              </span>
+            </div>
+
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <input
+                type="password"
+                placeholder="Paste your Bubble API token here..."
+                value={inputApiToken}
+                onChange={(e) => setInputApiToken(e.target.value)}
+                className="input"
+                style={{ flex: 1, fontSize: '0.825rem' }}
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  if (activeProject && onUpdateProjectToken) {
+                    onUpdateProjectToken(activeProject.id, inputApiToken);
+                  }
+                  loadSchema();
+                }}
+                className="btn btn-primary btn-sm"
+                style={{ whiteSpace: 'nowrap', padding: '0 16px' }}
+              >
+                Save & Connect
+              </button>
+            </div>
+            <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '6px', display: 'block' }}>
+              1. In Bubble: Check <strong>"Enable Data API"</strong> & check your data types. 2. Paste the <strong>API Token</strong> above.
+            </span>
+          </div>
 
           <div style={{ display: 'flex', justifyContent: 'center', gap: '12px', flexWrap: 'wrap' }}>
             <button onClick={() => fileInputRef.current?.click()} className="btn btn-primary">

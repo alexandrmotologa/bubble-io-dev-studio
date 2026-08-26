@@ -104,6 +104,13 @@ export const App: React.FC = () => {
     }
   };
 
+  const handleUpdateProjectToken = (id: string, token: string) => {
+    store.updateProject(id, { apiToken: token });
+    const updated = store.getSettings();
+    setSettings(updated);
+    addLog('system', 'Updated Bubble Data API Token for workspace.', 'success');
+  };
+
   const handleQuickBackup = async () => {
     if (!activeProject || isBackingUp) return;
     setIsBackingUp(true);
@@ -183,6 +190,7 @@ export const App: React.FC = () => {
         {currentTab === 'devops' && (
           <DevOpsView
             activeProject={activeProject}
+            onUpdateProjectToken={handleUpdateProjectToken}
             onLog={addLog}
           />
         )}

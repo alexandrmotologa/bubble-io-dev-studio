@@ -21,14 +21,16 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
   const [appId, setAppId] = useState('');
   const [environment, setEnvironment] = useState<'development' | 'staging' | 'live'>('development');
   const [customDomain, setCustomDomain] = useState('');
+  const [apiToken, setApiToken] = useState('');
 
-  // Reset form fields every time the modal is opened
+  // Reset form fields every time modal opens or switches visibility
   useEffect(() => {
     if (isOpen) {
       setName('');
       setAppId('');
       setEnvironment('development');
       setCustomDomain('');
+      setApiToken('');
     }
   }, [isOpen]);
 
@@ -55,7 +57,8 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
       name: name.trim(),
       appId: appId.trim().toLowerCase().replace(/\s+/g, '-'),
       environment,
-      customDomain: customDomain.trim() || undefined
+      customDomain: customDomain.trim() || undefined,
+      apiToken: apiToken.trim() || undefined
     });
 
     // Clear state after adding
@@ -187,6 +190,38 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
             </div>
 
             <div>
+              <label className="input-label">Bubble Data API Token (Recommended)</label>
+              <input
+                type="password"
+                placeholder="e.g. 8f9b2a7d4e..."
+                value={apiToken}
+                onChange={(e) => setApiToken(e.target.value)}
+                className="input"
+              />
+              <span style={{ fontSize: '0.7rem', color: 'var(--accent-cyan)', marginTop: '4px', display: 'block' }}>
+                From Bubble Editor &gt; <strong>Settings &gt; API</strong>
+              </span>
+            </div>
+          </div>
+
+          <div style={{
+            padding: '10px 14px',
+            background: 'rgba(99, 102, 241, 0.08)',
+            border: '1px solid rgba(99, 102, 241, 0.2)',
+            borderRadius: 'var(--radius-sm)',
+            fontSize: '0.75rem',
+            color: 'var(--text-secondary)',
+            lineHeight: 1.5
+          }}>
+            💡 <strong>Live Data API &amp; Schema Connection:</strong> In Bubble Editor go to <strong>Settings &gt; API</strong>:
+            <br />
+            1. Check <strong>"Enable Data API"</strong> and select your data types.
+            <br />
+            2. Click <strong>"Generate a new API token"</strong> and paste it above for instant live schema synchronization.
+          </div>
+
+          <div className="grid-2">
+            <div>
               <label className="input-label">Environment</label>
               <select
                 value={environment}
@@ -197,23 +232,18 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
                 <option value="staging">Staging (Custom Branch / Pre-Live App)</option>
                 <option value="live">Live (Production Domain)</option>
               </select>
-              <span style={{ fontSize: '0.7rem', color: 'var(--accent-cyan)', marginTop: '4px', display: 'block' }}>
-                {environment === 'development' && '💡 Default: /version-test development mode.'}
-                {environment === 'staging' && '💡 For custom branches (/version-staging) or separate test clone apps.'}
-                {environment === 'live' && '💡 Production app on live domain with real database.'}
-              </span>
             </div>
-          </div>
 
-          <div>
-            <label className="input-label">Custom Domain (Optional)</label>
-            <input
-              type="text"
-              placeholder="e.g. app.mydomain.com"
-              value={customDomain}
-              onChange={(e) => setCustomDomain(e.target.value)}
-              className="input"
-            />
+            <div>
+              <label className="input-label">Custom Domain (Optional)</label>
+              <input
+                type="text"
+                placeholder="e.g. app.mydomain.com"
+                value={customDomain}
+                onChange={(e) => setCustomDomain(e.target.value)}
+                className="input"
+              />
+            </div>
           </div>
 
           {/* Action Buttons */}

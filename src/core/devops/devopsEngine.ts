@@ -34,37 +34,76 @@ export class DevOpsEngine {
 
       onStatus?.(`Connecting to Bubble Data API: ${metaUrl}...`, 'info');
 
-      try {
-        const headers: Record<string, string> = {
-          'Accept': 'application/json'
-        };
-        if (project.apiToken) {
-          headers['Authorization'] = `Bearer ${project.apiToken}`;
+      const headers: Record<string, string> = {
+        'Accept': 'application/json'
+      };
+      if (project.apiToken) {
+        headers['Authorization'] = `Bearer ${project.apiToken}`;
+      }
+
+      // Tier 1: If running inside Electron desktop app, use IPC fetch (100% CORS-free)
+      if ((window as any).electronAPI?.fetchHttp) {
+        try {
+          const ipcRes = await (window as any).electronAPI.fetchHttp(metaUrl, headers);
+          if (ipcRes.ok && ipcRes.data) {
+            const liveSchema = this.parseSwaggerMeta(project, ipcRes.data);
+            if (liveSchema.dataTypes.length > 0) {
+              onStatus?.(`Live Bubble Data API connected via Desktop Engine! Found ${liveSchema.dataTypes.length} exposed tables.`, 'success');
+              return { schema: liveSchema, source: 'live_api' };
+            }
+          } else if (ipcRes.status === 401) {
+            onStatus?.(`Bubble API returned 401 Unauthorized. Ensure API Token is configured.`, 'warn');
+            return { schema: null, source: 'none', error: '401 Unauthorized: Bubble Data API token is required.' };
+          } else if (ipcRes.status === 404) {
+            onStatus?.(`Bubble Data API is not enabled on '${project.appId}'. Enable it in Bubble Editor > Settings > API.`, 'warn');
+            return { schema: null, source: 'none', error: '404 Not Found: Data API is not enabled in Bubble Editor.' };
+          }
+        } catch (ipcErr: any) {
+          console.warn('Electron IPC fetch attempt failed:', ipcErr);
         }
+      }
 
-        const res = await fetch(metaUrl, { method: 'GET', headers, mode: 'cors' }).catch(() => null);
-
-        if (res && res.ok) {
-          const swagger = await res.json();
+      // Tier 2: Direct browser fetch
+      try {
+        const directRes = await fetch(metaUrl, { method: 'GET', headers, mode: 'cors' }).catch(() => null);
+        if (directRes && directRes.ok) {
+          const swagger = await directRes.json();
           const liveSchema = this.parseSwaggerMeta(project, swagger);
           if (liveSchema.dataTypes.length > 0) {
             onStatus?.(`Live Bubble Data API connected! Found ${liveSchema.dataTypes.length} exposed tables.`, 'success');
             return { schema: liveSchema, source: 'live_api' };
           }
-        } else if (res && res.status === 401) {
-          onStatus?.(`Bubble API returned 401 Unauthorized. Make sure API Token is set in Settings & Keys.`, 'warn');
-          return { schema: null, source: 'none', error: '401 Unauthorized: Bubble Data API token missing or invalid.' };
-        } else if (res && res.status === 404) {
-          onStatus?.(`Bubble Data API is not enabled for '${project.appId}'. In Bubble Editor go to Settings > API and check 'Enable Data API'.`, 'warn');
+        } else if (directRes && directRes.status === 401) {
+          onStatus?.(`Bubble API returned 401 Unauthorized. Add API Token in Settings & Keys.`, 'warn');
+          return { schema: null, source: 'none', error: '401 Unauthorized: Bubble API Token required.' };
+        } else if (directRes && directRes.status === 404) {
+          onStatus?.(`Bubble Data API is not enabled on '${project.appId}'. Enable it in Bubble Editor > Settings > API.`, 'warn');
           return { schema: null, source: 'none', error: '404 Not Found: Data API is disabled in Bubble Editor.' };
-        } else {
-          onStatus?.(`Direct browser fetch to ${domain} was restricted or Data API is not exposed.`, 'warn');
-          return { schema: null, source: 'none', error: `Could not fetch live metadata from ${domain}. Please upload your Bubble export JSON or verify Data API in Bubble Settings.` };
         }
-      } catch (err: any) {
-        onStatus?.(`Could not fetch live metadata: ${err.message}`, 'warn');
-        return { schema: null, source: 'none', error: err.message };
+      } catch (directErr) {
+        // Continue to proxy fallback
       }
+
+      // Tier 3: Browser CORS Proxy Fallback
+      try {
+        const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(metaUrl)}`;
+        onStatus?.(`Attempting secure gateway fetch for ${domain}...`, 'info');
+        const proxyRes = await fetch(proxyUrl).catch(() => null);
+        if (proxyRes && proxyRes.ok) {
+          const proxyData = await proxyRes.json();
+          const liveSchema = this.parseSwaggerMeta(project, proxyData);
+          if (liveSchema.dataTypes.length > 0) {
+            onStatus?.(`Live Bubble Data API connected via secure bridge! Found ${liveSchema.dataTypes.length} exposed tables.`, 'success');
+            return { schema: liveSchema, source: 'live_api' };
+          }
+        }
+      } catch (proxyErr) {
+        // Fall through
+      }
+
+      const helpfulError = `Could not connect to Bubble Data API for '${domain}'. Make sure 'Enable Data API' is checked in Bubble Editor > Settings > API, or upload your Bubble export JSON.`;
+      onStatus?.(helpfulError, 'warn');
+      return { schema: null, source: 'none', error: helpfulError };
     }
 
     return {

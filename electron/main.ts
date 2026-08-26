@@ -64,3 +64,13 @@ ipcMain.handle('shell:open-external', async (_event, url: string) => {
     await shell.openExternal(url);
   }
 });
+
+ipcMain.handle('http:fetch', async (_event, url: string, headers?: Record<string, string>) => {
+  try {
+    const res = await fetch(url, { method: 'GET', headers: headers || {} });
+    const data = await res.json().catch(() => null);
+    return { ok: res.ok, status: res.status, data };
+  } catch (err: any) {
+    return { ok: false, error: err.message };
+  }
+});

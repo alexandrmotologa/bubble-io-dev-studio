@@ -2,16 +2,17 @@ import React, { useState } from 'react';
 import { 
   Settings, 
   Key, 
-  ShieldCheck, 
-  Plus, 
-  Trash2, 
   Save, 
   Check, 
-  Sparkles, 
+  Moon, 
+  Sun, 
   Layers, 
-  Palette, 
+  Plus, 
+  Trash2, 
+  Sparkles,
+  ShieldCheck,
   FlaskConical,
-  Bot
+  ExternalLink
 } from 'lucide-react';
 import { GlobalSettings, ProjectProfile, ThemeMode } from '../types';
 import { AiProvidersConfigurator } from '../components/AiProvidersConfigurator';
@@ -32,6 +33,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const [formData, setFormData] = useState<GlobalSettings>(settings);
   const [newProjName, setNewProjName] = useState('');
   const [newProjAppId, setNewProjAppId] = useState('');
+  const [newProjApiToken, setNewProjApiToken] = useState('');
   const [newProjEnv, setNewProjEnv] = useState<'development' | 'staging' | 'live'>('development');
   const [savedSuccess, setSavedSuccess] = useState(false);
 
@@ -57,95 +59,98 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       name: newProjName.trim(),
       appId: newProjAppId.trim().toLowerCase().replace(/\s+/g, '-'),
       environment: newProjEnv,
+      apiToken: newProjApiToken.trim() || undefined,
+      isDemo: false,
       createdAt: new Date().toISOString(),
       lastActiveAt: new Date().toISOString()
     };
-    const updated = {
-      ...formData,
-      projects: [...formData.projects, newProj],
-      activeProjectId: newProj.id
-    };
+
+    const updatedProjects = [...formData.projects, newProj];
+    const updated = { ...formData, projects: updatedProjects, activeProjectId: newProj.id };
     setFormData(updated);
     onSaveSettings(updated);
     setNewProjName('');
     setNewProjAppId('');
-    onLog('system', `Added new Bubble project profile: '${newProj.name}'`, 'info');
+    setNewProjApiToken('');
+    onLog('system', `Connected new Bubble workspace: '${newProj.name}' (${newProj.appId})`, 'success');
+  };
+
+  const handleUpdateProjectToken = (id: string, token: string) => {
+    const updatedProjects = formData.projects.map(p => {
+      if (p.id === id) {
+        return { ...p, apiToken: token.trim() || undefined };
+      }
+      return p;
+    });
+    const updated = { ...formData, projects: updatedProjects };
+    setFormData(updated);
+    onSaveSettings(updated);
+    onLog('system', `Updated Bubble Data API Token for workspace.`, 'info');
   };
 
   const handleDeleteProject = (id: string) => {
     const updatedProjects = formData.projects.filter(p => p.id !== id);
-    const updated = {
-      ...formData,
+    const updated = { 
+      ...formData, 
       projects: updatedProjects,
       activeProjectId: formData.activeProjectId === id ? updatedProjects[0]?.id : formData.activeProjectId
     };
     setFormData(updated);
     onSaveSettings(updated);
-    onLog('system', 'Project profile removed.', 'info');
+    onLog('system', 'Removed Bubble workspace profile.', 'info');
   };
 
   return (
     <div className="view-container">
-      {/* Save Header Bar */}
-      <div className="card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 24px' }}>
-        <div>
-          <h2 style={{ fontSize: '1.2rem', fontWeight: 800 }}>Workspace Settings & AI Engines</h2>
-          <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-            Configure your AI translation providers, select specific LLMs, and manage Bubble app profiles
-          </p>
-        </div>
-
-        <button onClick={handleSave} className="btn btn-primary">
-          {savedSuccess ? <Check size={16} /> : <Save size={16} />}
-          <span>{savedSuccess ? 'Changes Saved!' : 'Save All Settings'}</span>
-        </button>
-      </div>
-
-      {/* AI Provider & Extensive Model Configurator Card */}
       <div className="card">
         <div className="card-header">
           <div>
             <div className="card-title">
-              <Bot size={20} color="var(--primary)" />
-              <span>AI Provider & LLM Model Selector</span>
+              <Settings size={20} color="var(--primary)" />
+              <span>Studio Preferences & Global Configuration</span>
             </div>
-            <div className="card-subtitle">
-              Select an AI provider on the left, and choose from their full catalog of available LLMs on the right
-            </div>
+            <div className="card-subtitle">Manage AI engine providers, theme preferences, and connected Bubble workspaces</div>
           </div>
+          <button onClick={handleSave} className="btn btn-primary">
+            {savedSuccess ? <Check size={16} color="var(--accent-emerald)" /> : <Save size={16} />}
+            <span>{savedSuccess ? 'Saved!' : 'Save Changes'}</span>
+          </button>
         </div>
 
+        {/* Master-Detail AI Model Catalog Configurator */}
         <AiProvidersConfigurator
           settings={formData}
           onChange={handleAiConfigChange}
         />
       </div>
 
-      {/* General Studio Preferences & Bubble App Profiles */}
       <div className="grid-2">
-        {/* Studio Preferences */}
+        {/* App Theme and Local Persistence */}
         <div className="card">
           <div className="card-header">
-            <div>
-              <div className="card-title">
-                <Palette size={18} color="var(--accent-cyan)" />
-                <span>Studio Preferences</span>
-              </div>
-              <div className="card-subtitle">Visual theme and automated reports</div>
-            </div>
+            <span className="card-title">
+              <Sparkles size={18} color="var(--accent-amber)" />
+              <span>General Settings</span>
+            </span>
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
             <div>
               <label className="input-label">Theme Mode</label>
-              <select
-                value={formData.theme}
-                onChange={(e) => setFormData({ ...formData, theme: e.target.value as ThemeMode })}
-                className="select"
-              >
-                <option value="dark">Dark Theme (Cyber Slate)</option>
-                <option value="light">Light Theme (Clean Studio)</option>
-              </select>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                {(['dark', 'light'] as ThemeMode[]).map(theme => (
+                  <button
+                    key={theme}
+                    type="button"
+                    onClick={() => setFormData({ ...formData, theme })}
+                    className={`btn ${formData.theme === theme ? 'btn-primary' : 'btn-secondary'}`}
+                    style={{ flex: 1, textTransform: 'capitalize' }}
+                  >
+                    {theme === 'dark' ? <Moon size={16} /> : <Sun size={16} />}
+                    <span>{theme} Mode</span>
+                  </button>
+                ))}
+              </div>
             </div>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '10px' }}>
@@ -182,7 +187,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             )}
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
             {formData.projects.length === 0 ? (
               <div style={{ textAlign: 'center', padding: '20px 0', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
                 No applications connected. Use the form below to add your first app.
@@ -193,59 +198,84 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   key={proj.id}
                   style={{
                     display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    padding: '10px 14px',
-                    borderRadius: 'var(--radius-sm)',
+                    flexDirection: 'column',
+                    gap: '8px',
+                    padding: '12px 14px',
+                    borderRadius: 'var(--radius-md)',
                     background: 'var(--bg-input)',
                     border: '1px solid var(--border-subtle)',
                     fontSize: '0.825rem'
                   }}
                 >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    <div style={{
-                      width: '32px',
-                      height: '32px',
-                      borderRadius: '8px',
-                      background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.2) 0%, rgba(6, 182, 212, 0.2) 100%)',
-                      border: '1px solid rgba(99, 102, 241, 0.3)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      color: 'var(--primary)',
-                      fontWeight: 800,
-                      fontSize: '0.8rem',
-                      flexShrink: 0
-                    }}>
-                      {proj.name.charAt(0).toUpperCase()}
-                    </div>
-                    <div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <strong style={{ fontSize: '0.875rem', color: 'var(--text-primary)' }}>{proj.name}</strong>
-                        <span 
-                          className={`badge ${proj.environment === 'live' ? 'badge-emerald' : proj.environment === 'staging' ? 'badge-amber' : 'badge-cyan'}`} 
-                          style={{ fontSize: '0.625rem', padding: '1px 6px' }}
-                        >
-                          {proj.environment.toUpperCase()}
-                        </span>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <div style={{
+                        width: '32px',
+                        height: '32px',
+                        borderRadius: '8px',
+                        background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.2) 0%, rgba(6, 182, 212, 0.2) 100%)',
+                        border: '1px solid rgba(99, 102, 241, 0.3)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: 'var(--primary)',
+                        fontWeight: 800,
+                        fontSize: '0.8rem',
+                        flexShrink: 0
+                      }}>
+                        {proj.name.charAt(0).toUpperCase()}
                       </div>
-                      <div style={{ fontSize: '0.725rem', color: 'var(--text-muted)', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                        <span>App ID: <code style={{ color: 'var(--text-primary)', fontWeight: 600 }}>{proj.appId}</code></span>
-                        <span>•</span>
-                        <span>URL: <code style={{ color: 'var(--accent-cyan)' }}>{proj.customDomain || `${proj.appId}.bubbleapps.io`}</code></span>
+                      <div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <strong style={{ fontSize: '0.875rem', color: 'var(--text-primary)' }}>{proj.name}</strong>
+                          <span 
+                            className={`badge ${proj.environment === 'live' ? 'badge-emerald' : proj.environment === 'staging' ? 'badge-amber' : 'badge-cyan'}`} 
+                            style={{ fontSize: '0.625rem', padding: '1px 6px' }}
+                          >
+                            {proj.environment.toUpperCase()}
+                          </span>
+                        </div>
+                        <div style={{ fontSize: '0.725rem', color: 'var(--text-muted)', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                          <span>App ID: <code style={{ color: 'var(--text-primary)', fontWeight: 600 }}>{proj.appId}</code></span>
+                          <span>•</span>
+                          <span>URL: <code style={{ color: 'var(--accent-cyan)' }}>{proj.customDomain || `${proj.appId}.bubbleapps.io`}</code></span>
+                        </div>
                       </div>
                     </div>
+
+                    <button
+                      onClick={() => handleDeleteProject(proj.id)}
+                      className="btn btn-secondary btn-sm"
+                      style={{ padding: '4px 8px', fontSize: '0.75rem' }}
+                      title="Remove project profile"
+                    >
+                      <Trash2 size={13} color="var(--accent-rose)" />
+                      <span>Delete</span>
+                    </button>
                   </div>
 
-                  <button
-                    onClick={() => handleDeleteProject(proj.id)}
-                    className="btn btn-secondary btn-sm"
-                    style={{ padding: '4px 8px', fontSize: '0.75rem' }}
-                    title="Remove project profile"
-                  >
-                    <Trash2 size={13} color="var(--accent-rose)" />
-                    <span>Delete</span>
-                  </button>
+                  {/* Inline Bubble Data API Token Input */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px', paddingTop: '8px', borderTop: '1px solid var(--border-subtle)' }}>
+                    <Key size={13} color="var(--primary)" />
+                    <input
+                      type="password"
+                      placeholder="Paste Bubble Data API Token (optional)..."
+                      value={proj.apiToken || ''}
+                      onChange={(e) => handleUpdateProjectToken(proj.id, e.target.value)}
+                      style={{
+                        background: 'var(--bg-surface-elevated)',
+                        border: '1px solid var(--border-subtle)',
+                        borderRadius: 'var(--radius-sm)',
+                        padding: '4px 8px',
+                        fontSize: '0.75rem',
+                        color: 'var(--text-primary)',
+                        flex: 1
+                      }}
+                    />
+                    <span style={{ fontSize: '0.675rem', color: proj.apiToken ? 'var(--accent-emerald)' : 'var(--text-muted)', whiteSpace: 'nowrap' }}>
+                      {proj.apiToken ? '✓ API Token Set' : 'Required if Data API is private'}
+                    </span>
+                  </div>
                 </div>
               ))
             )}
@@ -267,7 +297,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
         <div style={{
           display: 'grid',
-          gridTemplateColumns: '1fr 1fr 180px 140px',
+          gridTemplateColumns: '1fr 1fr 1fr 180px 120px',
           gap: '12px',
           padding: '16px',
           borderRadius: 'var(--radius-md)',
@@ -292,6 +322,16 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               placeholder="e.g. my-app-prod"
               value={newProjAppId}
               onChange={(e) => setNewProjAppId(e.target.value)}
+              className="input"
+            />
+          </div>
+          <div>
+            <label className="input-label">Bubble API Token (Optional)</label>
+            <input
+              type="password"
+              placeholder="e.g. 7f8a9b..."
+              value={newProjApiToken}
+              onChange={(e) => setNewProjApiToken(e.target.value)}
               className="input"
             />
           </div>
