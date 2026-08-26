@@ -32,6 +32,19 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
     }
   }, [isOpen]);
 
+  // Handle Escape key to close if existing projects exist
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && hasExistingProjects && onClose) {
+        onClose();
+      }
+    };
+    if (isOpen) {
+      document.addEventListener('keydown', handleKeyDown);
+    }
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, hasExistingProjects, onClose]);
+
   if (!isOpen) return null;
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -52,18 +65,27 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
     setCustomDomain('');
   };
 
+  const handleBackdropClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (e.target === e.currentTarget && hasExistingProjects && onClose) {
+      onClose();
+    }
+  };
+
   return (
-    <div style={{
-      position: 'fixed',
-      inset: 0,
-      background: 'rgba(5, 8, 14, 0.75)',
-      backdropFilter: 'blur(12px)',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      zIndex: 10000,
-      padding: '20px'
-    }}>
+    <div 
+      onClick={handleBackdropClick}
+      style={{
+        position: 'fixed',
+        inset: 0,
+        background: 'rgba(5, 8, 14, 0.75)',
+        backdropFilter: 'blur(12px)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 10000,
+        padding: '20px'
+      }}
+    >
       <div style={{
         background: 'var(--bg-surface-elevated)',
         border: '1px solid var(--border-active)',
@@ -74,7 +96,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
         overflow: 'hidden',
         position: 'relative'
       }}>
-        {/* Close button if user already has other projects */}
+        {/* Close icon button if user already has other projects */}
         {hasExistingProjects && onClose && (
           <button
             type="button"
@@ -96,7 +118,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
               zIndex: 10,
               transition: 'all 0.15s ease'
             }}
-            title="Close modal"
+            title="Close modal (Esc)"
           >
             <X size={16} />
           </button>
@@ -189,14 +211,36 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
             />
           </div>
 
-          <button
-            type="submit"
-            className="btn btn-primary"
-            style={{ width: '100%', padding: '12px', marginTop: '6px', fontSize: '0.95rem' }}
-          >
-            <Plus size={18} />
-            <span>Connect Application & Start Studio</span>
-          </button>
+          {/* Action Buttons */}
+          {hasExistingProjects ? (
+            <div style={{ display: 'flex', gap: '12px', marginTop: '6px' }}>
+              <button
+                type="button"
+                onClick={onClose}
+                className="btn btn-secondary"
+                style={{ flex: 1, padding: '12px', fontSize: '0.95rem' }}
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="btn btn-primary"
+                style={{ flex: 1.4, padding: '12px', fontSize: '0.95rem' }}
+              >
+                <Plus size={18} />
+                <span>Add Bubble App</span>
+              </button>
+            </div>
+          ) : (
+            <button
+              type="submit"
+              className="btn btn-primary"
+              style={{ width: '100%', padding: '12px', marginTop: '6px', fontSize: '0.95rem' }}
+            >
+              <Plus size={18} />
+              <span>Connect Application & Start Studio</span>
+            </button>
+          )}
         </form>
 
         {/* Demo sandbox option */}
