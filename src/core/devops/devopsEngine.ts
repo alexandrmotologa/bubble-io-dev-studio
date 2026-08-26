@@ -31,7 +31,7 @@ export class DevOpsEngine {
       const cleanAppId = project.appId.replace(/^https?:\/\//, '').replace(/\.bubbleapps\.io.*$/, '').replace(/[\/\s]+/g, '-');
       const domain = project.customDomain || `${cleanAppId}.bubbleapps.io`;
       
-      const candidateUrls = project.environment === 'live'
+      const candidatePaths = project.environment === 'live'
         ? [`https://${domain}/api/1.1/meta`, `https://${domain}/version-test/api/1.1/meta`]
         : [`https://${domain}/version-test/api/1.1/meta`, `https://${domain}/api/1.1/meta`];
 
@@ -44,7 +44,11 @@ export class DevOpsEngine {
         headers['Authorization'] = `Bearer ${project.apiToken.trim()}`;
       }
 
-      for (const metaUrl of candidateUrls) {
+      for (const basePath of candidatePaths) {
+        // Formulate URL with query param token for proxies and direct fetch
+        const tokenQuery = project.apiToken ? `?api_token=${encodeURIComponent(project.apiToken.trim())}` : '';
+        const metaUrl = `${basePath}${tokenQuery}`;
+
         // Tier 1: Electron Desktop IPC fetch (100% CORS-free, direct Node fetch)
         if ((window as any).electronAPI?.fetchHttp) {
           try {
@@ -55,13 +59,6 @@ export class DevOpsEngine {
               if (liveSchema.dataTypes.length > 0) {
                 onStatus?.(`✓ Live Bubble Data API connected! Found ${liveSchema.dataTypes.length} exposed tables.`, 'success');
                 return { schema: liveSchema, source: 'live_api' };
-              } else {
-                onStatus?.(`Connected to Bubble Data API (200 OK), but 0 Data Types are exposed yet in Bubble Settings > API.`, 'warn');
-                return {
-                  schema: liveSchema,
-                  source: 'live_api',
-                  error: 'Connected to Bubble Data API successfully, but no Data Types are checked yet. In Bubble Editor > Settings > API, check the boxes next to the Data Types you want to expose.'
-                };
               }
             } else if (ipcRes.status === 401) {
               onStatus?.(`Bubble API returned 401 Unauthorized. Ensure API Token is configured.`, 'warn');
@@ -82,13 +79,6 @@ export class DevOpsEngine {
             if (liveSchema.dataTypes.length > 0) {
               onStatus?.(`✓ Live Bubble Data API connected! Found ${liveSchema.dataTypes.length} exposed tables.`, 'success');
               return { schema: liveSchema, source: 'live_api' };
-            } else {
-              onStatus?.(`Connected to Bubble Data API, but 0 Data Types are exposed yet.`, 'warn');
-              return {
-                schema: liveSchema,
-                source: 'live_api',
-                error: 'Connected to Bubble Data API, but 0 Data Types are exposed. In Bubble Editor > Settings > API, check the boxes next to your tables.'
-              };
             }
           } else if (directRes && directRes.status === 401) {
             onStatus?.(`Bubble API returned 401 Unauthorized. API Token required.`, 'warn');
@@ -107,13 +97,11 @@ export class DevOpsEngine {
         for (const proxyUrl of proxyGateways) {
           try {
             onStatus?.(`Attempting gateway bridge for ${domain}...`, 'info');
-            const proxyRes = await fetch(proxyUrl, {
-              headers: project.apiToken ? { 'Authorization': `Bearer ${project.apiToken.trim()}` } : {}
-            }).catch(() => null);
+            const proxyRes = await fetch(proxyUrl).catch(() => null);
 
             if (proxyRes && proxyRes.ok) {
               const proxyData = await proxyRes.json();
-              if (proxyData && (proxyData.swagger || proxyData.definitions || proxyData.paths)) {
+              if (proxyData && (proxyData.swagger || proxyData.definitions || proxyData.paths || proxyData.components)) {
                 const liveSchema = this.parseSwaggerMeta(project, proxyData);
                 if (liveSchema.dataTypes.length > 0) {
                   onStatus?.(`✓ Live Bubble Data API connected via secure bridge! Found ${liveSchema.dataTypes.length} exposed tables.`, 'success');
@@ -127,7 +115,7 @@ export class DevOpsEngine {
         }
       }
 
-      const helpfulError = `Could not connect to Bubble Data API for '${domain}'. Make sure: 1. "Enable Data API" is checked in Bubble Editor > Settings > API; 2. Your API Token is saved; or 3. Upload your Bubble export JSON.`;
+      const helpfulError = `Could not find exposed tables for '${domain}'. Ensure: 1. In Bubble Editor > Settings > API, "Enable Data API" is checked; 2. The checkboxes for your data types are ticked; 3. Valid API Token is provided.`;
       onStatus?.(helpfulError, 'warn');
       return { schema: null, source: 'none', error: helpfulError };
     }
@@ -139,40 +127,189 @@ export class DevOpsEngine {
   }
 
   /**
-   * Parses Bubble /api/1.1/meta (Swagger 2.0 schema)
+   * Parses Bubble /api/1.1/meta (Swagger 2.0 / OpenAPI schema)
+   * Supports definitions, components.schemas, and paths (/obj/{typeName})
    */
   private static parseSwaggerMeta(project: ProjectProfile, swagger: any): BubbleSchema {
     const dataTypes: BubbleDataType[] = [];
     const definitions = swagger.definitions || swagger.components?.schemas || {};
+    const paths = swagger.paths || {};
 
+    // Strategy 0: Bubble Native Meta Format (swagger.get + swagger.types)
+    if (swagger.get || swagger.types) {
+      const tableKeys: string[] = Array.isArray(swagger.get)
+        ? swagger.get
+        : Object.keys(swagger.types || {});
+
+      tableKeys.forEach((tableKey: string) => {
+        const typeObj = (swagger.types && (swagger.types[tableKey] || swagger.types[tableKey.toLowerCase()])) || {};
+        const displayName = typeObj.display || tableKey.replace(/^custom\./, '');
+        const rawFields = Array.isArray(typeObj.fields)
+          ? typeObj.fields
+          : Array.isArray(typeObj)
+            ? typeObj
+            : [];
+
+        const fields = rawFields.map((f: any) => {
+          let fieldType = f.type || 'text';
+          let isList = false;
+          let isCustomType = false;
+
+          if (typeof fieldType === 'string') {
+            if (fieldType.startsWith('list.')) {
+              isList = true;
+              fieldType = fieldType.replace(/^list\./, '');
+            }
+            if (fieldType.startsWith('custom.')) {
+              isCustomType = true;
+              fieldType = fieldType.replace(/^custom\./, '');
+            }
+            if (fieldType.startsWith('option.')) {
+              fieldType = 'option_set.' + fieldType.replace(/^option\./, '');
+            }
+          }
+
+          return {
+            name: f.display || f.id || 'field',
+            type: fieldType,
+            isList,
+            isCustomType,
+            required: f.id === '_id' || f.display === 'unique ID'
+          };
+        });
+
+        // Add standard system fields if empty
+        if (fields.length === 0) {
+          fields.push(
+            { name: 'unique ID', type: 'text', required: true },
+            { name: 'Created Date', type: 'date' },
+            { name: 'Modified Date', type: 'date' }
+          );
+        }
+
+        dataTypes.push({
+          id: tableKey.toLowerCase(),
+          name: displayName.charAt(0).toUpperCase() + displayName.slice(1),
+          recordCount: 0,
+          fields
+        });
+      });
+
+      if (dataTypes.length > 0) {
+        return {
+          appName: project.name,
+          version: project.environment,
+          dataTypes,
+          optionSets: []
+        };
+      }
+    }
+
+    // Strategy 1: Extract from definitions / schemas
     Object.entries(definitions).forEach(([typeName, def]: [string, any]) => {
       // Ignore internal pagination or response wrappers
-      if (typeName.endsWith('Response') || typeName.startsWith('cursor_')) return;
+      if (typeName.endsWith('Response') || typeName.startsWith('cursor_') || typeName === 'Error') return;
 
+      const cleanName = typeName.replace(/^custom\./, '').replace(/^obj\./, '');
       const properties = def.properties || {};
       const fields = Object.entries(properties).map(([fieldName, fieldData]: [string, any]) => {
         let fieldType = fieldData.type || 'text';
         let isList = false;
+        let isCustomType = false;
 
         if (fieldData.type === 'array') {
           isList = true;
-          fieldType = fieldData.items?.type || fieldData.items?.$ref?.replace('#/definitions/', '') || 'text';
+          const itemRef = fieldData.items?.$ref || '';
+          if (itemRef) {
+            fieldType = itemRef.replace('#/definitions/', '').replace(/^custom\./, '');
+            isCustomType = true;
+          } else {
+            fieldType = fieldData.items?.type || 'text';
+          }
+        } else if (fieldData.$ref) {
+          fieldType = fieldData.$ref.replace('#/definitions/', '').replace(/^custom\./, '');
+          isCustomType = true;
         }
 
         return {
           name: fieldName,
           type: fieldType,
           isList,
+          isCustomType,
           required: def.required?.includes(fieldName)
         };
       });
 
-      dataTypes.push({
-        id: typeName.toLowerCase(),
-        name: typeName,
-        fields
-      });
+      // Avoid duplicates
+      if (!dataTypes.some(d => d.name.toLowerCase() === cleanName.toLowerCase())) {
+        dataTypes.push({
+          id: cleanName.toLowerCase(),
+          name: cleanName.charAt(0).toUpperCase() + cleanName.slice(1),
+          recordCount: 0,
+          fields
+        });
+      }
     });
+
+    // Strategy 2: If definitions was empty, extract exposed tables from paths (/obj/{type})
+    if (dataTypes.length === 0 && Object.keys(paths).length > 0) {
+      Object.keys(paths).forEach(pathStr => {
+        const match = pathStr.match(/^\/obj\/([a-zA-Z0-9_\-]+)/);
+        if (match && match[1]) {
+          const typeName = match[1];
+          const cleanName = typeName.replace(/^custom\./, '');
+
+          // Check if already extracted
+          if (!dataTypes.some(d => d.name.toLowerCase() === cleanName.toLowerCase())) {
+            // Try to extract fields from path parameters or body
+            const postOp = paths[pathStr]?.post || paths[pathStr]?.get || {};
+            const paramSchema = postOp.parameters?.find((p: any) => p.in === 'body')?.schema;
+            const properties = paramSchema?.properties || {};
+
+            const fields = Object.entries(properties).map(([fName, fData]: [string, any]) => ({
+              name: fName,
+              type: fData.type || 'text',
+              isList: fData.type === 'array',
+              required: paramSchema.required?.includes(fName)
+            }));
+
+            // Fallback default system fields if none in body schema
+            if (fields.length === 0) {
+              fields.push(
+                { name: '_id', type: 'text', isList: false, required: true },
+                { name: 'Created Date', type: 'date', isList: false, required: false },
+                { name: 'Modified Date', type: 'date', isList: false, required: false }
+              );
+            }
+
+            dataTypes.push({
+              id: cleanName.toLowerCase(),
+              name: cleanName.charAt(0).toUpperCase() + cleanName.slice(1),
+              recordCount: 0,
+              fields
+            });
+          }
+        }
+      });
+    }
+
+    // Strategy 3: Check tags array
+    if (dataTypes.length === 0 && Array.isArray(swagger.tags)) {
+      swagger.tags.forEach((tag: any) => {
+        if (tag.name && !tag.name.includes(' ') && !dataTypes.some(d => d.id === tag.name.toLowerCase())) {
+          dataTypes.push({
+            id: tag.name.toLowerCase(),
+            name: tag.name.charAt(0).toUpperCase() + tag.name.slice(1),
+            recordCount: 0,
+            fields: [
+              { name: '_id', type: 'text', isList: false, required: true },
+              { name: 'Created Date', type: 'date', isList: false, required: false },
+              { name: 'Modified Date', type: 'date', isList: false, required: false }
+            ]
+          });
+        }
+      });
+    }
 
     return {
       appName: project.name,
