@@ -193,10 +193,15 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
                 onChange={(e) => setEnvironment(e.target.value as any)}
                 className="select"
               >
-                <option value="development">Development (Test)</option>
-                <option value="staging">Staging</option>
-                <option value="live">Live (Production)</option>
+                <option value="development">Development (version-test)</option>
+                <option value="staging">Staging (Custom Branch / Pre-Live App)</option>
+                <option value="live">Live (Production Domain)</option>
               </select>
+              <span style={{ fontSize: '0.7rem', color: 'var(--accent-cyan)', marginTop: '4px', display: 'block' }}>
+                {environment === 'development' && '💡 Default: /version-test development mode.'}
+                {environment === 'staging' && '💡 For custom branches (/version-staging) or separate test clone apps.'}
+                {environment === 'live' && '💡 Production app on live domain with real database.'}
+              </span>
             </div>
           </div>
 

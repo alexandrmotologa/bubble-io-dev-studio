@@ -302,15 +302,18 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               onChange={(e) => setNewProjEnv(e.target.value as any)}
               className="select"
             >
-              <option value="development">Development</option>
-              <option value="staging">Staging</option>
-              <option value="live">Live (Production)</option>
+              <option value="development">Development (version-test)</option>
+              <option value="staging">Staging (Custom Branch / Pre-Live)</option>
+              <option value="live">Live (Production Domain)</option>
             </select>
           </div>
           <button onClick={handleAddProject} className="btn btn-primary btn-sm" style={{ height: '38px' }}>
             <Plus size={15} />
             <span>Add App</span>
           </button>
+        </div>
+        <div style={{ marginTop: '10px', fontSize: '0.725rem', color: 'var(--text-muted)' }}>
+          💡 <strong>Environment Guide:</strong> <code>Development</code> connects to Bubble <code>/version-test</code>; <code>Staging</code> is used for custom branches (e.g. <code>/version-staging</code>) or separate QA clone apps; <code>Live</code> connects to your production app.
         </div>
       </div>
     </div>
