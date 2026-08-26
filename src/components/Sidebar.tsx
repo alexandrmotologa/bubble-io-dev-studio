@@ -8,7 +8,7 @@ import {
   Settings, 
   Layers
 } from 'lucide-react';
-import { NavigationTab, ProjectProfile } from '../types';
+import { NavigationTab, ProjectProfile, AuditHealthReport } from '../types';
 import { ProjectDropdown } from './ProjectDropdown';
 
 interface SidebarProps {
@@ -16,6 +16,7 @@ interface SidebarProps {
   onTabChange: (tab: NavigationTab) => void;
   activeProject?: ProjectProfile;
   projects: ProjectProfile[];
+  auditReport?: AuditHealthReport | null;
   onSelectProject: (id: string) => void;
   onOpenAddProject?: () => void;
   onLoadDemoProject?: () => void;
@@ -26,17 +27,21 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onTabChange,
   activeProject,
   projects,
+  auditReport,
   onSelectProject,
   onOpenAddProject,
   onLoadDemoProject
 }) => {
+  const auditBadge = auditReport ? `${auditReport.score}%` : null;
+  const auditBadgeColor = auditReport ? (auditReport.score >= 80 ? 'badge-emerald' : 'badge-amber') : 'badge-cyan';
+
   const navItems = [
-    { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, badge: null },
-    { id: 'devops', label: 'DevOps & Schema', icon: Database, badge: 'CLI' },
-    { id: 'audit', label: 'Dead Code & Health', icon: Stethoscope, badge: '92%' },
-    { id: 'translator', label: 'AI Localization', icon: Languages, badge: 'AI' },
-    { id: 'visual-tester', label: 'Visual QA Suite', icon: Camera, badge: null },
-    { id: 'settings', label: 'Settings & Keys', icon: Settings, badge: null }
+    { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, badge: null, badgeColor: null },
+    { id: 'devops', label: 'DevOps & Schema', icon: Database, badge: 'CLI', badgeColor: 'badge-indigo' },
+    { id: 'audit', label: 'Dead Code & Health', icon: Stethoscope, badge: auditBadge, badgeColor: auditBadgeColor },
+    { id: 'translator', label: 'AI Localization', icon: Languages, badge: 'AI', badgeColor: 'badge-cyan' },
+    { id: 'visual-tester', label: 'Visual QA Suite', icon: Camera, badge: null, badgeColor: null },
+    { id: 'settings', label: 'Settings & Keys', icon: Settings, badge: null, badgeColor: null }
   ];
 
   return (
@@ -121,7 +126,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 <span>{item.label}</span>
               </div>
               {item.badge && (
-                <span className={`badge ${isActive ? 'badge-indigo' : 'badge-cyan'}`} style={{ fontSize: '0.675rem' }}>
+                <span className={`badge ${item.badgeColor || (isActive ? 'badge-indigo' : 'badge-cyan')}`} style={{ fontSize: '0.675rem' }}>
                   {item.badge}
                 </span>
               )}

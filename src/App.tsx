@@ -147,6 +147,7 @@ export const App: React.FC = () => {
         onTabChange={setCurrentTab}
         activeProject={activeProject}
         projects={settings.projects}
+        auditReport={currentAuditReport}
         onSelectProject={handleSelectProject}
         onOpenAddProject={() => setIsOnboardingOpen(true)}
         onLoadDemoProject={handleLoadDemoProject}
