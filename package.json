@@ -1,0 +1,116 @@
+{
+  "name": "bubble-io-dev-studio",
+  "version": "1.0.0",
+  "description": "All-in-one Developer Studio & GUI for Bubble.io (DevOps, Schema, Dead Code Audit, AI Translation, Visual QA)",
+  "main": "dist-electron/main.js",
+  "author": {
+    "name": "Alexandr Motologa",
+    "url": "https://github.com/alexandrmotologa"
+  },
+  "license": "MIT",
+  "keywords": [
+    "bubble-io",
+    "bubble",
+    "desktop-app",
+    "electron",
+    "developer-tools",
+    "gui",
+    "devops",
+    "dead-code-detector",
+    "ai-translator",
+    "visual-testing",
+    "schema-diff"
+  ],
+  "scripts": {
+    "dev": "concurrently -k \"npm run dev:vite\" \"npm run dev:electron\"",
+    "dev:vite": "vite",
+    "dev:electron": "wait-on tcp:5173 && tsc -p tsconfig.node.json && electron .",
+    "build": "tsc && vite build && tsc -p tsconfig.node.json",
+    "build:vite": "vite build",
+    "build:electron": "tsc -p tsconfig.node.json",
+    "dist": "npm run build && electron-builder",
+    "dist:win": "npm run build && electron-builder --win",
+    "dist:mac": "npm run build && electron-builder --mac",
+    "dist:all": "npm run build && electron-builder -mw",
+    "typecheck": "tsc --noEmit && tsc -p tsconfig.node.json --noEmit"
+  },
+  "dependencies": {
+    "axios": "^1.7.9",
+    "clsx": "^2.1.1",
+    "lucide-react": "^0.475.0",
+    "papaparse": "^5.5.2",
+    "pixelmatch": "^7.1.0",
+    "pngjs": "^7.0.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.4",
+    "@types/papaparse": "^5.3.15",
+    "@types/pixelmatch": "^5.2.6",
+    "@types/pngjs": "^6.0.5",
+    "@types/react": "^18.3.18",
+    "@types/react-dom": "^18.3.5",
+    "@vitejs/plugin-react": "^4.3.4",
+    "concurrently": "^9.1.2",
+    "cross-env": "^7.0.3",
+    "electron": "^34.2.0",
+    "electron-builder": "^25.1.8",
+    "typescript": "^5.7.3",
+    "vite": "^6.1.0",
+    "wait-on": "^8.0.2"
+  },
+  "build": {
+    "appId": "com.bubbleio.devstudio",
+    "productName": "Bubble.io Dev Studio",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "dist-electron/**/*",
+      "package.json"
+    ],
+    "mac": {
+      "category": "public.app-category.developer-tools",
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        }
+      ]
+    },
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
+    }
+  }
+}
