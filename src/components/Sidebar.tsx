@@ -37,7 +37,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, badge: null, badgeColor: null },
-    { id: 'devops', label: 'DevOps & Schema', icon: Database, badge: 'CLI', badgeColor: 'badge-indigo' },
+    { id: 'devops', label: 'DevOps & Schema', icon: Database, badge: null, badgeColor: null },
     { id: 'audit', label: 'Dead Code & Health', icon: Stethoscope, badge: auditBadge, badgeColor: auditBadgeColor },
     { id: 'translator', label: 'AI Localization', icon: Languages, badge: 'AI', badgeColor: 'badge-cyan' },
     { id: 'visual-tester', label: 'Visual QA Suite', icon: Camera, badge: null, badgeColor: null },

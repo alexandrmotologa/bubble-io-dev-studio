@@ -202,19 +202,49 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                     fontSize: '0.825rem'
                   }}
                 >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <ShieldCheck size={16} color="var(--accent-emerald)" />
-                    <strong>{proj.name}</strong>
-                    <span className="badge badge-indigo" style={{ fontSize: '0.65rem' }}>{proj.environment}</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <div style={{
+                      width: '32px',
+                      height: '32px',
+                      borderRadius: '8px',
+                      background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.2) 0%, rgba(6, 182, 212, 0.2) 100%)',
+                      border: '1px solid rgba(99, 102, 241, 0.3)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      color: 'var(--primary)',
+                      fontWeight: 800,
+                      fontSize: '0.8rem',
+                      flexShrink: 0
+                    }}>
+                      {proj.name.charAt(0).toUpperCase()}
+                    </div>
+                    <div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <strong style={{ fontSize: '0.875rem', color: 'var(--text-primary)' }}>{proj.name}</strong>
+                        <span 
+                          className={`badge ${proj.environment === 'live' ? 'badge-emerald' : proj.environment === 'staging' ? 'badge-amber' : 'badge-cyan'}`} 
+                          style={{ fontSize: '0.625rem', padding: '1px 6px' }}
+                        >
+                          {proj.environment.toUpperCase()}
+                        </span>
+                      </div>
+                      <div style={{ fontSize: '0.725rem', color: 'var(--text-muted)', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                        <span>App ID: <code style={{ color: 'var(--text-primary)', fontWeight: 600 }}>{proj.appId}</code></span>
+                        <span>•</span>
+                        <span>URL: <code style={{ color: 'var(--accent-cyan)' }}>{proj.customDomain || `${proj.appId}.bubbleapps.io`}</code></span>
+                      </div>
+                    </div>
                   </div>
 
                   <button
                     onClick={() => handleDeleteProject(proj.id)}
                     className="btn btn-secondary btn-sm"
-                    style={{ padding: '2px 8px', fontSize: '0.7rem' }}
+                    style={{ padding: '4px 8px', fontSize: '0.75rem' }}
                     title="Remove project profile"
                   >
-                    <Trash2 size={12} color="var(--accent-rose)" />
+                    <Trash2 size={13} color="var(--accent-rose)" />
+                    <span>Delete</span>
                   </button>
                 </div>
               ))
