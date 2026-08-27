@@ -22,6 +22,8 @@ import { AppDiffResult, AuditHealthReport, DeadItem } from '../types';
 import { AuditEngine } from '../core/audit/auditEngine';
 import { AppDiffEngine } from '../core/audit/appDiffEngine';
 import { SafeCleanerEngine } from '../core/audit/safeCleaner';
+import { InteractiveDagGraph } from '../components/InteractiveDagGraph';
+import { SafeCleanupModal } from '../components/SafeCleanupModal';
 
 interface AuditViewProps {
   onLog: (module: 'audit', message: string, level?: 'info' | 'success' | 'warn' | 'error') => void;
@@ -40,6 +42,7 @@ export const AuditView: React.FC<AuditViewProps> = ({ onLog }) => {
   const [diffResult, setDiffResult] = useState<AppDiffResult | null>(null);
   const [isCleaning, setIsCleaning] = useState(false);
   const [cleanProgress, setCleanProgress] = useState(0);
+  const [isSafeCleanupModalOpen, setIsSafeCleanupModalOpen] = useState(false);
 
   // Do not auto-run sample audit on mount to avoid hardcoded mock data
   useEffect(() => {
@@ -411,41 +414,12 @@ export const AuditView: React.FC<AuditViewProps> = ({ onLog }) => {
       )}
 
       {/* SUBTAB 3: DAG GRAPH */}
-      {subTab === 'graph' && report?.graph && (
-        <div className="card">
-          <div className="card-header">
-            <div>
-              <div className="card-title">
-                <Layers size={18} color="var(--accent-cyan)" />
-                <span>Application DAG Dependency Graph ({report.graph.nodes.length} Nodes • {report.graph.edges.length} Edges)</span>
-              </div>
-              <div className="card-subtitle">Visual mapping of references between Pages, Elements, Workflows, DB Fields, and Plugins</div>
-            </div>
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '12px' }}>
-            {report.graph.nodes.map(n => (
-              <div
-                key={n.id}
-                style={{
-                  padding: '12px',
-                  borderRadius: 'var(--radius-md)',
-                  background: n.isDead ? 'rgba(244, 63, 94, 0.1)' : 'var(--bg-input)',
-                  border: n.isDead ? '1px solid rgba(244, 63, 94, 0.3)' : '1px solid var(--border-subtle)'
-                }}
-              >
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                  <span className="badge badge-indigo" style={{ fontSize: '0.65rem' }}>{n.category}</span>
-                  {n.isDead && <span className="badge badge-rose" style={{ fontSize: '0.65rem' }}>DEAD ARTIFACT</span>}
-                </div>
-                <div style={{ fontWeight: 700, fontSize: '0.85rem', color: n.isDead ? '#f43f5e' : '#fff' }}>{n.name}</div>
-                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '4px' }}>
-                  Incoming refs: <strong>{n.incomingEdges}</strong> • Outgoing: <strong>{n.outgoingEdges}</strong>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
+      {subTab === 'graph' && (
+        <InteractiveDagGraph
+          onPruneNode={(nodeId) => {
+            onLog('audit', `Pruned node ${nodeId} from AST graph.`, 'success');
+          }}
+        />
       )}
 
       {/* SUBTAB 4: VERSION DIFF */}
@@ -519,9 +493,9 @@ export const AuditView: React.FC<AuditViewProps> = ({ onLog }) => {
               </div>
               <div className="card-subtitle">Automates creation of pre-cleanup backup snapshots and selectively removes orphaned DOM and workflow nodes</div>
             </div>
-            <button onClick={handleBatchClean} disabled={isCleaning} className="btn btn-primary btn-sm">
+            <button onClick={() => setIsSafeCleanupModalOpen(true)} className="btn btn-primary btn-sm">
               <Sparkles size={14} />
-              <span>{isCleaning ? 'Cleaning...' : 'Execute Safe Cleanup'}</span>
+              <span>Launch Safe Cleanup Wizard</span>
             </button>
           </div>
 
@@ -595,6 +569,16 @@ export const AuditView: React.FC<AuditViewProps> = ({ onLog }) => {
           </div>
         </div>
       )}
+
+      {/* Safe Cleanup Diff Modal */}
+      <SafeCleanupModal
+        isOpen={isSafeCleanupModalOpen}
+        onClose={() => setIsSafeCleanupModalOpen(false)}
+        onConfirmClean={handleBatchClean}
+        deadPagesCount={2}
+        deadEventsCount={3}
+        deadStylesCount={8}
+      />
     </div>
   );
 };

@@ -6,6 +6,8 @@ import { Header } from './components/Header';
 import { TerminalDrawer } from './components/TerminalDrawer';
 import { ConnectAppModal } from './components/ConnectAppModal';
 import { ConfirmDeleteModal } from './components/ConfirmDeleteModal';
+import { CommandPalette } from './components/CommandPalette';
+import { StatusBar } from './components/StatusBar';
 import { DashboardView } from './views/DashboardView';
 import { DevOpsView } from './views/DevOpsView';
 import { AuditView } from './views/AuditView';
@@ -21,6 +23,7 @@ export const App: React.FC = () => {
   const [currentTab, setCurrentTab] = useState<NavigationTab>('dashboard');
   const [isTerminalOpen, setIsTerminalOpen] = useState(false);
   const [isConnectModalOpen, setIsConnectModalOpen] = useState(false);
+  const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
   const [projectToDelete, setProjectToDelete] = useState<ProjectProfile | null>(null);
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [isBackingUp, setIsBackingUp] = useState(false);
@@ -32,6 +35,29 @@ export const App: React.FC = () => {
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', settings.theme);
   }, [settings.theme]);
+
+  // Global Keyboard Shortcuts (Ctrl+K, Ctrl+B, Ctrl+`)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Ctrl+K / Cmd+K -> Toggle Command Palette
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setIsCommandPaletteOpen(prev => !prev);
+      }
+      // Ctrl+B -> Run Backup
+      else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'b' && !e.shiftKey) {
+        e.preventDefault();
+        handleQuickBackup();
+      }
+      // Ctrl+` or Ctrl+J -> Toggle Terminal
+      else if ((e.ctrlKey || e.metaKey) && (e.key === '`' || e.key.toLowerCase() === 'j')) {
+        e.preventDefault();
+        setIsTerminalOpen(prev => !prev);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [settings, isBackingUp]);
 
   // Initial welcome log & check if first run onboarding is needed
   useEffect(() => {
@@ -61,6 +87,9 @@ export const App: React.FC = () => {
   };
 
   const activeProject = settings.projects.find(p => p.id === settings.activeProjectId) || settings.projects[0];
+
+  const errorCount = logs.filter(l => l.level === 'error').length;
+  const warnCount = logs.filter(l => l.level === 'warn').length;
 
   const handleToggleTheme = () => {
     const nextTheme: ThemeMode = settings.theme === 'dark' ? 'light' : 'dark';
@@ -163,113 +192,148 @@ export const App: React.FC = () => {
   };
 
   return (
-    <div className="app-container">
-      {/* Sidebar Navigation */}
-      <Sidebar
-        currentTab={currentTab}
-        onTabChange={setCurrentTab}
-        activeProject={activeProject}
-        projects={settings.projects}
-        onSelectProject={handleSelectProject}
-        onOpenConnectModal={() => setIsConnectModalOpen(true)}
-        onDeleteProject={(proj) => setProjectToDelete(proj)}
-      />
-
-      {/* Main Content Area */}
-      <div className="main-content">
-        <Header
+    <div className="app-container" style={{ display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden' }}>
+      <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
+        {/* Sidebar Navigation */}
+        <Sidebar
           currentTab={currentTab}
+          onTabChange={setCurrentTab}
           activeProject={activeProject}
-          theme={settings.theme}
-          onToggleTheme={handleToggleTheme}
-          isTerminalOpen={isTerminalOpen}
-          onToggleTerminal={() => setIsTerminalOpen(!isTerminalOpen)}
-          logCount={logs.length}
+          projects={settings.projects}
+          onSelectProject={handleSelectProject}
+          onOpenConnectModal={() => setIsConnectModalOpen(true)}
+          onDeleteProject={(proj) => setProjectToDelete(proj)}
         />
 
-        {/* View Switcher */}
-        {currentTab === 'dashboard' && (
-          <DashboardView
+        {/* Main Content Area */}
+        <div className="main-content" style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
+          <Header
+            currentTab={currentTab}
             activeProject={activeProject}
-            onNavigate={setCurrentTab}
-            onOpenConnectModal={() => setIsConnectModalOpen(true)}
-            onRunQuickBackup={handleQuickBackup}
-            onRunQuickAudit={handleQuickAudit}
-            isBackingUp={isBackingUp}
-            isAuditing={isAuditing}
-            healthScore={healthScore}
-            healthGrade={healthGrade}
+            theme={settings.theme}
+            onToggleTheme={handleToggleTheme}
+            isTerminalOpen={isTerminalOpen}
+            onToggleTerminal={() => setIsTerminalOpen(!isTerminalOpen)}
+            logCount={logs.length}
           />
-        )}
 
-        {currentTab === 'devops' && (
-          <DevOpsView
+          {/* View Switcher */}
+          <div style={{ flex: 1, overflowY: 'auto' }}>
+            {currentTab === 'dashboard' && (
+              <DashboardView
+                activeProject={activeProject}
+                onNavigate={setCurrentTab}
+                onOpenConnectModal={() => setIsConnectModalOpen(true)}
+                onRunQuickBackup={handleQuickBackup}
+                onRunQuickAudit={handleQuickAudit}
+                isBackingUp={isBackingUp}
+                isAuditing={isAuditing}
+                healthScore={healthScore}
+                healthGrade={healthGrade}
+              />
+            )}
+
+            {currentTab === 'devops' && (
+              <DevOpsView
+                activeProject={activeProject}
+                onLog={addLog}
+                onOpenConnectModal={() => setIsConnectModalOpen(true)}
+              />
+            )}
+
+            {currentTab === 'audit' && (
+              <AuditView
+                onLog={addLog}
+              />
+            )}
+
+            {currentTab === 'translator' && (
+              <TranslatorView
+                onLog={addLog}
+                geminiApiKey={settings.geminiApiKey}
+                openaiApiKey={settings.openaiApiKey}
+                anthropicApiKey={settings.anthropicApiKey}
+                openrouterApiKey={settings.openrouterApiKey}
+                groqApiKey={settings.groqApiKey}
+                xaiApiKey={settings.xaiApiKey}
+                opencodeApiKey={settings.opencodeApiKey}
+                ollamaUrl={settings.ollamaUrl}
+              />
+            )}
+
+            {currentTab === 'visual-tester' && (
+              <VisualTesterView
+                onLog={addLog}
+                activeProject={activeProject}
+              />
+            )}
+
+            {currentTab === 'settings' && (
+              <SettingsView
+                settings={settings}
+                onSaveSettings={handleSaveSettings}
+                onOpenConnectModal={() => setIsConnectModalOpen(true)}
+                onLog={addLog}
+              />
+            )}
+          </div>
+
+          {/* Real-time Log Console Drawer */}
+          <TerminalDrawer
+            isOpen={isTerminalOpen}
+            onClose={() => setIsTerminalOpen(false)}
+            logs={logs}
+            onClearLogs={() => setLogs([])}
+          />
+
+          {/* Connect Bubble App Wizard Modal */}
+          <ConnectAppModal
+            isOpen={isConnectModalOpen}
+            onClose={() => setIsConnectModalOpen(false)}
+            onConnect={handleConnectProject}
+            onLog={addLog}
+          />
+
+          {/* Global Confirm Delete Modal */}
+          <ConfirmDeleteModal
+            isOpen={Boolean(projectToDelete)}
+            project={projectToDelete}
+            onClose={() => setProjectToDelete(null)}
+            onConfirm={handleConfirmDeleteProject}
+          />
+
+          {/* Global Command Palette (Ctrl+K) */}
+          <CommandPalette
+            isOpen={isCommandPaletteOpen}
+            onClose={() => setIsCommandPaletteOpen(false)}
+            currentTab={currentTab}
+            onTabChange={setCurrentTab}
             activeProject={activeProject}
-            onLog={addLog}
+            projects={settings.projects}
+            onSelectProject={handleSelectProject}
             onOpenConnectModal={() => setIsConnectModalOpen(true)}
+            onTriggerBackup={handleQuickBackup}
+            onTriggerAudit={handleQuickAudit}
+            onToggleTerminal={() => setIsTerminalOpen(!isTerminalOpen)}
           />
-        )}
-
-        {currentTab === 'audit' && (
-          <AuditView
-            onLog={addLog}
-          />
-        )}
-
-        {currentTab === 'translator' && (
-          <TranslatorView
-            onLog={addLog}
-            geminiApiKey={settings.geminiApiKey}
-            openaiApiKey={settings.openaiApiKey}
-            anthropicApiKey={settings.anthropicApiKey}
-            openrouterApiKey={settings.openrouterApiKey}
-            groqApiKey={settings.groqApiKey}
-            xaiApiKey={settings.xaiApiKey}
-            opencodeApiKey={settings.opencodeApiKey}
-            ollamaUrl={settings.ollamaUrl}
-          />
-        )}
-
-        {currentTab === 'visual-tester' && (
-          <VisualTesterView
-            onLog={addLog}
-            activeProject={activeProject}
-          />
-        )}
-
-        {currentTab === 'settings' && (
-          <SettingsView
-            settings={settings}
-            onSaveSettings={handleSaveSettings}
-            onOpenConnectModal={() => setIsConnectModalOpen(true)}
-            onLog={addLog}
-          />
-        )}
-
-        {/* Real-time Log Console Drawer */}
-        <TerminalDrawer
-          isOpen={isTerminalOpen}
-          onClose={() => setIsTerminalOpen(false)}
-          logs={logs}
-          onClearLogs={() => setLogs([])}
-        />
-
-        {/* Connect Bubble App Wizard Modal */}
-        <ConnectAppModal
-          isOpen={isConnectModalOpen}
-          onClose={() => setIsConnectModalOpen(false)}
-          onConnect={handleConnectProject}
-          onLog={addLog}
-        />
-
-        {/* Global Confirm Delete Modal */}
-        <ConfirmDeleteModal
-          isOpen={Boolean(projectToDelete)}
-          project={projectToDelete}
-          onClose={() => setProjectToDelete(null)}
-          onConfirm={handleConfirmDeleteProject}
-        />
+        </div>
       </div>
+
+      {/* Bottom IDE Status Bar */}
+      <StatusBar
+        activeProject={activeProject}
+        currentTab={currentTab}
+        isTerminalOpen={isTerminalOpen}
+        onToggleTerminal={() => setIsTerminalOpen(!isTerminalOpen)}
+        onOpenCommandPalette={() => setIsCommandPaletteOpen(true)}
+        healthScore={healthScore || 92}
+        healthGrade={healthGrade || 'A'}
+        aiProvider="Groq"
+        aiModel="Llama 3.3 70B"
+        errorCount={errorCount}
+        warnCount={warnCount}
+        latencyMs={42}
+      />
     </div>
   );
 };

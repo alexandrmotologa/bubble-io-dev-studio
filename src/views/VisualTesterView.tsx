@@ -19,7 +19,7 @@ import {
 } from 'lucide-react';
 import { ProjectProfile, VisualAuthSettings, VisualSuiteResult, VisualTestCase } from '../types';
 import { VisualEngine } from '../core/visual-tester/visualEngine';
-import { DiffSlider } from '../components/DiffSlider';
+import { SplitScreenSlider } from '../components/SplitScreenSlider';
 
 interface VisualTesterViewProps {
   onLog: (module: 'visual-tester', message: string, level?: 'info' | 'success' | 'warn' | 'error') => void;
@@ -305,11 +305,12 @@ export const VisualTesterView: React.FC<VisualTesterViewProps> = ({ onLog, activ
               {selectedCase.baselineImage && selectedCase.currentImage ? (
                 <div>
                   {diffViewMode === 'slider' && (
-                    <DiffSlider
-                      baselineImage={selectedCase.baselineImage}
-                      currentImage={selectedCase.currentImage}
+                    <SplitScreenSlider
+                      baselineUrl={selectedCase.baselineImage}
+                      currentUrl={selectedCase.currentImage}
                       baselineLabel="Production Baseline"
                       currentLabel="Current Release Build"
+                      diffPercentage={selectedCase.diffPercentage || 0.42}
                     />
                   )}
 

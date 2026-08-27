@@ -325,12 +325,14 @@ export class DevOpsEngine {
         else if (field.type === 'date') tsType = 'string | Date';
         else if (field.type.startsWith('option_set.')) {
           tsType = field.type.replace('option_set.', '').replace(/[^a-zA-Z0-9]/g, '');
-        } else if (field.isCustomType) {
-          tsType = `${field.type.charAt(0).toUpperCase() + field.type.slice(1)} | string`;
+        } else if (field.isCustomType || field.type.startsWith('custom.')) {
+          const cleanCustom = field.type.replace(/^custom\./, '').replace(/[^a-zA-Z0-9]/g, '');
+          const targetType = cleanCustom.charAt(0).toUpperCase() + cleanCustom.slice(1);
+          tsType = `${targetType} | string`;
         }
 
         if (field.isList) {
-          tsType = `${tsType}[]`;
+          tsType = tsType.includes('|') ? `(${tsType})[]` : `${tsType}[]`;
         }
 
         const optMark = field.required ? '' : '?';

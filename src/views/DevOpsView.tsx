@@ -602,7 +602,21 @@ export const DevOpsView: React.FC<DevOpsViewProps> = ({ activeProject, onLog, on
                         {dt.recordCount !== undefined ? `${dt.recordCount.toLocaleString()} records in database` : 'Custom Data Type'}
                       </div>
                     </div>
-                    <span className="badge badge-indigo">{dt.fields.length} Fields</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span className="badge badge-indigo">{dt.fields.length} Fields</span>
+                      <button
+                        onClick={() => {
+                          setQueryType(dt.name);
+                          setSubTab('query');
+                        }}
+                        className="btn btn-secondary btn-sm"
+                        style={{ fontSize: '0.7rem', padding: '3px 8px', display: 'flex', alignItems: 'center', gap: '4px' }}
+                        title={`Browse records of ${dt.name}`}
+                      >
+                        <Search size={11} />
+                        <span>Browse Data</span>
+                      </button>
+                    </div>
                   </div>
 
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
@@ -858,10 +872,18 @@ export const DevOpsView: React.FC<DevOpsViewProps> = ({ activeProject, onLog, on
               <div style={{ width: '160px' }}>
                 <label className="input-label">Data Type</label>
                 <select value={queryType} onChange={e => setQueryType(e.target.value)} className="select">
-                  <option value="User">User</option>
-                  <option value="Product">Product</option>
-                  <option value="Order">Order</option>
-                  <option value="Category">Category</option>
+                  {schema?.dataTypes && schema.dataTypes.length > 0 ? (
+                    schema.dataTypes.map(dt => (
+                      <option key={dt.id} value={dt.name}>{dt.name}</option>
+                    ))
+                  ) : (
+                    <>
+                      <option value="User">User</option>
+                      <option value="Product">Product</option>
+                      <option value="Order">Order</option>
+                      <option value="Category">Category</option>
+                    </>
+                  )}
                 </select>
               </div>
               <div style={{ flex: 1, minWidth: '220px' }}>
