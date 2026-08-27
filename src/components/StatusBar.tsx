@@ -39,13 +39,13 @@ export const StatusBar: React.FC<StatusBarProps> = ({
   onToggleTerminal,
   onOpenCommandPalette,
   onOpenCopilot,
-  healthScore = 92,
-  healthGrade = 'A',
-  aiProvider = 'gemini',
-  aiModel = 'gemini-2.0-flash',
+  healthScore,
+  healthGrade,
+  aiProvider,
+  aiModel,
   errorCount = 0,
   warnCount = 0,
-  latencyMs = 45
+  latencyMs
 }) => {
   return (
     <footer style={{
@@ -97,8 +97,8 @@ export const StatusBar: React.FC<StatusBarProps> = ({
 
         {/* Latency & Ping */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.7rem' }}>
-          <Activity size={12} color="var(--accent-cyan)" />
-          <span>{latencyMs}ms</span>
+          <Activity size={12} color={activeProject ? 'var(--accent-cyan)' : 'var(--text-muted)'} />
+          <span>{latencyMs !== undefined ? `${latencyMs}ms` : activeProject ? 'Connected' : 'Offline'}</span>
         </div>
 
         <div style={{ width: '1px', height: '12px', backgroundColor: 'var(--border-subtle)' }} />
@@ -121,21 +121,39 @@ export const StatusBar: React.FC<StatusBarProps> = ({
 
       {/* Center Section: Health Score */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '4px',
-          padding: '1px 8px',
-          borderRadius: '10px',
-          background: 'rgba(16, 185, 129, 0.08)',
-          border: '1px solid rgba(16, 185, 129, 0.2)',
-          fontSize: '0.675rem',
-          color: 'var(--accent-emerald)',
-          fontWeight: 600
-        }}>
-          <ShieldCheck size={12} />
-          <span>Health {healthScore}% (Grade {healthGrade})</span>
-        </div>
+        {healthScore !== undefined && healthScore !== null ? (
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '4px',
+            padding: '1px 8px',
+            borderRadius: '10px',
+            background: healthScore >= 80 ? 'rgba(16, 185, 129, 0.08)' : 'rgba(245, 158, 11, 0.08)',
+            border: healthScore >= 80 ? '1px solid rgba(16, 185, 129, 0.2)' : '1px solid rgba(245, 158, 11, 0.2)',
+            fontSize: '0.675rem',
+            color: healthScore >= 80 ? 'var(--accent-emerald)' : 'var(--accent-amber)',
+            fontWeight: 600
+          }}>
+            <ShieldCheck size={12} />
+            <span>Health {healthScore}% {healthGrade ? `(Grade ${healthGrade})` : ''}</span>
+          </div>
+        ) : (
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '4px',
+            padding: '1px 8px',
+            borderRadius: '10px',
+            background: 'var(--bg-input)',
+            border: '1px solid var(--border-subtle)',
+            fontSize: '0.675rem',
+            color: 'var(--text-muted)',
+            fontWeight: 500
+          }}>
+            <ShieldCheck size={12} />
+            <span>Audit Ready</span>
+          </div>
+        )}
       </div>
 
       {/* Right Section: AI Model, Command Palette, Terminal Drawer */}
@@ -143,8 +161,10 @@ export const StatusBar: React.FC<StatusBarProps> = ({
         {/* Active AI Provider */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '5px', color: 'var(--text-secondary)' }}>
           <Bot size={12} color="var(--primary)" />
-          <span style={{ textTransform: 'capitalize', fontWeight: 500 }}>{aiProvider}</span>
-          <span style={{ color: 'var(--text-muted)', fontSize: '0.675rem' }}>({aiModel})</span>
+          <span style={{ textTransform: 'capitalize', fontWeight: 500 }}>{aiProvider || 'AI Ready'}</span>
+          {aiModel && (
+            <span style={{ color: 'var(--text-muted)', fontSize: '0.675rem' }}>({aiModel})</span>
+          )}
         </div>
 
         {/* AI Copilot Button */}

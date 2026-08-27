@@ -20,6 +20,7 @@ import { SettingsView } from './views/SettingsView';
 import { AiCopilotModal } from './components/AiCopilotModal';
 import { DevOpsEngine } from './core/devops/devopsEngine';
 import { AuditEngine } from './core/audit/auditEngine';
+import { getProviderDisplayName, getModelDisplayName, getProviderForModel } from './core/ai/aiProviders';
 
 export const App: React.FC = () => {
   const store = ProjectStore.getInstance();
@@ -386,21 +387,29 @@ export const App: React.FC = () => {
       </div>
 
       {/* Bottom IDE Status Bar */}
-      <StatusBar
-        activeProject={activeProject}
-        currentTab={currentTab}
-        isTerminalOpen={isTerminalOpen}
-        onToggleTerminal={() => setIsTerminalOpen(!isTerminalOpen)}
-        onOpenCommandPalette={() => setIsCommandPaletteOpen(true)}
-        onOpenCopilot={() => setIsCopilotOpen(true)}
-        healthScore={healthScore || 92}
-        healthGrade={healthGrade || 'A'}
-        aiProvider="Groq"
-        aiModel="Llama 3.3 70B"
-        errorCount={errorCount}
-        warnCount={warnCount}
-        latencyMs={42}
-      />
+      {(() => {
+        const activeAiProviderId = activeProject?.aiProvider || (settings.defaultAiModel ? getProviderForModel(settings.defaultAiModel) : 'gemini');
+        const activeAiModelId = activeProject?.aiModel || settings.defaultAiModel || 'gemini-2.0-flash';
+        const activeAiProviderName = getProviderDisplayName(activeAiProviderId);
+        const activeAiModelName = getModelDisplayName(activeAiModelId);
+
+        return (
+          <StatusBar
+            activeProject={activeProject}
+            currentTab={currentTab}
+            isTerminalOpen={isTerminalOpen}
+            onToggleTerminal={() => setIsTerminalOpen(!isTerminalOpen)}
+            onOpenCommandPalette={() => setIsCommandPaletteOpen(true)}
+            onOpenCopilot={() => setIsCopilotOpen(true)}
+            healthScore={healthScore ?? undefined}
+            healthGrade={healthGrade ?? undefined}
+            aiProvider={activeAiProviderName}
+            aiModel={activeAiModelName}
+            errorCount={errorCount}
+            warnCount={warnCount}
+          />
+        );
+      })()}
     </div>
   );
 };

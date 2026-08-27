@@ -21,6 +21,8 @@ export interface ProjectProfile {
   aiProvider?: string;
   aiModel?: string;
   aiApiKey?: string;
+  httpBasicUser?: string;
+  httpBasicPassword?: string;
   blueprintExportJson?: any;
   blueprintFileName?: string;
   stats?: {

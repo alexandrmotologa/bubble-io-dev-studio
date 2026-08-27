@@ -11,7 +11,12 @@ export class VisualEngine {
       return this.getDefaultTestCases();
     }
 
-    const baseUrl = `https://${project.customDomain || `${project.appId}.bubbleapps.io`}/${project.environment || 'version-test'}`;
+    const host = project.customDomain || `${project.appId}.bubbleapps.io`;
+    const env = project.environment || 'version-test';
+    const authPrefix = project.httpBasicUser && project.httpBasicPassword 
+      ? `${encodeURIComponent(project.httpBasicUser)}:${encodeURIComponent(project.httpBasicPassword)}@` 
+      : '';
+    const baseUrl = `https://${authPrefix}${host}/${env}`;
     const cases: VisualTestCase[] = [];
 
     // Extract pages from blueprint if present

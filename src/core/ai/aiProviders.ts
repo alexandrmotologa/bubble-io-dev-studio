@@ -165,3 +165,16 @@ export const getDefaultModelForProvider = (providerId: string): string => {
   }
   return 'gemini-2.0-flash';
 };
+
+export const getModelDisplayName = (modelId: string): string => {
+  for (const p of AI_PROVIDERS) {
+    const found = p.models.find(m => m.id === modelId);
+    if (found) return found.name;
+  }
+  return modelId;
+};
+
+export const getProviderDisplayName = (providerId: string): string => {
+  const p = AI_PROVIDERS.find(prov => prov.id === providerId);
+  return p ? p.name : providerId;
+};

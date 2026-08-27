@@ -59,6 +59,39 @@ export const VisualTesterView: React.FC<VisualTesterViewProps> = ({ onLog, activ
   const [newViewportType, setNewViewportType] = useState<'desktop' | 'tablet' | 'mobile'>('desktop');
 
   // Auth Settings
+  const [basicAuthUser, setBasicAuthUser] = useState(activeProject?.httpBasicUser || 'u');
+  const [basicAuthPass, setBasicAuthPass] = useState(activeProject?.httpBasicPassword || '1');
+  const [savedAuthSuccess, setSavedAuthSuccess] = useState(false);
+
+  useEffect(() => {
+    if (activeProject) {
+      setBasicAuthUser(activeProject.httpBasicUser || 'u');
+      setBasicAuthPass(activeProject.httpBasicPassword || '1');
+    }
+  }, [activeProject?.id]);
+
+  const handleApplyAgencyAuth = () => {
+    if (!activeProject) return;
+    const store = (window as any).__projectStore || import('../core/storage/projectStore').then(m => {
+      const ps = m.ProjectStore.getInstance();
+      ps.updateProject(activeProject.id, {
+        httpBasicUser: basicAuthUser.trim() || undefined,
+        httpBasicPassword: basicAuthPass.trim() || undefined
+      });
+      const updatedProj = {
+        ...activeProject,
+        httpBasicUser: basicAuthUser.trim() || undefined,
+        httpBasicPassword: basicAuthPass.trim() || undefined
+      };
+      const cases = VisualEngine.getTestCasesForProject(updatedProj);
+      setTestCases(cases);
+      if (cases.length > 0) setSelectedCase(cases[0]);
+      setSavedAuthSuccess(true);
+      setTimeout(() => setSavedAuthSuccess(false), 3000);
+      onLog('visual-tester', `Applied Agency HTTP Basic Auth (${basicAuthUser.trim() ? `User: ${basicAuthUser}` : 'Disabled'}) to all Visual QA targets.`, 'success');
+    });
+  };
+
   const [authSettings, setAuthSettings] = useState<VisualAuthSettings>({
     enabled: false,
     loginUrl: activeProject ? `https://${activeProject.appId}.bubbleapps.io/login` : 'https://myapp.bubbleapps.io/login',
@@ -497,40 +530,95 @@ export const VisualTesterView: React.FC<VisualTesterViewProps> = ({ onLog, activ
 
       {/* SUBTAB 3: AUTH SETTINGS */}
       {subTab === 'auth' && (
-        <div className="card">
-          <div className="card-header">
-            <div>
-              <div className="card-title">
-                <ShieldCheck size={18} color="var(--accent-cyan)" />
-                <span>Authentication for Protected Bubble Pages</span>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          {/* Card 1: Agency Plan & App Password Protection (HTTP Basic Auth) */}
+          <div className="card" style={{ border: '1px solid var(--border-active)', background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.06) 0%, rgba(6, 182, 212, 0.04) 100%)' }}>
+            <div className="card-header">
+              <div>
+                <div className="card-title">
+                  <ShieldCheck size={18} color="var(--primary)" />
+                  <span>Agency Plan / App Password Protection (HTTP Basic Auth)</span>
+                </div>
+                <div className="card-subtitle">
+                  Authenticate Bubble apps that have <em>Settings &gt; General &gt; Limit access to this app to people with a specific username/password</em>
+                </div>
               </div>
-              <div className="card-subtitle">Automate login flows before capturing screenshots for admin dashboards and user portals</div>
+
+              <button
+                onClick={handleApplyAgencyAuth}
+                className="btn btn-primary btn-sm"
+                style={{ padding: '6px 14px' }}
+              >
+                {savedAuthSuccess ? <CheckCircle2 size={13} /> : <ShieldCheck size={13} />}
+                <span>{savedAuthSuccess ? 'Credentials Applied!' : 'Apply Credentials to Targets'}</span>
+              </button>
+            </div>
+
+            <div className="grid-2" style={{ gap: '14px' }}>
+              <div>
+                <label className="input-label">HTTP Basic Username</label>
+                <input
+                  type="text"
+                  placeholder="e.g. u"
+                  value={basicAuthUser}
+                  onChange={e => setBasicAuthUser(e.target.value)}
+                  className="input"
+                />
+              </div>
+              <div>
+                <label className="input-label">HTTP Basic Password</label>
+                <input
+                  type="password"
+                  placeholder="e.g. 1"
+                  value={basicAuthPass}
+                  onChange={e => setBasicAuthPass(e.target.value)}
+                  className="input"
+                />
+              </div>
+            </div>
+
+            <div style={{ marginTop: '10px', fontSize: '0.75rem', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span style={{ color: 'var(--accent-emerald)' }}>✓</span>
+              <span>Automatically injects authentication credentials into live iframes and multi-viewport regression tests.</span>
             </div>
           </div>
 
-          <div style={{ marginBottom: '14px' }}>
-            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontWeight: 600 }}>
-              <input type="checkbox" checked={authSettings.enabled} onChange={e => setAuthSettings({ ...authSettings, enabled: e.target.checked })} />
-              <span>Enable Automated Login Authentication Session</span>
-            </label>
-          </div>
+          {/* Card 2: In-App User Session Login Flow */}
+          <div className="card">
+            <div className="card-header">
+              <div>
+                <div className="card-title">
+                  <ShieldCheck size={18} color="var(--accent-cyan)" />
+                  <span>In-App User Authentication (User Login Flow)</span>
+                </div>
+                <div className="card-subtitle">Automate login forms before capturing screenshots for protected user portals</div>
+              </div>
+            </div>
 
-          <div className="grid-2">
-            <div>
-              <label className="input-label">Login Page URL</label>
-              <input type="text" value={authSettings.loginUrl} onChange={e => setAuthSettings({ ...authSettings, loginUrl: e.target.value })} className="input" />
+            <div style={{ marginBottom: '14px' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontWeight: 600 }}>
+                <input type="checkbox" checked={authSettings.enabled} onChange={e => setAuthSettings({ ...authSettings, enabled: e.target.checked })} />
+                <span>Enable Automated Login Authentication Session</span>
+              </label>
             </div>
-            <div>
-              <label className="input-label">Email / Username Input Selector</label>
-              <input type="text" value={authSettings.usernameField} onChange={e => setAuthSettings({ ...authSettings, usernameField: e.target.value })} className="input" />
-            </div>
-            <div>
-              <label className="input-label">Password Input Selector</label>
-              <input type="text" value={authSettings.passwordField} onChange={e => setAuthSettings({ ...authSettings, passwordField: e.target.value })} className="input" />
-            </div>
-            <div>
-              <label className="input-label">Submit Button Selector</label>
-              <input type="text" value={authSettings.submitButtonSelector} onChange={e => setAuthSettings({ ...authSettings, submitButtonSelector: e.target.value })} className="input" />
+
+            <div className="grid-2">
+              <div>
+                <label className="input-label">Login Page URL</label>
+                <input type="text" value={authSettings.loginUrl} onChange={e => setAuthSettings({ ...authSettings, loginUrl: e.target.value })} className="input" />
+              </div>
+              <div>
+                <label className="input-label">Email / Username Input Selector</label>
+                <input type="text" value={authSettings.usernameField} onChange={e => setAuthSettings({ ...authSettings, usernameField: e.target.value })} className="input" />
+              </div>
+              <div>
+                <label className="input-label">Password Input Selector</label>
+                <input type="text" value={authSettings.passwordField} onChange={e => setAuthSettings({ ...authSettings, passwordField: e.target.value })} className="input" />
+              </div>
+              <div>
+                <label className="input-label">Submit Button Selector</label>
+                <input type="text" value={authSettings.submitButtonSelector} onChange={e => setAuthSettings({ ...authSettings, submitButtonSelector: e.target.value })} className="input" />
+              </div>
             </div>
           </div>
         </div>

@@ -79,6 +79,11 @@ export const ConnectAppModal: React.FC<ConnectAppModalProps> = ({
   const [isTestingToken, setIsTestingToken] = useState(false);
   const [tokenTestResult, setTokenTestResult] = useState<{ success: boolean; latency: number; message: string } | null>(null);
 
+  // Agency Plan / HTTP Basic Auth Password Protection
+  const [isAgencyPlan, setIsAgencyPlan] = useState(false);
+  const [httpBasicUser, setHttpBasicUser] = useState('');
+  const [httpBasicPassword, setHttpBasicPassword] = useState('');
+
   // Step 3: Localization & AI Setup
   const [aiProvider, setAiProvider] = useState('gemini');
   const [aiModel, setAiModel] = useState('gemini-2.0-flash');
@@ -343,6 +348,8 @@ export const ConnectAppModal: React.FC<ConnectAppModalProps> = ({
         environment,
         apiToken: apiToken.trim() || undefined,
         customDomain: customDomain.trim() || undefined,
+        httpBasicUser: isAgencyPlan && httpBasicUser.trim() ? httpBasicUser.trim() : undefined,
+        httpBasicPassword: isAgencyPlan && httpBasicPassword.trim() ? httpBasicPassword.trim() : undefined,
         blueprintExportJson: blueprintJson || undefined,
         blueprintFileName: blueprintFileName || undefined,
         stats: blueprintStats || undefined
@@ -668,6 +675,53 @@ export const ConnectAppModal: React.FC<ConnectAppModalProps> = ({
                 <div style={{ fontSize: '0.725rem', color: 'var(--text-muted)', marginTop: '4px' }}>
                   Enables live schema reading, migrations, data seeding, backups, and backend workflow execution.
                 </div>
+              </div>
+
+              {/* Agency Plan / HTTP Password Protected App */}
+              <div style={{
+                padding: '14px 16px',
+                borderRadius: 'var(--radius-md)',
+                background: isAgencyPlan ? 'rgba(99, 102, 241, 0.08)' : 'var(--bg-input)',
+                border: isAgencyPlan ? '1px solid var(--border-active)' : '1px solid var(--border-subtle)',
+                transition: 'all 0.2s ease'
+              }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontWeight: 600, fontSize: '0.85rem', color: 'var(--text-primary)' }}>
+                  <input
+                    type="checkbox"
+                    checked={isAgencyPlan}
+                    onChange={(e) => setIsAgencyPlan(e.target.checked)}
+                  />
+                  <ShieldCheck size={15} color="var(--primary)" />
+                  <span>Agency Plan / App-Level Password Protection (HTTP Basic Auth)</span>
+                </label>
+                <div style={{ fontSize: '0.725rem', color: 'var(--text-muted)', marginTop: '4px', marginLeft: '24px' }}>
+                  Enable if your Bubble app has a password prompt under <em>Settings &gt; General &gt; Limit access to this app</em> to allow Visual QA & Live Preview to access your pages.
+                </div>
+
+                {isAgencyPlan && (
+                  <div className="grid-2" style={{ marginTop: '12px', gap: '12px' }}>
+                    <div>
+                      <label className="input-label">HTTP Basic Username *</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. u"
+                        value={httpBasicUser}
+                        onChange={(e) => setHttpBasicUser(e.target.value)}
+                        className="input"
+                      />
+                    </div>
+                    <div>
+                      <label className="input-label">HTTP Basic Password *</label>
+                      <input
+                        type="password"
+                        placeholder="e.g. 1"
+                        value={httpBasicPassword}
+                        onChange={(e) => setHttpBasicPassword(e.target.value)}
+                        className="input"
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Step 2 Diagnostic Test Box */}
