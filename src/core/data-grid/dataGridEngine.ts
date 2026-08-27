@@ -281,13 +281,131 @@ export class DataGridEngine {
     const rows = records.map(rec => {
       return columns.map(c => {
         let val = rec[c.key];
+        if (val === undefined || val === null) {
+          // Try case-insensitive and stripped key fallback
+          const lowerKey = c.key.toLowerCase();
+          const stripped = c.key.replace(/\s+(text|number|date|boolean|image|file|geo|user|list|custom)$/i, '').trim().toLowerCase();
+          for (const [k, v] of Object.entries(rec)) {
+            const kLower = k.toLowerCase();
+            if (kLower === lowerKey || kLower === stripped) {
+              val = v;
+              break;
+            }
+          }
+        }
+
         if (val === undefined || val === null) val = '';
-        if (typeof val === 'object') val = JSON.stringify(val);
+        if (typeof val === 'object') {
+          if (val.email?.email) val = val.email.email;
+          else if (val.email && typeof val.email === 'string') val = val.email;
+          else if (val.url && typeof val.url === 'string') val = val.url;
+          else if (Array.isArray(val)) val = val.join('; ');
+          else val = JSON.stringify(val);
+        }
         return `"${String(val).replace(/"/g, '""')}"`;
       }).join(',');
     });
 
     return [headerRow, ...rows].join('\n');
+  }
+
+  /**
+   * Streams and fetches ALL records across all pages from Bubble Data API for complete bulk export
+   */
+  public static async exportEntireTable(
+    project: ProjectProfile,
+    dataType: string,
+    columns: DataGridColumn[],
+    onProgress: (progress: { fetched: number; total: number; percent: number; statusText: string }) => void,
+    abortSignal?: AbortSignal
+  ): Promise<{ success: boolean; records: DataGridRecord[]; csv: string; totalExported: number; error?: string }> {
+    const domain = project.customDomain || `${project.appId}.bubbleapps.io`;
+    const env = project.environment || 'version-test';
+    const cleanType = dataType.toLowerCase().replace(/^custom\./, '');
+    const limit = 100; // Maximum batch size supported by Bubble Data API
+    let cursor = 0;
+    const allRecords: DataGridRecord[] = [];
+    let hasMore = true;
+    let estimatedTotal = 0;
+
+    try {
+      while (hasMore) {
+        if (abortSignal?.aborted) {
+          break;
+        }
+
+        const url = new URL(`https://${domain}/${env}/api/1.1/obj/${cleanType}`);
+        url.searchParams.set('limit', limit.toString());
+        url.searchParams.set('cursor', cursor.toString());
+
+        const headers: Record<string, string> = {
+          'Accept': 'application/json'
+        };
+        if (project.apiToken) {
+          headers['Authorization'] = `Bearer ${project.apiToken}`;
+        }
+
+        const res = await fetch(url.toString(), { headers, signal: abortSignal });
+        if (!res.ok) {
+          const errText = await res.text();
+          throw new Error(`Bubble Data API error (${res.status}): ${errText}`);
+        }
+
+        const json = await res.json();
+        const rawResults: DataGridRecord[] = json.response?.results || [];
+        const remaining: number = json.response?.remaining || 0;
+        const batchCount: number = json.response?.count || rawResults.length;
+
+        if (estimatedTotal === 0) {
+          estimatedTotal = batchCount + remaining;
+        }
+
+        allRecords.push(...rawResults);
+        cursor += rawResults.length;
+
+        const currentTotal = Math.max(estimatedTotal, allRecords.length + remaining);
+        const percent = currentTotal > 0 ? Math.min(100, Math.round((allRecords.length / currentTotal) * 100)) : 100;
+
+        onProgress({
+          fetched: allRecords.length,
+          total: currentTotal,
+          percent,
+          statusText: `Fetched ${allRecords.length.toLocaleString()} of ${currentTotal.toLocaleString()} records (${percent}%)...`
+        });
+
+        if (rawResults.length === 0 || remaining === 0) {
+          hasMore = false;
+        } else {
+          // Micro delay to respect Bubble rate limits
+          await new Promise(resolve => setTimeout(resolve, 50));
+        }
+      }
+
+      const csv = this.exportToCsv(columns, allRecords);
+      return {
+        success: true,
+        records: allRecords,
+        csv,
+        totalExported: allRecords.length
+      };
+    } catch (e: any) {
+      if (e.name === 'AbortError' || abortSignal?.aborted) {
+        const partialCsv = this.exportToCsv(columns, allRecords);
+        return {
+          success: true,
+          records: allRecords,
+          csv: partialCsv,
+          totalExported: allRecords.length
+        };
+      }
+      return {
+        success: false,
+        records: allRecords,
+        csv: '',
+        totalExported: allRecords.length,
+        error: e.message
+      };
+    }
   }
 
   /**

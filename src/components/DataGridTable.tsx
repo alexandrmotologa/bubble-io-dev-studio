@@ -14,6 +14,7 @@ import {
   ExternalLink,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
   Sparkles,
   Layers,
   AlertTriangle,
@@ -171,6 +172,13 @@ export const DataGridTable: React.FC<DataGridTableProps> = ({
   const [templateGuideTab, setTemplateGuideTab] = useState<'csv' | 'json' | 'rules'>('csv');
   const [templateCopied, setTemplateCopied] = useState(false);
 
+  // Export Menu & Full Table Bulk Export State
+  const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
+  const [isFullExportModalOpen, setIsFullExportModalOpen] = useState(false);
+  const [fullExportProgress, setFullExportProgress] = useState<{ fetched: number; total: number; percent: number; statusText: string }>({ fetched: 0, total: 0, percent: 0, statusText: '' });
+  const [isExportingFull, setIsExportingFull] = useState(false);
+  const exportAbortControllerRef = useRef<AbortController | null>(null);
+
   // Pagination State
   const [cursor, setCursor] = useState(0);
   const [limit, setLimit] = useState(25);
@@ -237,8 +245,8 @@ export const DataGridTable: React.FC<DataGridTableProps> = ({
     const colList: DataGridColumn[] = [];
     const addedKeys = new Set<string>();
 
-    // 1. Always start with _id (160px width for breathing room)
-    colList.push({ key: '_id', label: 'Unique ID', type: 'id', width: 160 });
+    // 1. Always start with _id (220px width for ample breathing room)
+    colList.push({ key: '_id', label: 'Unique ID', type: 'id', width: 220 });
     addedKeys.add('_id');
 
     // 2. Add ALL schema fields (e.g. all 105 fields defined in Bubble blueprint)
@@ -578,18 +586,95 @@ export const DataGridTable: React.FC<DataGridTableProps> = ({
     }
   };
 
-  const handleExportCsv = () => {
-    const targetRecords = selectedRowIds.size > 0 
-      ? records.filter(r => selectedRowIds.has(r._id))
-      : records;
-    const csv = DataGridEngine.exportToCsv(columns, targetRecords);
+  const downloadCsvBlob = (csv: string, filename: string) => {
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `bubble_${selectedType.toLowerCase()}_export_${Date.now()}.csv`;
+    a.download = filename;
     a.click();
-    onLog('devops', `Exported ${targetRecords.length} records to CSV.`, 'success');
+    URL.revokeObjectURL(url);
+  };
+
+  const handleExportSelectedCsv = () => {
+    setIsExportMenuOpen(false);
+    if (selectedRowIds.size === 0) {
+      toast.warn('No rows selected. Check row checkboxes to export selected.');
+      return;
+    }
+    const targetRecords = records.filter(r => selectedRowIds.has(r._id));
+    const csv = DataGridEngine.exportToCsv(columns, targetRecords);
+    downloadCsvBlob(csv, `bubble_${selectedType.toLowerCase()}_selected_${targetRecords.length}_records_${Date.now()}.csv`);
+    toast.success(`Exported ${targetRecords.length} selected record(s) to CSV.`);
+    onLog('devops', `Exported ${targetRecords.length} selected records from '${selectedType}' to CSV.`, 'success');
+  };
+
+  const handleExportCurrentPageCsv = () => {
+    setIsExportMenuOpen(false);
+    if (records.length === 0) {
+      toast.warn('No records on current page to export.');
+      return;
+    }
+    const csv = DataGridEngine.exportToCsv(columns, records);
+    downloadCsvBlob(csv, `bubble_${selectedType.toLowerCase()}_page_${cursor + 1}_to_${cursor + records.length}_${Date.now()}.csv`);
+    toast.success(`Exported ${records.length} current page record(s) to CSV.`);
+    onLog('devops', `Exported ${records.length} current page records from '${selectedType}' to CSV.`, 'success');
+  };
+
+  const handleStartFullExport = async () => {
+    setIsExportMenuOpen(false);
+    if (!project) {
+      toast.error('No active Bubble project selected.');
+      return;
+    }
+    setIsFullExportModalOpen(true);
+    setIsExportingFull(true);
+    setFullExportProgress({
+      fetched: 0,
+      total: totalCount || 0,
+      percent: 0,
+      statusText: 'Connecting to Bubble Data API and initializing stream...'
+    });
+
+    const abortController = new AbortController();
+    exportAbortControllerRef.current = abortController;
+
+    try {
+      const res = await DataGridEngine.exportEntireTable(
+        project,
+        selectedType,
+        columns,
+        (p) => setFullExportProgress(p),
+        abortController.signal
+      );
+
+      setIsExportingFull(false);
+
+      if (res.success && res.csv) {
+        downloadCsvBlob(res.csv, `bubble_${selectedType.toLowerCase()}_FULL_EXPORT_${res.totalExported}_records_${new Date().toISOString().slice(0, 10)}.csv`);
+        toast.success(`🎉 Full table export completed! ${res.totalExported.toLocaleString()} records downloaded.`);
+        onLog('devops', `Full table export finished: ${res.totalExported.toLocaleString()} records exported from '${selectedType}' to CSV.`, 'success');
+        setTimeout(() => setIsFullExportModalOpen(false), 1200);
+      } else {
+        if (res.error) {
+          toast.error(`Export error: ${res.error}`);
+          onLog('devops', `Full table export failed: ${res.error}`, 'error');
+        }
+      }
+    } catch (e: any) {
+      setIsExportingFull(false);
+      toast.error(`Full table export error: ${e.message}`);
+      onLog('devops', `Full table export error: ${e.message}`, 'error');
+    }
+  };
+
+  const handleCancelFullExport = () => {
+    if (exportAbortControllerRef.current) {
+      exportAbortControllerRef.current.abort();
+      toast.info('Export process cancelled by user.');
+    }
+    setIsExportingFull(false);
+    setIsFullExportModalOpen(false);
   };
 
   const getSampleCsvSnippet = () => {
@@ -694,10 +779,130 @@ export const DataGridTable: React.FC<DataGridTableProps> = ({
             <span>Import Data</span>
           </button>
 
-          <button onClick={handleExportCsv} className="btn btn-secondary btn-sm" title="Export to CSV">
-            <Download size={13} />
-            <span>Export CSV</span>
-          </button>
+          {/* Export Dropdown Menu */}
+          <div style={{ position: 'relative' }}>
+            <button
+              type="button"
+              onClick={() => setIsExportMenuOpen(!isExportMenuOpen)}
+              className="btn btn-secondary btn-sm"
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+              title="Export CSV Options"
+            >
+              <Download size={13} />
+              <span>Export CSV</span>
+              <ChevronDown size={12} style={{ transform: isExportMenuOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s ease' }} />
+            </button>
+
+            {isExportMenuOpen && (
+              <div
+                style={{
+                  position: 'absolute',
+                  right: 0,
+                  top: '100%',
+                  marginTop: '6px',
+                  background: 'var(--bg-surface-elevated)',
+                  border: '1px solid var(--border-subtle)',
+                  borderRadius: 'var(--radius-md)',
+                  boxShadow: '0 12px 32px rgba(0, 0, 0, 0.45)',
+                  width: '260px',
+                  zIndex: 999,
+                  overflow: 'hidden',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  padding: '6px'
+                }}
+              >
+                <button
+                  type="button"
+                  onClick={handleExportSelectedCsv}
+                  disabled={selectedRowIds.size === 0}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    padding: '8px 10px',
+                    borderRadius: 'var(--radius-sm)',
+                    border: 'none',
+                    background: 'transparent',
+                    color: selectedRowIds.size > 0 ? 'var(--text-primary)' : 'var(--text-muted)',
+                    cursor: selectedRowIds.size > 0 ? 'pointer' : 'not-allowed',
+                    fontSize: '0.8rem',
+                    textAlign: 'left',
+                    opacity: selectedRowIds.size > 0 ? 1 : 0.5
+                  }}
+                  onMouseEnter={(e) => { if (selectedRowIds.size > 0) e.currentTarget.style.background = 'var(--bg-card-hover)'; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <Check size={14} color="var(--primary)" />
+                    <span>Export Selected</span>
+                  </div>
+                  <span className="badge badge-indigo" style={{ fontSize: '0.65rem' }}>
+                    {selectedRowIds.size} rows
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleExportCurrentPageCsv}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    padding: '8px 10px',
+                    borderRadius: 'var(--radius-sm)',
+                    border: 'none',
+                    background: 'transparent',
+                    color: 'var(--text-primary)',
+                    cursor: 'pointer',
+                    fontSize: '0.8rem',
+                    textAlign: 'left'
+                  }}
+                  onMouseEnter={(e) => e.currentTarget.style.background = 'var(--bg-card-hover)'}
+                  onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <FileSpreadsheet size={14} color="var(--accent-cyan)" />
+                    <span>Export Current Page</span>
+                  </div>
+                  <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
+                    {records.length} rows
+                  </span>
+                </button>
+
+                <div style={{ height: '1px', background: 'var(--border-subtle)', margin: '4px 0' }} />
+
+                <button
+                  type="button"
+                  onClick={handleStartFullExport}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    padding: '8px 10px',
+                    borderRadius: 'var(--radius-sm)',
+                    border: 'none',
+                    background: 'rgba(99, 102, 241, 0.08)',
+                    color: 'var(--text-primary)',
+                    cursor: 'pointer',
+                    fontSize: '0.8rem',
+                    fontWeight: 600,
+                    textAlign: 'left'
+                  }}
+                  onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(99, 102, 241, 0.18)'}
+                  onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(99, 102, 241, 0.08)'}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <Sparkles size={14} color="var(--primary)" />
+                    <span>Export Entire Table</span>
+                  </div>
+                  <span className="badge badge-cyan" style={{ fontSize: '0.65rem' }}>
+                    All Records
+                  </span>
+                </button>
+              </div>
+            )}
+          </div>
 
           <button onClick={() => setIsNewRecordModalOpen(true)} className="btn btn-primary btn-sm">
             <Plus size={13} />
@@ -825,8 +1030,8 @@ export const DataGridTable: React.FC<DataGridTableProps> = ({
                       cursor: isId ? 'default' : 'pointer',
                       userSelect: 'none',
                       whiteSpace: 'nowrap',
-                      width: isId ? '160px' : '180px',
-                      minWidth: isId ? '160px' : '180px',
+                      width: isId ? '220px' : '180px',
+                      minWidth: isId ? '220px' : '180px',
                       position: 'sticky',
                       top: 0,
                       left: isId ? '44px' : undefined,
@@ -923,10 +1128,10 @@ export const DataGridTable: React.FC<DataGridTableProps> = ({
                             }
                           }}
                           style={{
-                            padding: '8px 14px',
-                            width: isId ? '160px' : '180px',
-                            minWidth: isId ? '160px' : '180px',
-                            maxWidth: isId ? '160px' : '340px',
+                            padding: isId ? '8px 12px' : '8px 14px',
+                            width: isId ? '220px' : '180px',
+                            minWidth: isId ? '220px' : '180px',
+                            maxWidth: isId ? '220px' : '340px',
                             overflow: 'hidden',
                             textOverflow: 'ellipsis',
                             whiteSpace: 'nowrap',
@@ -971,7 +1176,7 @@ export const DataGridTable: React.FC<DataGridTableProps> = ({
                                 color: 'var(--accent-cyan)',
                                 cursor: 'pointer',
                                 background: 'rgba(6, 182, 212, 0.08)',
-                                padding: '3px 8px',
+                                padding: '3px 10px',
                                 borderRadius: '5px',
                                 border: '1px solid rgba(6, 182, 212, 0.25)',
                                 display: 'inline-flex',
@@ -1806,6 +2011,145 @@ export const DataGridTable: React.FC<DataGridTableProps> = ({
           </div>
         );
       })()}
+
+      {/* Full Table Bulk Export Progress Modal */}
+      {isFullExportModalOpen && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0, 0, 0, 0.78)',
+          backdropFilter: 'blur(4px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 10000,
+          padding: '20px'
+        }}>
+          <div className="card" style={{
+            width: '100%',
+            maxWidth: '520px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '16px',
+            boxShadow: '0 25px 50px rgba(0, 0, 0, 0.6)',
+            border: '1px solid var(--border-subtle)'
+          }}>
+            {/* Modal Header */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-subtle)', paddingBottom: '12px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <Sparkles size={20} color="var(--primary)" />
+                <div>
+                  <div style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--text-primary)' }}>
+                    Export Entire Table: {selectedType}
+                  </div>
+                  <div style={{ fontSize: '0.725rem', color: 'var(--text-muted)' }}>
+                    Streaming full dataset via Bubble Data API (100 records/batch)
+                  </div>
+                </div>
+              </div>
+
+              {!isExportingFull && (
+                <button
+                  type="button"
+                  onClick={() => setIsFullExportModalOpen(false)}
+                  className="btn btn-secondary btn-sm"
+                  style={{ padding: '6px' }}
+                >
+                  <X size={14} />
+                </button>
+              )}
+            </div>
+
+            {/* Progress Body */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', padding: '8px 0' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.8rem' }}>
+                <span style={{ color: 'var(--text-secondary)' }}>
+                  {fullExportProgress.statusText || 'Exporting records...'}
+                </span>
+                <span style={{ fontWeight: 700, color: 'var(--accent-cyan)', fontFamily: 'var(--font-mono)' }}>
+                  {fullExportProgress.percent}%
+                </span>
+              </div>
+
+              {/* Progress Track */}
+              <div style={{
+                height: '10px',
+                background: 'var(--bg-input)',
+                borderRadius: '99px',
+                border: '1px solid var(--border-subtle)',
+                overflow: 'hidden',
+                position: 'relative'
+              }}>
+                <div style={{
+                  height: '100%',
+                  width: `${Math.max(3, fullExportProgress.percent)}%`,
+                  background: 'linear-gradient(90deg, var(--primary), var(--accent-cyan))',
+                  borderRadius: '99px',
+                  transition: 'width 0.2s ease',
+                  boxShadow: '0 0 12px var(--primary-glow)'
+                }} />
+              </div>
+
+              {/* Statistics Grid */}
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: '1fr 1fr',
+                gap: '10px',
+                background: 'var(--bg-input)',
+                padding: '12px',
+                borderRadius: 'var(--radius-sm)',
+                border: '1px solid var(--border-subtle)',
+                marginTop: '4px'
+              }}>
+                <div>
+                  <div style={{ fontSize: '0.675rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700 }}>
+                    Records Downloaded
+                  </div>
+                  <div style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--text-primary)', fontFamily: 'var(--font-mono)', marginTop: '2px' }}>
+                    {fullExportProgress.fetched.toLocaleString()}
+                  </div>
+                </div>
+
+                <div>
+                  <div style={{ fontSize: '0.675rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700 }}>
+                    Estimated Total
+                  </div>
+                  <div style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--accent-cyan)', fontFamily: 'var(--font-mono)', marginTop: '2px' }}>
+                    {fullExportProgress.total > 0 ? fullExportProgress.total.toLocaleString() : 'Counting...'}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', borderTop: '1px solid var(--border-subtle)', paddingTop: '12px' }}>
+              {isExportingFull ? (
+                <button
+                  type="button"
+                  onClick={handleCancelFullExport}
+                  className="btn btn-secondary btn-sm"
+                  style={{ color: 'var(--accent-rose)' }}
+                >
+                  <X size={13} />
+                  <span>Cancel / Stop Export</span>
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setIsFullExportModalOpen(false)}
+                  className="btn btn-primary btn-sm"
+                >
+                  <Check size={13} />
+                  <span>Done</span>
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
