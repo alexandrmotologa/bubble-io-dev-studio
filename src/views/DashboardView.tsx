@@ -10,24 +10,29 @@ import {
   ArrowRight, 
   ShieldCheck, 
   HardDriveDownload,
-  Sparkles
+  Sparkles,
+  Plus,
+  Layers,
+  Activity
 } from 'lucide-react';
 import { NavigationTab, ProjectProfile } from '../types';
 
 interface DashboardViewProps {
   activeProject?: ProjectProfile;
   onNavigate: (tab: NavigationTab) => void;
+  onOpenConnectModal: () => void;
   onRunQuickBackup: () => void;
   onRunQuickAudit: () => void;
   isBackingUp: boolean;
   isAuditing: boolean;
-  healthScore: number;
-  healthGrade: string;
+  healthScore: number | null;
+  healthGrade: string | null;
 }
 
 export const DashboardView: React.FC<DashboardViewProps> = ({
   activeProject,
   onNavigate,
+  onOpenConnectModal,
   onRunQuickBackup,
   onRunQuickAudit,
   isBackingUp,
@@ -35,6 +40,46 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   healthScore,
   healthGrade
 }) => {
+  // Empty State: No app configured yet
+  if (!activeProject) {
+    return (
+      <div className="view-container">
+        <div className="card" style={{
+          textAlign: 'center',
+          padding: '60px 24px',
+          background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.12) 0%, rgba(6, 182, 212, 0.08) 100%)',
+          border: '1px solid var(--border-active)'
+        }}>
+          <div style={{
+            width: '64px',
+            height: '64px',
+            borderRadius: '16px',
+            background: 'linear-gradient(135deg, #6366f1 0%, #06b6d4 100%)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            margin: '0 auto 20px',
+            boxShadow: '0 8px 24px rgba(99, 102, 241, 0.4)'
+          }}>
+            <Layers size={32} color="#ffffff" />
+          </div>
+
+          <h2 style={{ fontSize: '1.75rem', fontWeight: 800, marginBottom: '8px', color: 'var(--text-primary)' }}>
+            Welcome to Bubble.io Dev Studio
+          </h2>
+          <p style={{ fontSize: '0.95rem', color: 'var(--text-secondary)', maxWidth: '540px', margin: '0 auto 24px', lineHeight: 1.6 }}>
+            The all-in-one developer workspace for Bubble.io. Manage schemas & migrations, detect orphaned dead code, translate apps with multi-provider AI, and run visual pixel regression tests.
+          </p>
+
+          <button onClick={onOpenConnectModal} className="btn btn-primary" style={{ padding: '12px 24px', fontSize: '0.95rem' }}>
+            <Plus size={18} />
+            <span>Connect Your First Bubble App</span>
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="view-container">
       {/* Top Banner / Project Status */}
@@ -45,17 +90,21 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '20px' }}>
           <div>
             <span className="badge badge-indigo" style={{ marginBottom: '8px' }}>
-              <Sparkles size={12} /> Active Bubble.io Workspace
+              <Sparkles size={12} /> Active Bubble Workspace
             </span>
             <h2 style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '6px' }}>
-              {activeProject?.name || 'My Bubble Application'}
+              {activeProject.name}
             </h2>
             <div style={{ display: 'flex', gap: '16px', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-              <span>App ID: <strong style={{ color: 'var(--text-primary)' }}>{activeProject?.appId}</strong></span>
+              <span>App ID: <strong style={{ color: 'var(--text-primary)' }}>{activeProject.appId}</strong></span>
               <span>•</span>
-              <span>Environment: <strong style={{ color: 'var(--accent-emerald)' }}>{activeProject?.environment.toUpperCase()}</strong></span>
-              <span>•</span>
-              <span>Domain: <strong style={{ color: 'var(--text-primary)' }}>{activeProject?.customDomain || `${activeProject?.appId}.bubbleapps.io`}</strong></span>
+              <span>Environment: <strong style={{ color: activeProject.environment.includes('live') ? 'var(--accent-emerald)' : 'var(--accent-cyan)' }}>{activeProject.environment}</strong></span>
+              {activeProject.customDomain && (
+                <>
+                  <span>•</span>
+                  <span>Domain: <strong style={{ color: 'var(--text-primary)' }}>{activeProject.customDomain}</strong></span>
+                </>
+              )}
             </div>
           </div>
 
@@ -74,7 +123,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               className="btn btn-secondary"
             >
               <Stethoscope size={16} />
-              <span>{isAuditing ? 'Auditing...' : 'Run Audit'}</span>
+              <span>{isAuditing ? 'Auditing...' : 'Run AST Audit'}</span>
             </button>
           </div>
         </div>
@@ -97,11 +146,11 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             }}>
               <Database size={22} />
             </div>
-            <span className="badge badge-indigo">CLI Engine</span>
+            <span className="badge badge-indigo">DevOps & CLI</span>
           </div>
-          <h3 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: '6px' }}>DevOps & Schema</h3>
+          <h3 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: '6px' }}>Database & Schema</h3>
           <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '16px' }}>
-            Automated backups, ERD visualizer, schema diffs, and TypeScript generator.
+            Backups, ERD visualizer, TypeScript definitions, and schema migrations.
           </p>
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.8rem', color: 'var(--primary)', fontWeight: 600 }}>
             <span>Open Studio</span>
@@ -124,7 +173,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             }}>
               <Stethoscope size={22} />
             </div>
-            <span className="badge badge-emerald">Grade {healthGrade}</span>
+            <span className={`badge ${healthScore ? 'badge-emerald' : 'badge-indigo'}`}>
+              {healthGrade ? `Grade ${healthGrade}` : 'AST Engine'}
+            </span>
           </div>
           <h3 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: '6px' }}>Dead Code Detector</h3>
           <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '16px' }}>
@@ -151,11 +202,11 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             }}>
               <Languages size={22} />
             </div>
-            <span className="badge badge-cyan">AI Powered</span>
+            <span className="badge badge-cyan">AI Engine</span>
           </div>
           <h3 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: '6px' }}>AI Localization</h3>
           <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '16px' }}>
-            Translate UI texts with OpenAI / Gemini with translation memory & glossaries.
+            Translate App Texts with Gemini, OpenAI, Claude, OpenRouter & Ollama.
           </p>
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.8rem', color: 'var(--accent-cyan)', fontWeight: 600 }}>
             <span>Translate App</span>
@@ -191,94 +242,129 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         </div>
       </div>
 
-      {/* Bottom Row: App Health & Recommendations */}
+      {/* Bottom Row: App Health & System Ready */}
       <div className="grid-2">
         <div className="card">
           <div className="card-header">
             <div>
               <div className="card-title">
                 <ShieldCheck size={20} color="var(--accent-emerald)" />
-                <span>Overall App Health & Quality</span>
+                <span>App Quality & Health Score</span>
               </div>
-              <div className="card-subtitle">Based on latest AST dead code scan</div>
+              <div className="card-subtitle">Calculated via AST static analysis engine</div>
             </div>
-            <span className="badge badge-emerald">Optimal</span>
+            {healthScore && <span className="badge badge-emerald">Grade {healthGrade}</span>}
           </div>
 
-          <div className="health-score-container" style={{ marginTop: '12px' }}>
-            <div 
-              className="gauge-circle" 
-              style={{ '--score-pct': healthScore } as React.CSSProperties}
-            >
-              <div className="gauge-inner">
-                <span className="gauge-number">{healthScore}%</span>
-                <span className="gauge-grade">Grade {healthGrade}</span>
+          {healthScore ? (
+            <div className="health-score-container" style={{ marginTop: '12px' }}>
+              <div 
+                className="gauge-circle" 
+                style={{ '--score-pct': healthScore } as React.CSSProperties}
+              >
+                <div className="gauge-inner">
+                  <span className="gauge-number">{healthScore}%</span>
+                  <span className="gauge-grade">Grade {healthGrade}</span>
+                </div>
               </div>
-            </div>
 
-            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem' }}>
-                <span style={{ color: 'var(--text-secondary)' }}>Orphaned UI Elements:</span>
-                <strong style={{ color: 'var(--accent-amber)' }}>8 items</strong>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem' }}>
-                <span style={{ color: 'var(--text-secondary)' }}>Dead Workflows:</span>
-                <strong style={{ color: 'var(--accent-rose)' }}>6 items</strong>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem' }}>
-                <span style={{ color: 'var(--text-secondary)' }}>Unused Database Fields:</span>
-                <strong style={{ color: 'var(--accent-cyan)' }}>5 fields</strong>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem' }}>
-                <span style={{ color: 'var(--text-secondary)' }}>Unreferenced Styles:</span>
-                <strong style={{ color: 'var(--text-primary)' }}>4 styles</strong>
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '0.85rem' }}>
+                <div style={{ color: 'var(--text-secondary)' }}>
+                  AST audit scan has evaluated your application's workflows, UI elements, database fields, styles, and privacy rules.
+                </div>
+                <button onClick={() => onNavigate('audit')} className="btn btn-secondary btn-sm" style={{ marginTop: '8px', alignSelf: 'flex-start' }}>
+                  <span>View Full Audit Scorecard</span>
+                  <ArrowRight size={13} />
+                </button>
               </div>
             </div>
-          </div>
+          ) : (
+            <div style={{ padding: '24px 0', textAlign: 'center', color: 'var(--text-muted)' }}>
+              <Activity size={32} style={{ margin: '0 auto 10px', opacity: 0.5 }} />
+              <div style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
+                No AST scan performed yet
+              </div>
+              <p style={{ fontSize: '0.8rem', margin: '4px 0 16px' }}>
+                Run an audit to calculate your app's health score and detect dead code across 7 rules.
+              </p>
+              <button onClick={onRunQuickAudit} disabled={isAuditing} className="btn btn-primary btn-sm">
+                <Stethoscope size={14} />
+                <span>{isAuditing ? 'Analyzing AST...' : 'Run First Audit'}</span>
+              </button>
+            </div>
+          )}
         </div>
 
         <div className="card">
           <div className="card-header">
             <div>
               <div className="card-title">
-                <AlertTriangle size={20} color="var(--accent-amber)" />
-                <span>High-Priority Recommendations</span>
+                <Activity size={20} color="var(--primary)" />
+                <span>Quick Actions & Workflows</span>
               </div>
-              <div className="card-subtitle">Actionable optimizations for your Bubble app</div>
+              <div className="card-subtitle">Frequent development tasks for {activeProject.name}</div>
             </div>
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            <div style={{
-              padding: '10px 14px',
-              borderRadius: 'var(--radius-md)',
-              background: 'rgba(245, 158, 11, 0.08)',
-              border: '1px solid rgba(245, 158, 11, 0.2)',
-              fontSize: '0.85rem',
-              display: 'flex',
-              gap: '10px',
-              alignItems: 'flex-start'
-            }}>
-              <CheckCircle2 size={16} color="var(--accent-amber)" style={{ marginTop: '2px', flexShrink: 0 }} />
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            <div 
+              onClick={() => onNavigate('devops')}
+              style={{
+                padding: '12px 14px',
+                borderRadius: 'var(--radius-md)',
+                background: 'var(--bg-input)',
+                border: '1px solid var(--border-subtle)',
+                fontSize: '0.85rem',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                cursor: 'pointer'
+              }}
+            >
               <div>
-                <strong>Purge 6 orphaned workflow actions:</strong> Prevents silent backend execution errors and queue stalls.
+                <strong>Explore Database & ERD:</strong> View tables, fields, and generate TypeScript interfaces.
               </div>
+              <ArrowRight size={14} color="var(--primary)" />
             </div>
 
-            <div style={{
-              padding: '10px 14px',
-              borderRadius: 'var(--radius-md)',
-              background: 'rgba(99, 102, 241, 0.08)',
-              border: '1px solid rgba(99, 102, 241, 0.2)',
-              fontSize: '0.85rem',
-              display: 'flex',
-              gap: '10px',
-              alignItems: 'flex-start'
-            }}>
-              <CheckCircle2 size={16} color="var(--primary)" style={{ marginTop: '2px', flexShrink: 0 }} />
+            <div 
+              onClick={() => onNavigate('translator')}
+              style={{
+                padding: '12px 14px',
+                borderRadius: 'var(--radius-md)',
+                background: 'var(--bg-input)',
+                border: '1px solid var(--border-subtle)',
+                fontSize: '0.85rem',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                cursor: 'pointer'
+              }}
+            >
               <div>
-                <strong>Generate TypeScript definitions:</strong> Export current Bubble schema interfaces to your external frontend or API repo.
+                <strong>AI Localization Studio:</strong> Translate application strings and manage brand terms glossary.
               </div>
+              <ArrowRight size={14} color="var(--accent-cyan)" />
+            </div>
+
+            <div 
+              onClick={() => onNavigate('visual-tester')}
+              style={{
+                padding: '12px 14px',
+                borderRadius: 'var(--radius-md)',
+                background: 'var(--bg-input)',
+                border: '1px solid var(--border-subtle)',
+                fontSize: '0.85rem',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                cursor: 'pointer'
+              }}
+            >
+              <div>
+                <strong>Visual QA & Viewport Diff:</strong> Test responsive layouts with Pixelmatch comparison slider.
+              </div>
+              <ArrowRight size={14} color="var(--accent-amber)" />
             </div>
           </div>
         </div>

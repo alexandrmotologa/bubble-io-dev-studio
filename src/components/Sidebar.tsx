@@ -7,9 +7,10 @@ import {
   Camera, 
   Settings, 
   Layers,
-  ChevronDown
+  Plus
 } from 'lucide-react';
 import { NavigationTab, ProjectProfile } from '../types';
+import { ProjectDropdown } from './ProjectDropdown';
 
 interface SidebarProps {
   currentTab: NavigationTab;
@@ -17,6 +18,8 @@ interface SidebarProps {
   activeProject?: ProjectProfile;
   projects: ProjectProfile[];
   onSelectProject: (id: string) => void;
+  onOpenConnectModal: () => void;
+  onDeleteProject?: (project: ProjectProfile) => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -24,14 +27,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onTabChange,
   activeProject,
   projects,
-  onSelectProject
+  onSelectProject,
+  onOpenConnectModal,
+  onDeleteProject
 }) => {
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, badge: null },
     { id: 'devops', label: 'DevOps & Schema', icon: Database, badge: 'CLI' },
-    { id: 'audit', label: 'Dead Code & Health', icon: Stethoscope, badge: '92%' },
+    { id: 'audit', label: 'Dead Code & Health', icon: Stethoscope, badge: 'Audit' },
     { id: 'translator', label: 'AI Localization', icon: Languages, badge: 'AI' },
-    { id: 'visual-tester', label: 'Visual QA Suite', icon: Camera, badge: null },
+    { id: 'visual-tester', label: 'Visual QA Suite', icon: Camera, badge: 'Visual' },
     { id: 'settings', label: 'Settings & Keys', icon: Settings, badge: null }
   ];
 
@@ -44,7 +49,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       display: 'flex',
       flexDirection: 'column',
       padding: '20px 16px',
-      gap: '24px',
+      gap: '20px',
       flexShrink: 0
     }}>
       {/* App Branding */}
@@ -62,7 +67,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <Layers size={22} color="#ffffff" />
         </div>
         <div>
-          <h1 style={{ fontSize: '1rem', fontWeight: 800, letterSpacing: '-0.02em', color: 'var(--text-primary)' }}>
+          <h1 style={{ fontSize: '1rem', fontWeight: 800, letterSpacing: '-0.02em', color: 'var(--text-primary)', margin: 0 }}>
             Bubble Studio
           </h1>
           <span style={{ fontSize: '0.725rem', color: 'var(--text-muted)', fontWeight: 500 }}>
@@ -71,44 +76,40 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </div>
       </div>
 
-      {/* Project Switcher Dropdown */}
-      <div style={{
-        padding: '10px 12px',
-        backgroundColor: 'var(--bg-input)',
-        border: '1px solid var(--border-subtle)',
-        borderRadius: 'var(--radius-md)',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '6px'
-      }}>
-        <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 700 }}>
-          Active Bubble App
-        </span>
-        <div style={{ position: 'relative' }}>
-          <select 
-            value={activeProject?.id || ''} 
-            onChange={(e) => onSelectProject(e.target.value)}
+      {/* Custom Project Switcher Dropdown */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 2px' }}>
+          <span style={{ fontSize: '0.675rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 700 }}>
+            Active Application
+          </span>
+          <button
+            onClick={onOpenConnectModal}
+            title="Connect another Bubble application"
             style={{
-              width: '100%',
-              background: 'transparent',
+              background: 'none',
               border: 'none',
-              color: 'var(--text-primary)',
-              fontSize: '0.85rem',
-              fontWeight: 600,
+              color: 'var(--primary)',
               cursor: 'pointer',
-              outline: 'none',
-              paddingRight: '20px',
-              appearance: 'none'
+              display: 'flex',
+              alignItems: 'center',
+              gap: '2px',
+              fontSize: '0.7rem',
+              fontWeight: 600,
+              padding: 0
             }}
           >
-            {projects.map(p => (
-              <option key={p.id} value={p.id} style={{ background: '#111827', color: '#fff' }}>
-                {p.name}
-              </option>
-            ))}
-          </select>
-          <ChevronDown size={14} style={{ position: 'absolute', right: 0, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: 'var(--text-secondary)' }} />
+            <Plus size={11} />
+            <span>Add</span>
+          </button>
         </div>
+
+        <ProjectDropdown
+          activeProject={activeProject}
+          projects={projects}
+          onSelectProject={onSelectProject}
+          onOpenConnectModal={onOpenConnectModal}
+          onDeleteProject={onDeleteProject}
+        />
       </div>
 
       {/* Navigation List */}

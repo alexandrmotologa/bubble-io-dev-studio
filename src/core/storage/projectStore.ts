@@ -1,31 +1,13 @@
 import { GlobalSettings, ProjectProfile } from '../../types';
 
-const STORAGE_KEY = 'bubble_dev_studio_settings_v1';
+const STORAGE_KEY = 'bubble_dev_studio_settings_v2';
 
 const DEFAULT_SETTINGS: GlobalSettings = {
   theme: 'dark',
-  defaultAiModel: 'gpt-4o',
+  defaultAiModel: 'gemini-2.0-flash',
   autoSaveReports: true,
-  projects: [
-    {
-      id: 'demo-proj-1',
-      name: 'Bubble Marketplace App (Demo)',
-      appId: 'marketplace-prod',
-      environment: 'live',
-      customDomain: 'marketplace.bubbleapps.io',
-      createdAt: new Date().toISOString(),
-      lastActiveAt: new Date().toISOString()
-    },
-    {
-      id: 'demo-proj-2',
-      name: 'CRM & Pipeline Manager',
-      appId: 'crm-pipeline-dev',
-      environment: 'development',
-      createdAt: new Date(Date.now() - 7 * 86400000).toISOString(),
-      lastActiveAt: new Date(Date.now() - 86400000).toISOString()
-    }
-  ],
-  activeProjectId: 'demo-proj-1'
+  projects: [],
+  activeProjectId: undefined
 };
 
 export class ProjectStore {
@@ -69,6 +51,7 @@ export class ProjectStore {
   }
 
   public getActiveProject(): ProjectProfile | undefined {
+    if (this.settings.projects.length === 0) return undefined;
     return this.settings.projects.find(p => p.id === this.settings.activeProjectId) || this.settings.projects[0];
   }
 
