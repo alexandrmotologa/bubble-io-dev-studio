@@ -22,6 +22,7 @@ import { ProjectProfile, VisualAuthSettings, VisualSuiteResult, VisualTestCase }
 import { VisualEngine } from '../core/visual-tester/visualEngine';
 import { SplitScreenSlider } from '../components/SplitScreenSlider';
 import { MultiDeviceViewport } from '../components/MultiDeviceViewport';
+import { ProjectStore } from '../core/storage/projectStore';
 
 interface VisualTesterViewProps {
   onLog: (module: 'visual-tester', message: string, level?: 'info' | 'success' | 'warn' | 'error') => void;
@@ -51,7 +52,7 @@ export const VisualTesterView: React.FC<VisualTesterViewProps> = ({ onLog, activ
         setSelectedCase(cases[0]);
       }
     }
-  }, [activeProject?.id, activeProject?.blueprintFileName]);
+  }, [activeProject?.id, activeProject?.blueprintFileName, activeProject?.httpBasicUser, activeProject?.httpBasicPassword]);
 
   // New Test Case
   const [newPageName, setNewPageName] = useState('');
@@ -72,24 +73,22 @@ export const VisualTesterView: React.FC<VisualTesterViewProps> = ({ onLog, activ
 
   const handleApplyAgencyAuth = () => {
     if (!activeProject) return;
-    const store = (window as any).__projectStore || import('../core/storage/projectStore').then(m => {
-      const ps = m.ProjectStore.getInstance();
-      ps.updateProject(activeProject.id, {
-        httpBasicUser: basicAuthUser.trim() || undefined,
-        httpBasicPassword: basicAuthPass.trim() || undefined
-      });
-      const updatedProj = {
-        ...activeProject,
-        httpBasicUser: basicAuthUser.trim() || undefined,
-        httpBasicPassword: basicAuthPass.trim() || undefined
-      };
-      const cases = VisualEngine.getTestCasesForProject(updatedProj);
-      setTestCases(cases);
-      if (cases.length > 0) setSelectedCase(cases[0]);
-      setSavedAuthSuccess(true);
-      setTimeout(() => setSavedAuthSuccess(false), 3000);
-      onLog('visual-tester', `Applied Agency HTTP Basic Auth (${basicAuthUser.trim() ? `User: ${basicAuthUser}` : 'Disabled'}) to all Visual QA targets.`, 'success');
+    const ps = ProjectStore.getInstance();
+    ps.updateProject(activeProject.id, {
+      httpBasicUser: basicAuthUser.trim() || undefined,
+      httpBasicPassword: basicAuthPass.trim() || undefined
     });
+    const updatedProj = {
+      ...activeProject,
+      httpBasicUser: basicAuthUser.trim() || undefined,
+      httpBasicPassword: basicAuthPass.trim() || undefined
+    };
+    const cases = VisualEngine.getTestCasesForProject(updatedProj);
+    setTestCases(cases);
+    if (cases.length > 0) setSelectedCase(cases[0]);
+    setSavedAuthSuccess(true);
+    setTimeout(() => setSavedAuthSuccess(false), 3000);
+    onLog('visual-tester', `Applied Agency HTTP Basic Auth (${basicAuthUser.trim() ? `User: ${basicAuthUser}` : 'Disabled'}) to all Visual QA targets.`, 'success');
   };
 
   const [authSettings, setAuthSettings] = useState<VisualAuthSettings>({
@@ -113,6 +112,26 @@ export const VisualTesterView: React.FC<VisualTesterViewProps> = ({ onLog, activ
     total: 0,
     name: ''
   });
+
+  const handleRunSingleTest = async (tc: VisualTestCase) => {
+    if (isRunning) return;
+    setIsRunning(true);
+    onLog('visual-tester', `Running visual regression test for '${tc.name}' (${tc.viewport.name})...`);
+
+    try {
+      const result = await VisualEngine.runSuite([tc], diffThreshold, authSettings);
+      if (result.cases.length > 0) {
+        const updated = result.cases[0];
+        setTestCases(prev => prev.map(c => c.id === updated.id ? updated : c));
+        setSelectedCase(updated);
+        onLog('visual-tester', `Visual test for '${tc.name}': ${updated.status.toUpperCase()} (${updated.diffPercentage}% diff).`, updated.status === 'passed' ? 'success' : 'warn');
+      }
+    } catch (e: any) {
+      onLog('visual-tester', `Test failed: ${e.message}`, 'error');
+    } finally {
+      setIsRunning(false);
+    }
+  };
 
   const handleRunSuite = async () => {
     if (isRunning || testCases.length === 0) return;
@@ -341,17 +360,29 @@ export const VisualTesterView: React.FC<VisualTesterViewProps> = ({ onLog, activ
                   </div>
                 </div>
 
-                {/* View Mode Buttons */}
-                <div style={{ display: 'flex', gap: '4px', background: 'var(--bg-input)', padding: '2px', borderRadius: 'var(--radius-sm)' }}>
-                  <button onClick={() => setDiffViewMode('slider')} className={`btn btn-sm ${diffViewMode === 'slider' ? 'btn-primary' : 'btn-secondary'}`} style={{ border: 'none', padding: '4px 8px', fontSize: '0.75rem' }}>
-                    Slider
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                  <button
+                    onClick={() => handleRunSingleTest(selectedCase)}
+                    disabled={isRunning}
+                    className="btn btn-primary btn-sm"
+                    style={{ fontSize: '0.75rem', padding: '4px 10px', display: 'flex', alignItems: 'center', gap: '5px' }}
+                  >
+                    <Play size={12} />
+                    <span>{isRunning ? 'Running...' : 'Run Test on Target'}</span>
                   </button>
-                  <button onClick={() => setDiffViewMode('side-by-side')} className={`btn btn-sm ${diffViewMode === 'side-by-side' ? 'btn-primary' : 'btn-secondary'}`} style={{ border: 'none', padding: '4px 8px', fontSize: '0.75rem' }}>
-                    Side-by-Side
-                  </button>
-                  <button onClick={() => setDiffViewMode('onion')} className={`btn btn-sm ${diffViewMode === 'onion' ? 'btn-primary' : 'btn-secondary'}`} style={{ border: 'none', padding: '4px 8px', fontSize: '0.75rem' }}>
-                    Onion Skin
-                  </button>
+
+                  {/* View Mode Buttons */}
+                  <div style={{ display: 'flex', gap: '4px', background: 'var(--bg-input)', padding: '2px', borderRadius: 'var(--radius-sm)' }}>
+                    <button onClick={() => setDiffViewMode('slider')} className={`btn btn-sm ${diffViewMode === 'slider' ? 'btn-primary' : 'btn-secondary'}`} style={{ border: 'none', padding: '4px 8px', fontSize: '0.75rem' }}>
+                      Slider
+                    </button>
+                    <button onClick={() => setDiffViewMode('side-by-side')} className={`btn btn-sm ${diffViewMode === 'side-by-side' ? 'btn-primary' : 'btn-secondary'}`} style={{ border: 'none', padding: '4px 8px', fontSize: '0.75rem' }}>
+                      Side-by-Side
+                    </button>
+                    <button onClick={() => setDiffViewMode('onion')} className={`btn btn-sm ${diffViewMode === 'onion' ? 'btn-primary' : 'btn-secondary'}`} style={{ border: 'none', padding: '4px 8px', fontSize: '0.75rem' }}>
+                      Onion Skin
+                    </button>
+                  </div>
                 </div>
               </div>
 
@@ -405,16 +436,27 @@ export const VisualTesterView: React.FC<VisualTesterViewProps> = ({ onLog, activ
                         Route: <code>{selectedCase.pageUrl}</code> • Target: <strong>{selectedCase.viewport.name}</strong>
                       </div>
                     </div>
-                    <a
-                      href={selectedCase.pageUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="btn btn-secondary btn-sm"
-                      style={{ fontSize: '0.75rem', padding: '4px 10px', display: 'flex', alignItems: 'center', gap: '4px' }}
-                    >
-                      <span>Open in Browser</span>
-                      <ExternalLink size={12} />
-                    </a>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <button
+                        onClick={() => handleRunSingleTest(selectedCase)}
+                        disabled={isRunning}
+                        className="btn btn-primary btn-sm"
+                        style={{ fontSize: '0.75rem', padding: '4px 10px', display: 'flex', alignItems: 'center', gap: '5px' }}
+                      >
+                        <Play size={11} />
+                        <span>Run Test</span>
+                      </button>
+                      <a
+                        href={selectedCase.pageUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="btn btn-secondary btn-sm"
+                        style={{ fontSize: '0.75rem', padding: '4px 10px', display: 'flex', alignItems: 'center', gap: '4px' }}
+                      >
+                        <span>Open in Browser</span>
+                        <ExternalLink size={12} />
+                      </a>
+                    </div>
                   </div>
 
                   <div style={{
@@ -436,7 +478,7 @@ export const VisualTesterView: React.FC<VisualTesterViewProps> = ({ onLog, activ
                         transformOrigin: 'top left',
                         pointerEvents: 'auto'
                       }}
-                      sandbox="allow-scripts allow-same-origin allow-forms"
+                      sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals"
                     />
                   </div>
                 </div>

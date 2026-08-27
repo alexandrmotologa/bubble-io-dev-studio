@@ -68,6 +68,10 @@ export const MultiDeviceViewport: React.FC<MultiDeviceViewportProps> = ({ initia
   const [customCategory, setCustomCategory] = useState<'mobile' | 'tablet' | 'desktop' | 'custom'>('custom');
 
   useEffect(() => {
+    setUrl(initialUrl);
+  }, [initialUrl]);
+
+  useEffect(() => {
     try {
       localStorage.setItem('bubble_custom_viewports', JSON.stringify(viewports));
     } catch {}
@@ -213,6 +217,37 @@ export const MultiDeviceViewport: React.FC<MultiDeviceViewportProps> = ({ initia
         </div>
       </div>
 
+      {/* X-Frame-Options and Basic Auth Notice */}
+      <div style={{
+        padding: '10px 14px',
+        borderRadius: 'var(--radius-sm)',
+        background: 'rgba(99, 102, 241, 0.08)',
+        border: '1px solid var(--border-subtle)',
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        flexWrap: 'wrap',
+        gap: '10px',
+        fontSize: '0.75rem',
+        color: 'var(--text-secondary)'
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <span style={{ color: 'var(--accent-cyan)', fontWeight: 700 }}>💡 Bubble Live Preview Note:</span>
+          <span>Bubble blocks cross-domain iframes by default via <code>X-Frame-Options</code>. In Bubble Editor, enable <strong>Settings &gt; General &gt; "Allow embedding in an iframe"</strong>, or open in a browser window. In the Electron Desktop app, these headers are bypassed natively.</span>
+        </div>
+
+        <a
+          href={url}
+          target="_blank"
+          rel="noreferrer"
+          className="btn btn-secondary btn-sm"
+          style={{ fontSize: '0.725rem', padding: '4px 10px', display: 'flex', alignItems: 'center', gap: '5px' }}
+        >
+          <span>Open Target URL</span>
+          <ExternalLink size={12} />
+        </a>
+      </div>
+
       {/* Synchronized Multi-Device Matrix */}
       <div style={{
         display: 'grid',
@@ -303,7 +338,7 @@ export const MultiDeviceViewport: React.FC<MultiDeviceViewportProps> = ({ initia
                     transformOrigin: 'top left',
                     pointerEvents: 'auto'
                   }}
-                  sandbox="allow-scripts allow-same-origin allow-forms"
+                  sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals"
                 />
               </div>
             </div>
