@@ -29,6 +29,7 @@ import {
 import { ProjectProfile } from '../types';
 import { DevOpsEngine } from '../core/devops/devopsEngine';
 import { TranslatorEngine } from '../core/translator/translatorEngine';
+import { AI_PROVIDERS, PROVIDER_MODELS, getDefaultModelForProvider } from '../core/ai/aiProviders';
 
 interface ConnectAppModalProps {
   isOpen: boolean;
@@ -46,59 +47,6 @@ interface ConnectAppModalProps {
 }
 
 type WizardStep = 1 | 2 | 3 | 4 | 5;
-
-const PROVIDER_MODELS: Record<string, Array<{ id: string; name: string }>> = {
-  gemini: [
-    { id: 'gemini-2.0-flash', name: 'Gemini 2.0 Flash (Recommended & Fast)' },
-    { id: 'gemini-2.0-pro-exp-02-05', name: 'Gemini 2.0 Pro Experimental' },
-    { id: 'gemini-1.5-pro', name: 'Gemini 1.5 Pro' },
-    { id: 'gemini-1.5-flash', name: 'Gemini 1.5 Flash' }
-  ],
-  openai: [
-    { id: 'gpt-4o', name: 'GPT-4o (Omni Flagship)' },
-    { id: 'gpt-4o-mini', name: 'GPT-4o Mini (Cost-Efficient)' },
-    { id: 'o3-mini', name: 'o3-mini (High-Reasoning)' },
-    { id: 'gpt-4-turbo', name: 'GPT-4 Turbo' }
-  ],
-  anthropic: [
-    { id: 'claude-3-5-sonnet-20241022', name: 'Claude 3.5 Sonnet (State-of-the-Art)' },
-    { id: 'claude-3-5-haiku-20241022', name: 'Claude 3.5 Haiku (Ultra Fast)' },
-    { id: 'claude-3-opus-20240229', name: 'Claude 3 Opus' }
-  ],
-  openrouter: [
-    { id: 'deepseek/deepseek-r1', name: 'DeepSeek R1 (OpenRouter)' },
-    { id: 'anthropic/claude-3.5-sonnet', name: 'Claude 3.5 Sonnet (OpenRouter)' },
-    { id: 'meta-llama/llama-3.3-70b-instruct', name: 'Meta Llama 3.3 70B' },
-    { id: 'google/gemini-2.0-flash-001', name: 'Gemini 2.0 Flash (OpenRouter)' }
-  ],
-  groq: [
-    { id: 'llama-3.3-70b-versatile', name: 'Llama 3.3 70B Versatile (Groq LPU Ultra-Fast)' },
-    { id: 'llama-3.1-8b-instant', name: 'Llama 3.1 8B Instant (Sub-Second)' },
-    { id: 'deepseek-r1-distill-llama-70b', name: 'DeepSeek R1 Distill Llama 70B' },
-    { id: 'mixtral-8x7b-32768', name: 'Mixtral 8x7B (32k Context)' },
-    { id: 'gemma2-9b-it', name: 'Gemma 2 9B IT' }
-  ],
-  xai: [
-    { id: 'grok-2-latest', name: 'Grok 2 (xAI State-of-the-Art)' },
-    { id: 'grok-2-vision-1212', name: 'Grok 2 Vision' },
-    { id: 'grok-beta', name: 'Grok Beta' }
-  ],
-  opencode: [
-    { id: 'opencode-go-pro', name: 'OpenCode Go Pro (Fast Routing)' },
-    { id: 'opencode-zen-deepseek-r1', name: 'OpenCode Zen (DeepSeek R1)' },
-    { id: 'opencode-zen-claude-3-5', name: 'OpenCode Zen (Claude 3.5 Sonnet)' },
-    { id: 'opencode-zen-gpt-4o', name: 'OpenCode Zen (GPT-4o)' }
-  ],
-  ollama: [
-    { id: 'llama3', name: 'Llama 3 (Local Offline)' },
-    { id: 'mistral', name: 'Mistral 7B (Local Offline)' },
-    { id: 'qwen2.5', name: 'Qwen 2.5 (Local Offline)' },
-    { id: 'phi3', name: 'Phi-3 Mini (Local Offline)' }
-  ],
-  mock: [
-    { id: 'mock-offline-translator', name: 'Offline Studio Engine (Built-in)' }
-  ]
-};
 
 export const ConnectAppModal: React.FC<ConnectAppModalProps> = ({
   isOpen,

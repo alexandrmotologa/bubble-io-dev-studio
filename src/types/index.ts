@@ -18,6 +18,9 @@ export interface ProjectProfile {
   environment: 'version-test' | 'version-live' | string;
   apiToken?: string;
   customDomain?: string;
+  aiProvider?: string;
+  aiModel?: string;
+  aiApiKey?: string;
   blueprintExportJson?: any;
   blueprintFileName?: string;
   stats?: {

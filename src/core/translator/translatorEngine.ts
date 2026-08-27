@@ -8,6 +8,13 @@ import { AiProvidersEngine } from './aiProviders';
 
 export class TranslatorEngine {
   /**
+   * Extracts localized strings from a Bubble app's blueprint/export JSON
+   */
+  public static extractFromBlueprint(rawJson: any): TranslationItem[] {
+    return BubbleExtractor.extractFromBubbleJson(rawJson);
+  }
+
+  /**
    * Sample initial translation items from Bubble UI
    */
   public static getSampleItems(): TranslationItem[] {

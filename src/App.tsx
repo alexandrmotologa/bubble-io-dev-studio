@@ -284,6 +284,8 @@ export const App: React.FC = () => {
 
             {currentTab === 'translator' && (
               <TranslatorView
+                activeProject={activeProject}
+                defaultAiModel={settings.defaultAiModel}
                 onLog={addLog}
                 geminiApiKey={settings.geminiApiKey}
                 openaiApiKey={settings.openaiApiKey}

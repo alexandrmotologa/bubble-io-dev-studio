@@ -28,6 +28,7 @@ import { GlobalSettings, ProjectProfile, ThemeMode } from '../types';
 import { DevOpsEngine } from '../core/devops/devopsEngine';
 import { TranslatorEngine } from '../core/translator/translatorEngine';
 import { ConfirmDeleteModal } from '../components/ConfirmDeleteModal';
+import { AI_PROVIDERS, PROVIDER_MODELS, getProviderForModel, getDefaultModelForProvider } from '../core/ai/aiProviders';
 
 interface SettingsViewProps {
   settings: GlobalSettings;
@@ -35,56 +36,6 @@ interface SettingsViewProps {
   onOpenConnectModal?: () => void;
   onLog: (module: 'system', message: string, level?: 'info' | 'success' | 'warn' | 'error') => void;
 }
-
-const PROVIDER_MODELS: Record<string, Array<{ id: string; name: string }>> = {
-  gemini: [
-    { id: 'gemini-2.0-flash', name: 'Gemini 2.0 Flash (Recommended & Ultra-Fast)' },
-    { id: 'gemini-2.0-pro-exp-02-05', name: 'Gemini 2.0 Pro Experimental' },
-    { id: 'gemini-1.5-pro', name: 'Gemini 1.5 Pro' },
-    { id: 'gemini-1.5-flash', name: 'Gemini 1.5 Flash' }
-  ],
-  openai: [
-    { id: 'gpt-4o', name: 'GPT-4o (Omni Flagship)' },
-    { id: 'gpt-4o-mini', name: 'GPT-4o Mini (Cost-Efficient)' },
-    { id: 'o3-mini', name: 'o3-mini (High-Reasoning)' },
-    { id: 'gpt-4-turbo', name: 'GPT-4 Turbo' }
-  ],
-  anthropic: [
-    { id: 'claude-3-5-sonnet-20241022', name: 'Claude 3.5 Sonnet (State-of-the-Art)' },
-    { id: 'claude-3-5-haiku-20241022', name: 'Claude 3.5 Haiku (Ultra Fast)' },
-    { id: 'claude-3-opus-20240229', name: 'Claude 3 Opus' }
-  ],
-  groq: [
-    { id: 'llama-3.3-70b-versatile', name: 'Llama 3.3 70B Versatile (Groq LPU)' },
-    { id: 'llama-3.1-8b-instant', name: 'Llama 3.1 8B Instant (Sub-Second)' },
-    { id: 'deepseek-r1-distill-llama-70b', name: 'DeepSeek R1 Distill Llama 70B' },
-    { id: 'mixtral-8x7b-32768', name: 'Mixtral 8x7B (32k Context)' },
-    { id: 'gemma2-9b-it', name: 'Gemma 2 9B IT' }
-  ],
-  xai: [
-    { id: 'grok-2-latest', name: 'Grok 2 (xAI State-of-the-Art)' },
-    { id: 'grok-2-vision-1212', name: 'Grok 2 Vision' },
-    { id: 'grok-beta', name: 'Grok Beta' }
-  ],
-  opencode: [
-    { id: 'opencode-go-pro', name: 'OpenCode Go Pro (Fast Routing)' },
-    { id: 'opencode-zen-deepseek-r1', name: 'OpenCode Zen (DeepSeek R1)' },
-    { id: 'opencode-zen-claude-3-5', name: 'OpenCode Zen (Claude 3.5 Sonnet)' },
-    { id: 'opencode-zen-gpt-4o', name: 'OpenCode Zen (GPT-4o)' }
-  ],
-  openrouter: [
-    { id: 'deepseek/deepseek-r1', name: 'DeepSeek R1 (OpenRouter)' },
-    { id: 'anthropic/claude-3.5-sonnet', name: 'Claude 3.5 Sonnet (OpenRouter)' },
-    { id: 'meta-llama/llama-3.3-70b-instruct', name: 'Meta Llama 3.3 70B' },
-    { id: 'google/gemini-2.0-flash-001', name: 'Gemini 2.0 Flash (OpenRouter)' }
-  ],
-  ollama: [
-    { id: 'llama3', name: 'Llama 3 (Local Offline)' },
-    { id: 'mistral', name: 'Mistral 7B (Local Offline)' },
-    { id: 'qwen2.5', name: 'Qwen 2.5 (Local Offline)' },
-    { id: 'phi3', name: 'Phi-3 Mini (Local Offline)' }
-  ]
-};
 
 export const SettingsView: React.FC<SettingsViewProps> = ({
   settings,
@@ -97,7 +48,12 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const [projectToDelete, setProjectToDelete] = useState<ProjectProfile | null>(null);
 
   // Dynamic AI Provider selection in Settings
-  const [selectedProvider, setSelectedProvider] = useState<string>('gemini');
+  const [selectedProvider, setSelectedProvider] = useState<string>(() => {
+    const active = settings.projects.find(p => p.id === settings.activeProjectId);
+    if (active?.aiProvider) return active.aiProvider;
+    if (settings.defaultAiModel) return getProviderForModel(settings.defaultAiModel);
+    return 'gemini';
+  });
   const [showApiKey, setShowApiKey] = useState(false);
   const [isTestingProvider, setIsTestingProvider] = useState(false);
   const [providerTestResult, setProviderTestResult] = useState<{ success: boolean; latency: number; message: string } | null>(null);
@@ -111,17 +67,15 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     setFormData(settings);
   }, [settings]);
 
-  // Set default provider based on saved default model if available
+  // Keep provider in sync with active project or default model
   useEffect(() => {
-    if (formData.defaultAiModel) {
-      for (const [prov, models] of Object.entries(PROVIDER_MODELS)) {
-        if (models.some(m => m.id === formData.defaultAiModel)) {
-          setSelectedProvider(prov);
-          break;
-        }
-      }
+    const active = formData.projects.find(p => p.id === formData.activeProjectId);
+    if (active?.aiProvider) {
+      setSelectedProvider(active.aiProvider);
+    } else if (formData.defaultAiModel) {
+      setSelectedProvider(getProviderForModel(formData.defaultAiModel));
     }
-  }, []);
+  }, [formData.defaultAiModel, formData.activeProjectId, formData.projects]);
 
   const handleSave = () => {
     onSaveSettings(formData);
@@ -133,10 +87,14 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const handleProviderChange = (newProvider: string) => {
     setSelectedProvider(newProvider);
     setProviderTestResult(null);
-    const models = PROVIDER_MODELS[newProvider];
-    if (models && models.length > 0) {
-      setFormData(prev => ({ ...prev, defaultAiModel: models[0].id }));
-    }
+    const newDefaultModel = getDefaultModelForProvider(newProvider);
+    setFormData(prev => ({
+      ...prev,
+      defaultAiModel: newDefaultModel,
+      projects: prev.projects.map(p => 
+        p.id === prev.activeProjectId ? { ...p, aiProvider: newProvider, aiModel: newDefaultModel } : p
+      )
+    }));
   };
 
   const handleTestProvider = async () => {
@@ -320,14 +278,9 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 onChange={(e) => handleProviderChange(e.target.value)}
                 className="select"
               >
-                <option value="gemini">Google Gemini (Gemini 2.0 Flash / Pro)</option>
-                <option value="openai">OpenAI (GPT-4o / GPT-4o-mini)</option>
-                <option value="anthropic">Anthropic (Claude 3.5 Sonnet / Haiku)</option>
-                <option value="groq">Groq (LPU Ultra-Fast Inference)</option>
-                <option value="xai">xAI (Grok 2 / Grok Beta)</option>
-                <option value="opencode">OpenCode (Go / Zen Router)</option>
-                <option value="openrouter">OpenRouter (Global Multi-LLM)</option>
-                <option value="ollama">Ollama (Local / Free Offline)</option>
+                {AI_PROVIDERS.map(p => (
+                  <option key={p.id} value={p.id}>{p.displayName}</option>
+                ))}
               </select>
             </div>
 
@@ -858,7 +811,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                       <CheckCircle2 size={10} /> Step 2: {proj.apiToken ? 'Private Token' : 'Public Mode'}
                     </span>
                     <span className="badge badge-emerald" style={{ fontSize: '0.65rem', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                      <CheckCircle2 size={10} /> Step 3: AI Configured ({formData.defaultAiModel})
+                      <CheckCircle2 size={10} /> Step 3: AI Configured ({proj.aiProvider ? proj.aiProvider.toUpperCase() : 'GEMINI'} • {proj.aiModel || formData.defaultAiModel})
                     </span>
                     <span className={`badge ${proj.blueprintFileName ? 'badge-emerald' : 'badge-amber'}`} style={{ fontSize: '0.65rem', display: 'flex', alignItems: 'center', gap: '4px' }}>
                       {proj.blueprintFileName ? <CheckCircle2 size={10} /> : <AlertCircle size={10} />}

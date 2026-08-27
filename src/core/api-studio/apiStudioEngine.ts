@@ -117,53 +117,29 @@ export class ApiStudioEngine {
   }
 
   /**
-   * Generates sample webhook log entries for testing
+   * Generates a real webhook log entry from an active test trigger
    */
-  public static getSampleWebhooks(): WebhookLogEntry[] {
-    return [
-      {
-        id: 'wh_1',
-        timestamp: new Date(Date.now() - 1000 * 60 * 3).toISOString(),
-        method: 'POST',
-        endpoint: '/api/1.1/wf/stripe_webhook',
-        status: 200,
-        headers: {
-          'content-type': 'application/json',
-          'stripe-signature': 't=1724749200,v1=9a8b7c6d5e4f3a2b1c'
-        },
-        bodyJson: {
-          id: 'evt_1PzXyZ2eZvKYlo2C9h8g7f6e',
-          type: 'checkout.session.completed',
-          data: {
-            object: {
-              id: 'cs_live_a1b2c3d4e5',
-              amount_total: 4900,
-              currency: 'usd',
-              customer_email: 'alexander@example.com'
-            }
-          }
-        },
-        responseBody: { status: 'success', message: 'Order created' },
-        durationMs: 142
+  public static generateWebhookLog(
+    endpoint: string, 
+    payload: any, 
+    responseBody: any = { status: 'success' }, 
+    status: number = 200, 
+    durationMs: number = 48
+  ): WebhookLogEntry {
+    return {
+      id: `wh_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+      timestamp: new Date().toISOString(),
+      method: 'POST',
+      endpoint,
+      status,
+      headers: {
+        'content-type': 'application/json',
+        'user-agent': 'BubbleStudio-WebhookClient/1.0',
+        'x-bubble-origin': 'dev-studio'
       },
-      {
-        id: 'wh_2',
-        timestamp: new Date(Date.now() - 1000 * 60 * 15).toISOString(),
-        method: 'POST',
-        endpoint: '/api/1.1/wf/sendgrid_inbound_parse',
-        status: 200,
-        headers: {
-          'content-type': 'application/json',
-          'user-agent': 'SendGrid-Webhook/1.0'
-        },
-        bodyJson: {
-          from: 'client@company.com',
-          subject: 'Support Ticket #4821',
-          text: 'Hello, please help with invoice 2026-08.'
-        },
-        responseBody: { status: 'success', ticketId: 'tick_984' },
-        durationMs: 88
-      }
-    ];
+      bodyJson: payload,
+      responseBody,
+      durationMs
+    };
   }
 }
