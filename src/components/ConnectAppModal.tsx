@@ -657,6 +657,16 @@ export const ConnectAppModal: React.FC<ConnectAppModalProps> = ({
                   </div>
                 )}
               </div>
+
+              {/* Step 1 How to find App ID Guide */}
+              <div style={{ padding: '12px 14px', borderRadius: 'var(--radius-md)', background: 'rgba(99, 102, 241, 0.06)', border: '1px solid var(--border-subtle)', fontSize: '0.75rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+                <div style={{ fontWeight: 700, color: 'var(--text-primary)', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <Sparkles size={13} color="var(--primary)" />
+                  <span>Where to find your Bubble App ID:</span>
+                </div>
+                <div>• Look at your browser address bar inside Bubble Editor: <code>bubble.io/page?id=<strong>your-app-id</strong></code></div>
+                <div>• Or simply copy & paste the full application URL above, and Studio will auto-extract it for you.</div>
+              </div>
             </div>
           )}
 
@@ -756,37 +766,15 @@ export const ConnectAppModal: React.FC<ConnectAppModalProps> = ({
                 )}
               </div>
 
-              {/* Permissions Checklist */}
-              <div style={{
-                padding: '14px 16px',
-                borderRadius: 'var(--radius-md)',
-                background: 'rgba(99, 102, 241, 0.06)',
-                border: '1px solid var(--border-subtle)',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '10px'
-              }}>
-                <span style={{ fontSize: '0.775rem', fontWeight: 700, color: 'var(--text-primary)' }}>
-                  Active Module Permissions Enabled with this Token:
-                </span>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <input type="checkbox" checked={enableDataApi} onChange={e => setEnableDataApi(e.target.checked)} />
-                    <span>Data API & Schema Introspection</span>
-                  </label>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <input type="checkbox" checked={enableBackups} onChange={e => setEnableBackups(e.target.checked)} />
-                    <span>Full Relational Backups</span>
-                  </label>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <input type="checkbox" checked={enablePiiAudit} onChange={e => setEnablePiiAudit(e.target.checked)} />
-                    <span>PII Security Audits</span>
-                  </label>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <input type="checkbox" checked={true} disabled />
-                    <span>Backend Workflow Triggering</span>
-                  </label>
+              {/* Step 2 How to get Token Guide */}
+              <div style={{ padding: '12px 14px', borderRadius: 'var(--radius-md)', background: 'rgba(16, 185, 129, 0.06)', border: '1px solid var(--border-subtle)', fontSize: '0.75rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+                <div style={{ fontWeight: 700, color: 'var(--text-primary)', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <Key size={13} color="var(--accent-emerald)" />
+                  <span>How to generate your Bubble API Token:</span>
                 </div>
+                <div>1. In Bubble Editor, click <strong>Settings</strong> (⚙️ left sidebar) → <strong>API</strong> tab.</div>
+                <div>2. Enable checkbox <strong>"Enable Data API"</strong> and select data types you wish to expose.</div>
+                <div>3. Scroll to <strong>API Tokens</strong>, click <strong>"Generate a new API token"</strong>, type a name (e.g. <code>Studio</code>), and copy the private key here.</div>
               </div>
             </div>
           )}
@@ -884,6 +872,47 @@ export const ConnectAppModal: React.FC<ConnectAppModalProps> = ({
                   Using built-in Studio offline engine. No API key or credit card required.
                 </div>
               )}
+
+              {/* Step 3 How to get AI Key Guide */}
+              <div style={{ padding: '10px 14px', borderRadius: 'var(--radius-md)', background: 'rgba(6, 182, 212, 0.06)', border: '1px solid var(--border-subtle)', fontSize: '0.75rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+                <div style={{ fontWeight: 700, color: 'var(--text-primary)', marginBottom: '3px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <Bot size={13} color="var(--accent-cyan)" />
+                    <span>Where to get your {aiProvider.toUpperCase()} Key:</span>
+                  </div>
+                  {aiProvider === 'gemini' && (
+                    <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer" style={{ color: 'var(--accent-cyan)', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '3px' }}>
+                      <span>Get Gemini Key (Free)</span><ExternalLink size={10} />
+                    </a>
+                  )}
+                  {aiProvider === 'openai' && (
+                    <a href="https://platform.openai.com/api-keys" target="_blank" rel="noreferrer" style={{ color: 'var(--accent-cyan)', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '3px' }}>
+                      <span>Get OpenAI Key</span><ExternalLink size={10} />
+                    </a>
+                  )}
+                  {aiProvider === 'anthropic' && (
+                    <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noreferrer" style={{ color: 'var(--accent-cyan)', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '3px' }}>
+                      <span>Get Claude Key</span><ExternalLink size={10} />
+                    </a>
+                  )}
+                  {aiProvider === 'groq' && (
+                    <a href="https://console.groq.com/keys" target="_blank" rel="noreferrer" style={{ color: 'var(--accent-cyan)', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '3px' }}>
+                      <span>Get Groq Key (Free LPU)</span><ExternalLink size={10} />
+                    </a>
+                  )}
+                  {aiProvider === 'xai' && (
+                    <a href="https://console.x.ai/" target="_blank" rel="noreferrer" style={{ color: 'var(--accent-cyan)', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '3px' }}>
+                      <span>Get xAI Grok Key</span><ExternalLink size={10} />
+                    </a>
+                  )}
+                  {aiProvider === 'openrouter' && (
+                    <a href="https://openrouter.ai/keys" target="_blank" rel="noreferrer" style={{ color: 'var(--accent-cyan)', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '3px' }}>
+                      <span>Get OpenRouter Key</span><ExternalLink size={10} />
+                    </a>
+                  )}
+                </div>
+                <div>Generate an API key from your provider's developer dashboard to enable batch translation and AI code auditing.</div>
+              </div>
 
               {/* Step 3 Diagnostic Test Box */}
               <div style={{
