@@ -1,4 +1,5 @@
 import { GlobalSettings, ProjectProfile } from '../../types';
+import { IndexedDbStore } from './indexedDbStore';
 
 const STORAGE_KEY = 'bubble_dev_studio_settings_v2';
 
@@ -13,9 +14,15 @@ const DEFAULT_SETTINGS: GlobalSettings = {
 export class ProjectStore {
   private static instance: ProjectStore;
   private settings: GlobalSettings;
+  private listeners: Array<(settings: GlobalSettings) => void> = [];
+  private isHydrated: boolean = false;
 
   private constructor() {
     this.settings = this.load();
+    // Kick off background hydration from IndexedDB
+    this.hydrateAsync().catch(err => {
+      console.warn('Initial blueprint hydration from IndexedDB failed:', err);
+    });
   }
 
   public static getInstance(): ProjectStore {
@@ -23,6 +30,23 @@ export class ProjectStore {
       ProjectStore.instance = new ProjectStore();
     }
     return ProjectStore.instance;
+  }
+
+  public subscribe(listener: (settings: GlobalSettings) => void): () => void {
+    this.listeners.push(listener);
+    return () => {
+      this.listeners = this.listeners.filter(l => l !== listener);
+    };
+  }
+
+  private notify(): void {
+    for (const listener of this.listeners) {
+      try {
+        listener(this.settings);
+      } catch (e) {
+        console.error('ProjectStore listener error:', e);
+      }
+    }
   }
 
   private load(): GlobalSettings {
@@ -37,13 +61,79 @@ export class ProjectStore {
     return DEFAULT_SETTINGS;
   }
 
+  /**
+   * Asynchronously hydrates full blueprint ASTs from IndexedDB into memory
+   */
+  public async hydrateAsync(): Promise<GlobalSettings> {
+    try {
+      const blueprints = await IndexedDbStore.getAllBlueprints();
+      let updated = false;
+
+      for (const project of this.settings.projects) {
+        if (!project.blueprintExportJson && blueprints[project.id]) {
+          project.blueprintExportJson = blueprints[project.id];
+          updated = true;
+        }
+      }
+
+      this.isHydrated = true;
+      if (updated) {
+        this.notify();
+      }
+    } catch (e) {
+      console.warn('Could not hydrate blueprints from IndexedDB:', e);
+    }
+    return this.settings;
+  }
+
   public save(settings: GlobalSettings): void {
     this.settings = settings;
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
-    } catch (e) {
-      console.warn('Could not save to localStorage', e);
+
+    // 1. Persist full blueprint JSONs into IndexedDB (supports 100s of MBs)
+    for (const project of settings.projects) {
+      if (project.blueprintExportJson) {
+        IndexedDbStore.setBlueprint(project.id, project.blueprintExportJson).catch(err => {
+          console.warn(`Failed to save blueprint in IndexedDB for project ${project.id}:`, err);
+        });
+      }
     }
+
+    // 2. Prepare lightweight settings for localStorage (omit massive raw blueprints if large)
+    const safeSettings: GlobalSettings = {
+      ...settings,
+      projects: settings.projects.map(p => {
+        // Strip heavy blueprintExportJson from localStorage to stay well below 5MB browser quota
+        const { blueprintExportJson, ...lightweightProfile } = p;
+        return lightweightProfile;
+      })
+    };
+
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(safeSettings));
+    } catch (e) {
+      console.warn('Could not save lightweight settings to localStorage, attempting minimal save', e);
+      try {
+        // Fallback minimal save
+        const minimalSettings = {
+          ...safeSettings,
+          projects: safeSettings.projects.map(p => ({
+            id: p.id,
+            name: p.name,
+            appId: p.appId,
+            environment: p.environment,
+            apiToken: p.apiToken,
+            blueprintFileName: p.blueprintFileName,
+            aiProvider: p.aiProvider,
+            aiModel: p.aiModel
+          }))
+        };
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(minimalSettings));
+      } catch (err2) {
+        console.error('Fatal localStorage quota error:', err2);
+      }
+    }
+
+    this.notify();
   }
 
   public getSettings(): GlobalSettings {
@@ -90,6 +180,9 @@ export class ProjectStore {
     if (this.settings.activeProjectId === id) {
       this.settings.activeProjectId = this.settings.projects[0]?.id;
     }
+    IndexedDbStore.deleteBlueprint(id).catch(err => {
+      console.warn(`Failed to delete blueprint from IndexedDB for project ${id}:`, err);
+    });
     this.save(this.settings);
   }
 }

@@ -69,15 +69,29 @@ export const App: React.FC = () => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [settings, isBackingUp]);
 
+  // Subscribe to store updates and hydrate blueprints from IndexedDB
+  useEffect(() => {
+    const unsubscribe = store.subscribe((updated) => {
+      setSettings({ ...updated });
+    });
+
+    store.hydrateAsync().then((hydrated) => {
+      setSettings({ ...hydrated });
+      if (hydrated.projects.length > 0) {
+        const active = hydrated.projects.find(p => p.id === hydrated.activeProjectId) || hydrated.projects[0];
+        addLog('system', `Loaded ${hydrated.projects.length} workspace(s) from persistent storage. Active: ${active?.name || 'None'}.`, 'success');
+      }
+    });
+
+    return unsubscribe;
+  }, []);
+
   // Initial welcome log & check if first run onboarding is needed
   useEffect(() => {
     addLog('system', 'Bubble.io Dev Studio v1.0.0 initialized.', 'success');
     if (settings.projects.length === 0) {
       addLog('system', 'No Bubble application connected yet. Opening connection setup...', 'warn');
       setIsConnectModalOpen(true);
-    } else {
-      const active = settings.projects.find(p => p.id === settings.activeProjectId) || settings.projects[0];
-      addLog('system', `Loaded ${settings.projects.length} project profiles. Active: ${active?.name || 'None'}.`, 'info');
     }
   }, []);
 
