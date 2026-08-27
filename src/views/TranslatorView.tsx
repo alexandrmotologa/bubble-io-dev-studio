@@ -97,10 +97,10 @@ export const TranslatorView: React.FC<TranslatorViewProps> = ({
       const extracted = TranslatorEngine.extractFromBlueprint(activeProject.blueprintExportJson);
       if (extracted && extracted.length > 0) {
         setItems(extracted);
-        onLog('translator', `Loaded ${extracted.length} strings from ${activeProject.name}'s blueprint (${activeProject.blueprintFileName || 'export.bubble'})`, 'success');
+        onLog('translator', `Extracted ${extracted.length} real application strings from ${activeProject.name}'s blueprint (${activeProject.blueprintFileName || 'export.bubble'})`, 'success');
       }
     }
-  }, [activeProject?.id, activeProject?.blueprintFileName]);
+  }, [activeProject?.id, activeProject?.blueprintFileName, activeProject?.blueprintExportJson]);
 
   const [progress, setProgress] = useState<{ current: number; total: number }>({ current: 0, total: 0 });
   const [multiProgress, setMultiProgress] = useState<{
@@ -581,14 +581,30 @@ export const TranslatorView: React.FC<TranslatorViewProps> = ({
               </p>
 
               <div style={{ display: 'flex', justifyContent: 'center', gap: '14px', flexWrap: 'wrap' }}>
-                <label className="btn btn-primary" style={{ cursor: 'pointer', padding: '10px 20px' }}>
+                {activeProject?.blueprintExportJson ? (
+                  <button
+                    onClick={() => {
+                      const extracted = TranslatorEngine.extractFromBlueprint(activeProject.blueprintExportJson);
+                      setItems(extracted);
+                      onLog('translator', `Extracted ${extracted.length} real strings from ${activeProject.name}'s blueprint (${activeProject.blueprintFileName || 'export.bubble'})`, 'success');
+                    }}
+                    className="btn btn-primary"
+                    style={{ padding: '10px 20px', background: 'linear-gradient(135deg, var(--primary), var(--accent-cyan))' }}
+                  >
+                    <Sparkles size={16} />
+                    <span>Extract All Strings from Attached .bubble Blueprint</span>
+                  </button>
+                ) : null}
+
+                <label className="btn btn-secondary" style={{ cursor: 'pointer', padding: '10px 20px' }}>
                   <Upload size={16} />
                   <span>Import Bubble CSV / .bubble File</span>
                   <input type="file" accept=".csv,.json,.bubble" onChange={handleFileUpload} style={{ display: 'none' }} />
                 </label>
-                <button onClick={handleLoadSampleStrings} className="btn btn-secondary" style={{ padding: '10px 20px' }}>
-                  <Sparkles size={16} />
-                  <span>Load Sample App Strings</span>
+
+                <button onClick={handleLoadSampleStrings} className="btn btn-secondary" style={{ padding: '10px 20px', opacity: 0.8 }} title="Load demo placeholder strings for quick testing">
+                  <FileCode size={16} />
+                  <span>Load Demo Sample Texts</span>
                 </button>
               </div>
             </div>
