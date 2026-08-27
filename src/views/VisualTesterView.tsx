@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Camera, 
   Play, 
@@ -31,12 +31,26 @@ type VisualSubTab = 'suite' | 'inspector' | 'viewports' | 'responsive_matrix' | 
 
 export const VisualTesterView: React.FC<VisualTesterViewProps> = ({ onLog, activeProject }) => {
   const [subTab, setSubTab] = useState<VisualSubTab>('suite');
-  const [testCases, setTestCases] = useState<VisualTestCase[]>([]);
-  const [selectedCase, setSelectedCase] = useState<VisualTestCase | null>(null);
+  const [testCases, setTestCases] = useState<VisualTestCase[]>(() => VisualEngine.getTestCasesForProject(activeProject));
+  const [selectedCase, setSelectedCase] = useState<VisualTestCase | null>(() => {
+    const init = VisualEngine.getTestCasesForProject(activeProject);
+    return init[0] || null;
+  });
   const [isRunning, setIsRunning] = useState(false);
   const [diffThreshold, setDiffThreshold] = useState(1.0); // 1.0% diff threshold
   const [diffViewMode, setDiffViewMode] = useState<'slider' | 'side-by-side' | 'onion' | 'heatmap'>('slider');
   const [onionAlpha, setOnionAlpha] = useState(0.5);
+
+  // Sync test cases when active project or blueprint changes
+  useEffect(() => {
+    if (activeProject) {
+      const cases = VisualEngine.getTestCasesForProject(activeProject);
+      setTestCases(cases);
+      if (cases.length > 0) {
+        setSelectedCase(cases[0]);
+      }
+    }
+  }, [activeProject?.id, activeProject?.blueprintFileName]);
 
   // New Test Case
   const [newPageName, setNewPageName] = useState('');
@@ -94,10 +108,10 @@ export const VisualTesterView: React.FC<VisualTesterViewProps> = ({ onLog, activ
   };
 
   const handleLoadDefaultTargets = () => {
-    const defaults = VisualEngine.getDefaultTestCases();
+    const defaults = VisualEngine.getTestCasesForProject(activeProject);
     setTestCases(defaults);
     setSelectedCase(defaults[0]);
-    onLog('visual-tester', `Loaded ${defaults.length} standard viewport targets (Desktop, Tablet, Mobile).`, 'info');
+    onLog('visual-tester', `Loaded ${defaults.length} viewport targets for ${activeProject?.name || 'app'}.`, 'info');
   };
 
   const handleExportReport = () => {

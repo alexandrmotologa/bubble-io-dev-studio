@@ -71,7 +71,7 @@ export class BubbleExtractor {
       }
     }
 
-    return items.length > 0 ? items : this.getSampleBubbleTexts();
+    return items;
   }
 
   public static getSampleBubbleTexts(): TranslationItem[] {

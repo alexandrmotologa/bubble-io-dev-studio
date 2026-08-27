@@ -1,8 +1,56 @@
-import { VisualAuthSettings, VisualSuiteResult, VisualTestCase } from '../../types';
+import { ProjectProfile, VisualAuthSettings, VisualSuiteResult, VisualTestCase } from '../../types';
 import { VisualSuiteRunner } from './visualSuiteRunner';
 import { VisualReporter } from './visualReporter';
 
 export class VisualEngine {
+  /**
+   * Generates dynamic visual test cases for the active Bubble project's real pages
+   */
+  public static getTestCasesForProject(project?: ProjectProfile | null): VisualTestCase[] {
+    if (!project) {
+      return this.getDefaultTestCases();
+    }
+
+    const baseUrl = `https://${project.customDomain || `${project.appId}.bubbleapps.io`}/${project.environment || 'version-test'}`;
+    const cases: VisualTestCase[] = [];
+
+    // Extract pages from blueprint if present
+    const pageNames: string[] = [];
+    if (project.blueprintExportJson?.pages && typeof project.blueprintExportJson.pages === 'object') {
+      pageNames.push(...Object.keys(project.blueprintExportJson.pages));
+    }
+
+    if (pageNames.length === 0) {
+      pageNames.push('index');
+    }
+
+    const viewports = [
+      { name: 'Desktop (1920x1080)', width: 1920, height: 1080 },
+      { name: 'Tablet (768x1024)', width: 768, height: 1024 },
+      { name: 'Mobile (375x812)', width: 375, height: 812 }
+    ];
+
+    let counter = 1;
+    for (const page of pageNames.slice(0, 8)) {
+      const formattedPageName = page.charAt(0).toUpperCase() + page.slice(1).replace(/_/g, ' ');
+      for (const vp of viewports) {
+        cases.push({
+          id: `tc_${counter++}`,
+          name: `${formattedPageName} — ${vp.name.split(' ')[0]}`,
+          pageUrl: `${baseUrl}/${page}`,
+          viewport: vp,
+          status: 'untested',
+          diffPercentage: 0,
+          baselineImage: 'https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=800&auto=format&fit=crop&q=80',
+          currentImage: 'https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=800&auto=format&fit=crop&q=80',
+          maskSelectors: ['.timestamp', '.live-ticker']
+        });
+      }
+    }
+
+    return cases;
+  }
+
   /**
    * Sample default visual test cases for Bubble app pages
    */
@@ -13,45 +61,11 @@ export class VisualEngine {
         name: 'Landing Page Hero & CTA',
         pageUrl: '/index',
         viewport: { name: 'Desktop (1920x1080)', width: 1920, height: 1080 },
-        status: 'passed',
-        diffPercentage: 0.02,
+        status: 'untested',
+        diffPercentage: 0,
         baselineImage: 'https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=800&auto=format&fit=crop&q=80',
         currentImage: 'https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=800&auto=format&fit=crop&q=80',
-        lastRun: new Date(Date.now() - 3600000).toISOString(),
         maskSelectors: ['.timestamp', '.avatar-live']
-      },
-      {
-        id: 'tc_2',
-        name: 'Pricing Tier Table - Tablet',
-        pageUrl: '/pricing',
-        viewport: { name: 'Tablet (768x1024)', width: 768, height: 1024 },
-        status: 'failed',
-        diffPercentage: 4.85,
-        baselineImage: 'https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=800&auto=format&fit=crop&q=80',
-        currentImage: 'https://images.unsplash.com/photo-1507238691740-187a5b1d37b8?w=800&auto=format&fit=crop&q=80',
-        lastRun: new Date(Date.now() - 1800000).toISOString(),
-        waitForTimeout: 500
-      },
-      {
-        id: 'tc_3',
-        name: 'Checkout Modal & Payment Form',
-        pageUrl: '/checkout',
-        viewport: { name: 'Mobile (375x812)', width: 375, height: 812 },
-        status: 'passed',
-        diffPercentage: 0.15,
-        baselineImage: 'https://images.unsplash.com/photo-1556742049-0a67c5574f73?w=800&auto=format&fit=crop&q=80',
-        currentImage: 'https://images.unsplash.com/photo-1556742049-0a67c5574f73?w=800&auto=format&fit=crop&q=80',
-        lastRun: new Date(Date.now() - 7200000).toISOString(),
-        waitForSelector: '.stripe-element-loaded'
-      },
-      {
-        id: 'tc_4',
-        name: 'User Dashboard & Sidebar Navigation',
-        pageUrl: '/dashboard',
-        viewport: { name: 'Desktop (1920x1080)', width: 1920, height: 1080 },
-        status: 'untested',
-        baselineImage: 'https://images.unsplash.com/photo-1551836022-d5d88e9218df?w=800&auto=format&fit=crop&q=80',
-        currentImage: 'https://images.unsplash.com/photo-1551836022-d5d88e9218df?w=800&auto=format&fit=crop&q=80'
       }
     ];
   }
