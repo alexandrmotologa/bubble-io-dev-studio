@@ -202,6 +202,7 @@ export const DevOpsView: React.FC<DevOpsViewProps> = ({ activeProject, onLog, on
     try {
       const s = await DevOpsEngine.fetchSchema(activeProject);
       setSchema(s);
+      setCollapsedTables(new Set(s.dataTypes.map(d => d.id || d.name)));
       MockServerEngine.initFromSchema(s);
       
       // Generate TypeScript
@@ -281,6 +282,7 @@ export const DevOpsView: React.FC<DevOpsViewProps> = ({ activeProject, onLog, on
         const parsed = JSON.parse(text);
         const parsedSchema = DevOpsEngine.parseBubbleSchemaJson(parsed, activeProject);
         setSchema(parsedSchema);
+        setCollapsedTables(new Set(parsedSchema.dataTypes.map(d => d.id || d.name)));
         MockServerEngine.initFromSchema(parsedSchema);
 
         const ts = DevOpsEngine.generateTypeScriptDefinitions(parsedSchema);
@@ -346,6 +348,7 @@ export const DevOpsView: React.FC<DevOpsViewProps> = ({ activeProject, onLog, on
     if (!activeProject) return;
     const template = DevOpsEngine.getTemplateSchema(activeProject);
     setSchema(template);
+    setCollapsedTables(new Set(template.dataTypes.map(d => d.id || d.name)));
     MockServerEngine.initFromSchema(template);
 
     const ts = DevOpsEngine.generateTypeScriptDefinitions(template);
