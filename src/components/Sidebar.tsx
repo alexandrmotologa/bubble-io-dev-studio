@@ -17,7 +17,6 @@ interface SidebarProps {
   onTabChange: (tab: NavigationTab) => void;
   activeProject?: ProjectProfile;
   projects: ProjectProfile[];
-  auditReport?: AuditHealthReport | null;
   onSelectProject: (id: string) => void;
   onOpenConnectModal: () => void;
   onDeleteProject?: (project: ProjectProfile) => void;
@@ -32,9 +31,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onOpenConnectModal,
   onDeleteProject
 }) => {
-  const auditBadge = auditReport ? `${auditReport.score}%` : null;
-  const auditBadgeColor = auditReport ? (auditReport.score >= 80 ? 'badge-emerald' : 'badge-amber') : 'badge-cyan';
-
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, badge: null },
     { id: 'devops', label: 'DevOps & Schema', icon: Database, badge: 'CLI' },
@@ -57,7 +53,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       flexShrink: 0
     }}>
       {/* App Branding */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '0 4px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '0 8px' }}>
         <div style={{
           width: '38px',
           height: '38px',
@@ -117,7 +113,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       </div>
 
       {/* Navigation List */}
-      <nav style={{ display: 'flex', flexDirection: 'column', gap: '6px', flex: 1, marginTop: '4px' }}>
+      <nav style={{ display: 'flex', flexDirection: 'column', gap: '6px', flex: 1 }}>
         {navItems.map((item) => {
           const Icon = item.icon;
           const isActive = currentTab === item.id;
@@ -146,7 +142,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 <span>{item.label}</span>
               </div>
               {item.badge && (
-                <span className={`badge ${item.badgeColor || (isActive ? 'badge-indigo' : 'badge-cyan')}`} style={{ fontSize: '0.675rem' }}>
+                <span className={`badge ${isActive ? 'badge-indigo' : 'badge-cyan'}`} style={{ fontSize: '0.675rem' }}>
                   {item.badge}
                 </span>
               )}

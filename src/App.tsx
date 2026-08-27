@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { GlobalSettings, LogEntry, NavigationTab, ProjectProfile, ThemeMode, AuditHealthReport } from './types';
+import { GlobalSettings, LogEntry, NavigationTab, ProjectProfile, ThemeMode } from './types';
 import { ProjectStore } from './core/storage/projectStore';
 import { Sidebar } from './components/Sidebar';
 import { Header } from './components/Header';
@@ -59,6 +59,8 @@ export const App: React.FC = () => {
     };
     setLogs(prev => [newEntry, ...prev.slice(0, 199)]);
   };
+
+  const activeProject = settings.projects.find(p => p.id === settings.activeProjectId) || settings.projects[0];
 
   const handleToggleTheme = () => {
     const nextTheme: ThemeMode = settings.theme === 'dark' ? 'light' : 'dark';
@@ -124,49 +126,17 @@ export const App: React.FC = () => {
     setSettings(newSettings);
   };
 
-  const handleAddProjectFromOnboarding = (projectData: Omit<ProjectProfile, 'id' | 'createdAt'>) => {
-    const newProj = store.addProject(projectData);
-    const updated = store.getSettings();
-    setSettings(updated);
-    setIsOnboardingOpen(false);
-    addLog('system', `Connected new Bubble.io application: '${newProj.name}' (${newProj.appId})`, 'success');
-  };
-
-  const handleLoadDemoProject = () => {
-    const demo = store.loadDemoProject();
-    const updated = store.getSettings();
-    setSettings(updated);
-    setIsOnboardingOpen(false);
-    addLog('system', `Loaded Sandbox Demo Application: '${demo.name}'`, 'success');
-  };
-
-  const handleAuditReportUpdate = (report: AuditHealthReport) => {
-    if (activeProject) {
-      setAuditReports(prev => ({
-        ...prev,
-        [activeProject.id]: report
-      }));
-    }
-  };
-
-  const handleUpdateProjectToken = (id: string, token: string) => {
-    store.updateProject(id, { apiToken: token });
-    const updated = store.getSettings();
-    setSettings(updated);
-    addLog('system', 'Updated Bubble Data API Token for workspace.', 'success');
-  };
-
   const handleQuickBackup = async () => {
     if (!activeProject || isBackingUp) return;
     setIsBackingUp(true);
     setIsTerminalOpen(true);
-    addLog('devops', `[Quick Backup] Triggering automated database snapshot for ${activeProject.name} (${activeProject.appId})...`);
+    addLog('devops', `[Quick Backup] Triggering backup for ${activeProject.appId}...`);
 
     try {
       const result = await DevOpsEngine.runBackup(activeProject, undefined, (msg: string) => {
         addLog('devops', msg);
       });
-      addLog('devops', `[Quick Backup] Backup completed successfully (${result.recordCount} records exported).`, 'success');
+      addLog('devops', `[Quick Backup] Backup completed successfully (${result.recordCount} records).`, 'success');
     } catch (e: any) {
       addLog('devops', `[Quick Backup] Error: ${e.message}`, 'error');
     } finally {
@@ -175,15 +145,16 @@ export const App: React.FC = () => {
   };
 
   const handleQuickAudit = async () => {
-    if (isAuditing || !activeProject) return;
+    if (isAuditing) return;
     setIsAuditing(true);
     setIsTerminalOpen(true);
-    addLog('audit', `[Quick Audit] Running full AST dead code inspection for ${activeProject.name}...`);
+    addLog('audit', `[Quick Audit] Running full AST dead code inspection...`);
 
     try {
       const report = await AuditEngine.analyzeApp();
-      handleAuditReportUpdate(report);
-      addLog('audit', `[Quick Audit] Completed: Health Score ${report.score}% (Grade ${report.grade}) with ${report.deadItems.length} issues identified.`, 'success');
+      setHealthScore(report.score);
+      setHealthGrade(report.grade);
+      addLog('audit', `[Quick Audit] Completed: Health Score ${report.score}% (Grade ${report.grade}).`, 'success');
     } catch (e: any) {
       addLog('audit', `[Quick Audit] Error: ${e.message}`, 'error');
     } finally {
@@ -199,7 +170,6 @@ export const App: React.FC = () => {
         onTabChange={setCurrentTab}
         activeProject={activeProject}
         projects={settings.projects}
-        auditReport={currentAuditReport}
         onSelectProject={handleSelectProject}
         onOpenConnectModal={() => setIsConnectModalOpen(true)}
         onDeleteProject={(proj) => setProjectToDelete(proj)}
@@ -225,18 +195,16 @@ export const App: React.FC = () => {
             onOpenConnectModal={() => setIsConnectModalOpen(true)}
             onRunQuickBackup={handleQuickBackup}
             onRunQuickAudit={handleQuickAudit}
-            onOpenAddProject={() => setIsOnboardingOpen(true)}
-            onLoadDemoProject={handleLoadDemoProject}
             isBackingUp={isBackingUp}
             isAuditing={isAuditing}
-            auditReport={currentAuditReport}
+            healthScore={healthScore}
+            healthGrade={healthGrade}
           />
         )}
 
         {currentTab === 'devops' && (
           <DevOpsView
             activeProject={activeProject}
-            onUpdateProjectToken={handleUpdateProjectToken}
             onLog={addLog}
             onOpenConnectModal={() => setIsConnectModalOpen(true)}
           />
@@ -244,16 +212,12 @@ export const App: React.FC = () => {
 
         {currentTab === 'audit' && (
           <AuditView
-            activeProject={activeProject}
-            currentReport={currentAuditReport}
-            onReportUpdate={handleAuditReportUpdate}
             onLog={addLog}
           />
         )}
 
         {currentTab === 'translator' && (
           <TranslatorView
-            settings={settings}
             onLog={addLog}
             geminiApiKey={settings.geminiApiKey}
             openaiApiKey={settings.openaiApiKey}
@@ -268,7 +232,6 @@ export const App: React.FC = () => {
 
         {currentTab === 'visual-tester' && (
           <VisualTesterView
-            activeProject={activeProject}
             onLog={addLog}
             activeProject={activeProject}
           />

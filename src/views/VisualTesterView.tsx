@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState } from 'react';
 import { 
   Camera, 
   Play, 
@@ -20,10 +20,8 @@ import {
 import { ProjectProfile, VisualAuthSettings, VisualSuiteResult, VisualTestCase } from '../types';
 import { VisualEngine } from '../core/visual-tester/visualEngine';
 import { DiffSlider } from '../components/DiffSlider';
-import { GuideBanner } from '../components/GuideBanner';
 
 interface VisualTesterViewProps {
-  activeProject?: ProjectProfile;
   onLog: (module: 'visual-tester', message: string, level?: 'info' | 'success' | 'warn' | 'error') => void;
   activeProject?: ProjectProfile;
 }
@@ -67,16 +65,6 @@ export const VisualTesterView: React.FC<VisualTesterViewProps> = ({ onLog, activ
     name: ''
   });
 
-  const [newPageName, setNewPageName] = useState('');
-  const [newPageUrl, setNewPageUrl] = useState('');
-  const [newViewport, setNewViewport] = useState<'desktop' | 'tablet' | 'mobile'>('desktop');
-
-  useEffect(() => {
-    const freshCases = getInitialTestCases();
-    setTestCases(freshCases);
-    setSelectedCase(freshCases[0]);
-  }, [activeProject?.id]);
-
   const handleRunSuite = async () => {
     if (isRunning || testCases.length === 0) return;
     setIsRunning(true);
@@ -116,8 +104,8 @@ export const VisualTesterView: React.FC<VisualTesterViewProps> = ({ onLog, activ
     const result: VisualSuiteResult = {
       suiteId: `suite_${Date.now()}`,
       totalTests: testCases.length,
-      passed: testCases.filter(c => c.status === 'passed').length,
-      failed: testCases.filter(c => c.status === 'failed').length,
+      passed: testCases.filter(t => t.status === 'passed').length,
+      failed: testCases.filter(t => t.status === 'failed').length,
       executedAt: new Date().toISOString(),
       cases: testCases
     };
@@ -127,11 +115,8 @@ export const VisualTesterView: React.FC<VisualTesterViewProps> = ({ onLog, activ
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `bubble_visual_qa_report_${activeProject?.appId || 'app'}_${Date.now()}.html`;
-    document.body.appendChild(a);
+    a.download = `bubble_visual_qa_report_${Date.now()}.html`;
     a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
     onLog('visual-tester', 'Exported standalone Visual QA HTML report.', 'success');
   };
 
@@ -199,19 +184,6 @@ export const VisualTesterView: React.FC<VisualTesterViewProps> = ({ onLog, activ
             <span>{isRunning ? `Running (${progress.current}/${progress.total})...` : 'Run All Visual Tests'}</span>
           </button>
         </div>
-
-        {/* Progress bar when running */}
-        {isRunning && (
-          <div style={{ marginTop: '12px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-              <span>{progress.name}</span>
-              <span>{progress.current} / {progress.total} viewports</span>
-            </div>
-            <div style={{ height: '6px', background: 'var(--bg-input)', borderRadius: '99px', overflow: 'hidden' }}>
-              <div style={{ width: `${(progress.current / progress.total) * 100}%`, height: '100%', background: 'linear-gradient(90deg, #6366f1, #06b6d4)', transition: 'width 0.3s ease' }} />
-            </div>
-          </div>
-        )}
       </div>
 
       {/* EMPTY STATE: No test targets */}

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Database, 
   Code, 
@@ -47,7 +47,6 @@ import { MockServerEngine } from '../core/devops/mockServer';
 
 interface DevOpsViewProps {
   activeProject?: ProjectProfile;
-  onUpdateProjectToken?: (id: string, token: string) => void;
   onLog: (module: 'devops', message: string, level?: 'info' | 'success' | 'warn' | 'error') => void;
   onOpenConnectModal?: () => void;
 }
@@ -69,9 +68,6 @@ type DevOpsSubTab =
 export const DevOpsView: React.FC<DevOpsViewProps> = ({ activeProject, onLog, onOpenConnectModal }) => {
   const [subTab, setSubTab] = useState<DevOpsSubTab>('schema');
   const [schema, setSchema] = useState<BubbleSchema | null>(null);
-  const [schemaSource, setSchemaSource] = useState<'live_api' | 'uploaded_json' | 'sandbox_template' | 'none'>('none');
-  const [schemaError, setSchemaError] = useState<string | null>(null);
-  const [inputApiToken, setInputApiToken] = useState(activeProject?.apiToken || '');
   const [tsDefinitions, setTsDefinitions] = useState<string>('');
   const [mermaidErd, setMermaidErd] = useState<string>('');
   const [copied, setCopied] = useState(false);
@@ -79,7 +75,6 @@ export const DevOpsView: React.FC<DevOpsViewProps> = ({ activeProject, onLog, on
 
   // Backup & Restore state
   const [isBackingUp, setIsBackingUp] = useState(false);
-  const [isLoadingSchema, setIsLoadingSchema] = useState(false);
   const [backupProgress, setBackupProgress] = useState(0);
   const [backupStatusText, setBackupStatusText] = useState('');
   const [backupsList, setBackupsList] = useState<BackupResult[]>([]);
@@ -142,18 +137,11 @@ export const DevOpsView: React.FC<DevOpsViewProps> = ({ activeProject, onLog, on
 
   useEffect(() => {
     if (activeProject) {
-      // Reset state for new active project
-      setSchema(null);
-      setSchemaSource('none');
-      setSchemaError(null);
-      setUploadedFileName(null);
-      setInputApiToken(activeProject.apiToken || '');
-      setBackupsList(DevOpsEngine.getPersistedBackups(activeProject.id));
       loadSchema();
     }
-  }, [activeProject?.id]);
+  }, [activeProject]);
 
-  const loadSchema = async (customJson?: any, fileName?: string, forceTemplate = false) => {
+  const loadSchema = async () => {
     if (!activeProject) return;
     setIsFetchingSchema(true);
     onLog('devops', `Fetching schema for project: ${activeProject.name}...`);
@@ -665,23 +653,19 @@ export const DevOpsView: React.FC<DevOpsViewProps> = ({ activeProject, onLog, on
               <span>Copy Code</span>
             </button>
           </div>
-
-          <div style={{
-            padding: '24px',
+          <pre style={{
             background: 'var(--bg-input)',
+            padding: '16px',
             borderRadius: 'var(--radius-md)',
             border: '1px solid var(--border-subtle)',
             fontFamily: 'var(--font-mono)',
-            fontSize: '0.875rem',
-            whiteSpace: 'pre-wrap',
-            color: 'var(--text-primary)'
+            fontSize: '0.85rem',
+            color: '#a5b4fc',
+            overflowX: 'auto',
+            lineHeight: 1.5
           }}>
-            {mermaidErd || (
-              <span style={{ color: 'var(--text-muted)' }}>
-                No schema loaded yet. Connect Bubble Data API or upload a schema export JSON to render ERD.
-              </span>
-            )}
-          </div>
+            {mermaidErd}
+          </pre>
         </div>
       )}
 
@@ -701,10 +685,9 @@ export const DevOpsView: React.FC<DevOpsViewProps> = ({ activeProject, onLog, on
               <span>{copied ? 'Copied!' : 'Copy Code'}</span>
             </button>
           </div>
-
           <pre style={{
-            padding: '16px',
             background: 'var(--bg-input)',
+            padding: '16px',
             borderRadius: 'var(--radius-md)',
             border: '1px solid var(--border-subtle)',
             fontFamily: 'var(--font-mono)',
@@ -713,7 +696,7 @@ export const DevOpsView: React.FC<DevOpsViewProps> = ({ activeProject, onLog, on
             overflowX: 'auto',
             maxHeight: '480px'
           }}>
-            <code>{tsDefinitions || '// No schema loaded yet. Connect Bubble Data API or upload schema JSON.'}</code>
+            {tsDefinitions}
           </pre>
         </div>
       )}
@@ -787,7 +770,7 @@ export const DevOpsView: React.FC<DevOpsViewProps> = ({ activeProject, onLog, on
                 </div>
               ))}
             </div>
-          )}
+          </div>
         </div>
       )}
 

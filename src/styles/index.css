@@ -39,17 +39,6 @@
   --shadow-md: 0 4px 12px -2px rgba(0, 0, 0, 0.35);
   --shadow-lg: 0 12px 30px -4px rgba(0, 0, 0, 0.5);
   --shadow-glow: 0 0 20px rgba(99, 102, 241, 0.3);
-
-  /* Terminal Colors (Dark) */
-  --terminal-bg: #090d16;
-  --terminal-header-bg: #0e1422;
-  --terminal-border: rgba(255, 255, 255, 0.08);
-  --terminal-msg-info: #cbd5e1;
-  --terminal-msg-success: #34d399;
-  --terminal-msg-warn: #fbbf24;
-  --terminal-msg-error: #fb7185;
-  --terminal-time: #64748b;
-  --terminal-module: #38bdf8;
 }
 
 [data-theme='light'] {
@@ -57,7 +46,7 @@
   --bg-sidebar: #ffffff;
   --bg-card: rgba(255, 255, 255, 0.9);
   --bg-card-hover: #f1f5f9;
-  --bg-input: #ffffff;
+  --bg-input: #f8fafc;
   --bg-surface-elevated: #ffffff;
 
   --border-subtle: rgba(0, 0, 0, 0.08);
@@ -75,17 +64,6 @@
   --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.05);
   --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08);
   --shadow-lg: 0 12px 30px rgba(0, 0, 0, 0.12);
-
-  /* Terminal Colors (Light) */
-  --terminal-bg: #f8fafc;
-  --terminal-header-bg: #eef2f6;
-  --terminal-border: rgba(0, 0, 0, 0.1);
-  --terminal-msg-info: #1e293b;
-  --terminal-msg-success: #059669;
-  --terminal-msg-warn: #d97706;
-  --terminal-msg-error: #e11d48;
-  --terminal-time: #64748b;
-  --terminal-module: #0284c7;
 }
 
 * {
@@ -386,14 +364,13 @@ input, textarea, select, code, pre {
 
 /* Terminal Log Styling */
 .terminal-drawer {
-  background: var(--terminal-bg);
-  border-top: 1px solid var(--terminal-border);
+  background: #06090e;
+  border-top: 1px solid var(--border-subtle);
   font-family: var(--font-mono);
   font-size: 0.8rem;
-  transition: height 0.2s ease, background-color 0.2s ease;
+  transition: height 0.2s ease;
   display: flex;
   flex-direction: column;
-  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.15);
 }
 
 .terminal-header {
@@ -401,8 +378,8 @@ input, textarea, select, code, pre {
   justify-content: space-between;
   align-items: center;
   padding: 8px 16px;
-  background: var(--terminal-header-bg);
-  border-bottom: 1px solid var(--terminal-border);
+  background: rgba(255, 255, 255, 0.02);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
 }
 
 .terminal-body {
@@ -412,30 +389,27 @@ input, textarea, select, code, pre {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  background: var(--terminal-bg);
 }
 
 .log-line {
   display: flex;
   gap: 10px;
   line-height: 1.4;
-  font-size: 0.8rem;
 }
 
 .log-time {
-  color: var(--terminal-time);
-  font-weight: 500;
+  color: var(--text-muted);
 }
 
 .log-module {
-  color: var(--terminal-module);
-  font-weight: 700;
+  color: var(--accent-cyan);
+  font-weight: 600;
 }
 
-.log-msg-info { color: var(--terminal-msg-info); }
-.log-msg-success { color: var(--terminal-msg-success); font-weight: 600; }
-.log-msg-warn { color: var(--terminal-msg-warn); font-weight: 600; }
-.log-msg-error { color: var(--terminal-msg-error); font-weight: 600; }
+.log-msg-info { color: #cbd5e1; }
+.log-msg-success { color: #34d399; }
+.log-msg-warn { color: #fbbf24; }
+.log-msg-error { color: #fb7185; }
 
 /* Visual Diff Slider Component */
 .diff-slider-container {

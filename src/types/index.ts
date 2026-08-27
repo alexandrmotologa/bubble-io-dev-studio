@@ -351,7 +351,6 @@ export interface TranslationJobConfig {
   useGlossary: boolean;
   useCache: boolean;
   glossary?: Record<string, string>;
-  customEndpoint?: string;
 }
 
 export interface TranslationJobResult {

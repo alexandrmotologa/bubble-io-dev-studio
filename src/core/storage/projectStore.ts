@@ -68,7 +68,6 @@ export class ProjectStore {
     const newProject: ProjectProfile = {
       ...project,
       id: 'proj_' + Math.random().toString(36).substring(2, 9),
-      isDemo: false,
       createdAt: new Date().toISOString(),
       lastActiveAt: new Date().toISOString()
     };
@@ -76,23 +75,6 @@ export class ProjectStore {
     this.settings.activeProjectId = newProject.id;
     this.save(this.settings);
     return newProject;
-  }
-
-  public loadDemoProject(): ProjectProfile {
-    const demoProj: ProjectProfile = {
-      id: 'demo_proj_marketplace',
-      name: 'Bubble Marketplace App (Sandbox Demo)',
-      appId: 'marketplace-prod',
-      environment: 'live',
-      customDomain: 'marketplace.bubbleapps.io',
-      isDemo: true,
-      createdAt: new Date().toISOString(),
-      lastActiveAt: new Date().toISOString()
-    };
-    this.settings.projects = [demoProj];
-    this.settings.activeProjectId = demoProj.id;
-    this.save(this.settings);
-    return demoProj;
   }
 
   public updateProject(id: string, updates: Partial<ProjectProfile>): void {
