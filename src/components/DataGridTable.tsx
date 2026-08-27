@@ -1250,12 +1250,29 @@ export const DataGridTable: React.FC<DataGridTableProps> = ({
       </div>
 
       {/* Bottom Pagination Bar */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-        <div>
-          Showing <strong>{records.length}</strong> of <strong>{totalCount}</strong> records in <code>{selectedType}</code>
+      <div style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        fontSize: '0.775rem',
+        color: 'var(--text-secondary)',
+        background: 'var(--bg-surface-elevated)',
+        padding: '10px 16px',
+        borderRadius: 'var(--radius-md)',
+        border: '1px solid var(--border-subtle)',
+        boxShadow: '0 4px 12px rgba(0, 0, 0, 0.12)',
+        marginTop: '6px',
+        marginBottom: '28px',
+        flexWrap: 'wrap',
+        gap: '12px'
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <span>
+            Showing <strong>{records.length > 0 ? cursor + 1 : 0} - {Math.min(totalCount, cursor + records.length)}</strong> of <strong>{totalCount.toLocaleString()}</strong> records in <code>{selectedType}</code>
+          </span>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <select
             value={limit}
             onChange={(e) => {
@@ -1263,7 +1280,7 @@ export const DataGridTable: React.FC<DataGridTableProps> = ({
               setCursor(0);
             }}
             className="select"
-            style={{ fontSize: '0.75rem', padding: '2px 8px', height: '28px' }}
+            style={{ fontSize: '0.75rem', padding: '4px 10px', height: '30px', width: 'auto' }}
           >
             <option value="15">15 per page</option>
             <option value="25">25 per page</option>
@@ -1275,7 +1292,7 @@ export const DataGridTable: React.FC<DataGridTableProps> = ({
             onClick={() => setCursor(Math.max(0, cursor - limit))}
             disabled={cursor === 0 || isLoading}
             className="btn btn-secondary btn-sm"
-            style={{ padding: '4px 8px', height: '28px' }}
+            style={{ padding: '4px 12px', height: '30px' }}
           >
             <ChevronLeft size={13} />
             <span>Prev</span>
@@ -1285,7 +1302,7 @@ export const DataGridTable: React.FC<DataGridTableProps> = ({
             onClick={() => setCursor(cursor + limit)}
             disabled={!hasMore || isLoading}
             className="btn btn-secondary btn-sm"
-            style={{ padding: '4px 8px', height: '28px' }}
+            style={{ padding: '4px 12px', height: '30px' }}
           >
             <span>Next</span>
             <ChevronRight size={13} />

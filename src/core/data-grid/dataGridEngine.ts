@@ -432,8 +432,8 @@ export class DataGridEngine {
 
       if (dtLower.includes('user')) {
         rec.email = `user_${i}@example.com`;
-        rec.first_name = ['Alex', 'Elena', 'David', 'Sophia', 'Marcus', 'Olivia'][i % 6];
-        rec.last_name = ['Miller', 'Popescu', 'Johnson', 'Smith', 'Vance', 'Taylor'][i % 6];
+        rec.first_name = ['John', 'Jane', 'David', 'Sophia', 'Marcus', 'Olivia'][i % 6];
+        rec.last_name = ['Miller', 'Davis', 'Johnson', 'Smith', 'Wilson', 'Taylor'][i % 6];
         rec.role = i === 1 ? 'Admin' : i % 3 === 0 ? 'Manager' : 'Member';
         rec.is_active = i % 8 !== 0;
         rec.login_count = (i * 7) + 3;

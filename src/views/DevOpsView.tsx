@@ -595,17 +595,17 @@ export const DevOpsView: React.FC<DevOpsViewProps> = ({ activeProject, initialSu
       User: [
         {
           _ref: "@user_admin",
-          email: "alex@startup.io",
-          first_name: "Alex",
-          last_name: "Motologa",
+          email: "john.doe@example.com",
+          first_name: "John",
+          last_name: "Doe",
           role: "Admin",
           is_active: true
         },
         {
           _ref: "@user_member",
-          email: "elena@startup.io",
-          first_name: "Elena",
-          last_name: "Popescu",
+          email: "jane.smith@example.com",
+          first_name: "Jane",
+          last_name: "Smith",
           role: "Member",
           is_active: true
         }
@@ -1927,28 +1927,36 @@ export const DevOpsView: React.FC<DevOpsViewProps> = ({ activeProject, initialSu
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           {/* Relational Syntax & Rules Guide Card */}
           <div className="card" style={{ background: 'rgba(99, 102, 241, 0.04)', border: '1px solid rgba(99, 102, 241, 0.2)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-              <Sparkles size={16} color="var(--primary)" />
-              <span style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--text-primary)' }}>
-                How Relational Seeding & Foreign Key Aliases Work
-              </span>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px', marginBottom: '12px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Sparkles size={16} color="var(--primary)" />
+                <span style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--text-primary)' }}>
+                  How Relational Seeding Works (3 Simple Steps)
+                </span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.725rem', color: 'var(--accent-cyan)' }}>
+                <span style={{ background: 'rgba(6, 182, 212, 0.08)', padding: '3px 8px', borderRadius: '4px', border: '1px solid rgba(6, 182, 212, 0.25)' }}>
+                  1. Load/Write ➔ 2. Validate DAG ➔ 3. Execute
+                </span>
+              </div>
             </div>
+
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '12px', fontSize: '0.775rem', color: 'var(--text-secondary)', lineHeight: 1.45 }}>
               <div style={{ background: 'var(--bg-input)', padding: '10px 12px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)' }}>
-                <strong style={{ color: 'var(--accent-cyan)', display: 'block', marginBottom: '3px' }}>1. Define Aliases (<code>_ref</code>)</strong>
-                Assign a unique alias to any parent record (e.g. <code>"_ref": "@user_admin"</code>).
+                <strong style={{ color: 'var(--accent-cyan)', display: 'block', marginBottom: '3px' }}>Step 1. Define Aliases (<code>_ref</code>)</strong>
+                Give parent records a temporary alias (e.g. <code>"_ref": "@user_admin"</code>) instead of real Bubble IDs.
               </div>
               <div style={{ background: 'var(--bg-input)', padding: '10px 12px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)' }}>
-                <strong style={{ color: 'var(--accent-emerald)', display: 'block', marginBottom: '3px' }}>2. Link in Child Tables</strong>
-                Reference the alias in any field (e.g. <code>"owner": "@user_admin"</code> or <code>"members": ["@user_admin"]</code>).
+                <strong style={{ color: 'var(--accent-emerald)', display: 'block', marginBottom: '3px' }}>Step 2. Link Child Records</strong>
+                Use the <code>@alias</code> in any related field (e.g. <code>"owner": "@user_admin"</code> or <code>"company": "@comp_acme"</code>).
               </div>
               <div style={{ background: 'var(--bg-input)', padding: '10px 12px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)' }}>
-                <strong style={{ color: 'var(--accent-indigo)', display: 'block', marginBottom: '3px' }}>3. Auto DAG Resolution</strong>
-                The engine topologically sorts dependencies, inserts parents first, and replaces <code>@alias</code> with real Bubble IDs.
+                <strong style={{ color: 'var(--accent-indigo)', display: 'block', marginBottom: '3px' }}>Step 3. Auto DAG Resolution</strong>
+                The engine sorts tables topologically, inserts parents first, captures real Bubble IDs, and injects them into children.
               </div>
               <div style={{ background: 'var(--bg-input)', padding: '10px 12px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)' }}>
-                <strong style={{ color: 'var(--accent-amber)', display: 'block', marginBottom: '3px' }}>4. 2-Pass Circular Handling</strong>
-                Circular relationships are automatically deferred and resolved via a 2nd-pass <code>PATCH</code> request.
+                <strong style={{ color: 'var(--accent-amber)', display: 'block', marginBottom: '3px' }}>Circular References (2-Pass)</strong>
+                Circular relations are automatically created and resolved in a 2nd-pass <code>PATCH</code> request.
               </div>
             </div>
           </div>
@@ -1960,25 +1968,25 @@ export const DevOpsView: React.FC<DevOpsViewProps> = ({ activeProject, initialSu
                   <Share2 size={18} color="var(--accent-cyan)" />
                   <span>Relational Seed JSON Editor</span>
                 </div>
-                <div className="card-subtitle">Edit multi-table relational dataset or load pre-built templates</div>
+                <div className="card-subtitle">Write relational JSON, load pre-built templates, or generate from your schema</div>
               </div>
-              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                <button onClick={handleGenerateSchemaTemplate} className="btn btn-secondary btn-sm" title="Generate seed structure from active project schema">
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+                <button onClick={handleGenerateSchemaTemplate} className="btn btn-secondary btn-sm" title="Step 1: Generate seed structure from active project schema">
                   <Sparkles size={12} />
                   <span>Schema Template</span>
                 </button>
-                <button onClick={handleLoadRelationalExample} className="btn btn-secondary btn-sm" title="Load sample multi-table example with linked users, companies and projects">
+                <button onClick={handleLoadRelationalExample} className="btn btn-secondary btn-sm" title="Step 1: Load sample multi-table example with linked users, companies and projects">
                   <FileSpreadsheet size={12} />
                   <span>Sample Example</span>
                 </button>
                 <button onClick={() => handleCopy(seedDataJson, 'Relational Seed JSON')} className="btn btn-secondary btn-sm" title="Copy JSON">
                   <Copy size={12} />
                 </button>
-                <button onClick={handleParseSeedPlan} className="btn btn-secondary btn-sm">
-                  <Play size={13} />
-                  <span>Validate & Plan DAG</span>
+                <button onClick={handleParseSeedPlan} className="btn btn-secondary btn-sm" title="Step 2: Validate syntax and calculate DAG insertion order" style={{ border: '1px solid var(--primary)' }}>
+                  <Play size={13} color="var(--primary)" />
+                  <span style={{ fontWeight: 700 }}>Validate & Plan DAG</span>
                 </button>
-                <button onClick={handleExecuteSeed} disabled={!seedPlan || isSeeding} className="btn btn-primary btn-sm">
+                <button onClick={handleExecuteSeed} disabled={!seedPlan || isSeeding} className="btn btn-primary btn-sm" title={!seedPlan ? 'Click "Validate & Plan DAG" first to enable execution' : 'Step 3: Insert all records into Bubble Data API'}>
                   <Upload size={13} className={isSeeding ? 'spin' : ''} />
                   <span>{isSeeding ? 'Seeding...' : 'Execute Live Seed'}</span>
                 </button>

@@ -47,7 +47,7 @@ export const AiCopilotModal: React.FC<AiCopilotModalProps> = ({
 
   // Regex mode state
   const [regexDesc, setRegexDesc] = useState('Extract email address from user comment text');
-  const [sampleText, setSampleText] = useState('Please contact support at alexander@example.com for order #1234');
+  const [sampleText, setSampleText] = useState('Please contact support at john.doe@example.com for order #1234');
   const [regexResult, setRegexResult] = useState<CopilotRegexResponse | null>(null);
   const [copied, setCopied] = useState(false);
 
