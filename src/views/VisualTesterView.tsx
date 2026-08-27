@@ -15,7 +15,8 @@ import {
   Plus, 
   Settings2,
   Trash2,
-  Sparkles
+  Sparkles,
+  ExternalLink
 } from 'lucide-react';
 import { ProjectProfile, VisualAuthSettings, VisualSuiteResult, VisualTestCase } from '../types';
 import { VisualEngine } from '../core/visual-tester/visualEngine';
@@ -361,14 +362,62 @@ export const VisualTesterView: React.FC<VisualTesterViewProps> = ({ onLog, activ
                   )}
                 </div>
               ) : (
-                <div style={{ height: '300px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', gap: '12px' }}>
-                  <Eye size={32} style={{ opacity: 0.5 }} />
-                  <div>Click "Run All Visual Tests" above to capture screenshots and compare diffs.</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', background: 'var(--bg-input)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-subtle)' }}>
+                    <div>
+                      <div style={{ fontWeight: 700, fontSize: '0.85rem', color: 'var(--text-primary)' }}>
+                        Live Bubble App Viewport
+                      </div>
+                      <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                        Route: <code>{selectedCase.pageUrl}</code> • Target: <strong>{selectedCase.viewport.name}</strong>
+                      </div>
+                    </div>
+                    <a
+                      href={selectedCase.pageUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="btn btn-secondary btn-sm"
+                      style={{ fontSize: '0.75rem', padding: '4px 10px', display: 'flex', alignItems: 'center', gap: '4px' }}
+                    >
+                      <span>Open in Browser</span>
+                      <ExternalLink size={12} />
+                    </a>
+                  </div>
+
+                  <div style={{
+                    height: '420px',
+                    borderRadius: '8px',
+                    overflow: 'hidden',
+                    border: '1px solid var(--border-subtle)',
+                    background: '#ffffff',
+                    position: 'relative'
+                  }}>
+                    <iframe
+                      src={selectedCase.pageUrl}
+                      title={selectedCase.name}
+                      style={{
+                        width: `${selectedCase.viewport.width}px`,
+                        height: `${selectedCase.viewport.height}px`,
+                        border: 'none',
+                        transform: `scale(${Math.min(1, 640 / selectedCase.viewport.width)})`,
+                        transformOrigin: 'top left',
+                        pointerEvents: 'auto'
+                      }}
+                      sandbox="allow-scripts allow-same-origin allow-forms"
+                    />
+                  </div>
                 </div>
               )}
             </div>
           )}
         </div>
+      )}
+
+      {/* SUBTAB: 4-UP MULTI-DEVICE VIEWPORT MATRIX */}
+      {subTab === 'responsive_matrix' && (
+        <MultiDeviceViewport
+          initialUrl={activeProject ? `https://${activeProject.customDomain || `${activeProject.appId}.bubbleapps.io`}/${activeProject.environment || 'version-test'}` : 'https://app.bubbleapps.io/version-test'}
+        />
       )}
 
       {/* SUBTAB 2: TARGET VIEWPORTS & ADD TARGET */}

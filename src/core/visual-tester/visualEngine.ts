@@ -41,8 +41,6 @@ export class VisualEngine {
           viewport: vp,
           status: 'untested',
           diffPercentage: 0,
-          baselineImage: 'https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=800&auto=format&fit=crop&q=80',
-          currentImage: 'https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=800&auto=format&fit=crop&q=80',
           maskSelectors: ['.timestamp', '.live-ticker']
         });
       }
@@ -63,8 +61,6 @@ export class VisualEngine {
         viewport: { name: 'Desktop (1920x1080)', width: 1920, height: 1080 },
         status: 'untested',
         diffPercentage: 0,
-        baselineImage: 'https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=800&auto=format&fit=crop&q=80',
-        currentImage: 'https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=800&auto=format&fit=crop&q=80',
         maskSelectors: ['.timestamp', '.avatar-live']
       }
     ];

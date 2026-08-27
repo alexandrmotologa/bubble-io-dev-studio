@@ -284,29 +284,27 @@ export const MultiDeviceViewport: React.FC<MultiDeviceViewportProps> = ({ initia
                 </span>
               </div>
 
-              {/* Viewport Frame Canvas */}
+              {/* Viewport Frame Canvas - Live Responsive Bubble App Frame */}
               <div style={{
-                height: '320px',
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                justifyContent: 'center',
-                background: 'linear-gradient(180deg, #0b1120 0%, #030712 100%)',
-                color: 'var(--text-secondary)',
-                fontSize: '0.8rem',
-                gap: '8px',
-                padding: '20px',
-                textAlign: 'center'
+                height: '380px',
+                width: '100%',
+                background: '#ffffff',
+                overflow: 'hidden',
+                position: 'relative'
               }}>
-                <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>
-                  {vp.name} Preview Frame
-                </div>
-                <div style={{ fontSize: '0.725rem', color: 'var(--text-muted)' }}>
-                  Rendered at {vp.width} × {vp.height} px ({Math.round(zoomLevel * 100)}% zoom scale)
-                </div>
-                <div style={{ padding: '8px 12px', background: 'rgba(99, 102, 241, 0.1)', borderRadius: '6px', border: '1px solid rgba(99, 102, 241, 0.3)', fontSize: '0.75rem', color: 'var(--accent-cyan)' }}>
-                  ✓ Zero Horizontal Overflow Detected ({vp.width}px container)
-                </div>
+                <iframe
+                  src={url}
+                  title={`${vp.name} live frame`}
+                  style={{
+                    width: `${vp.width}px`,
+                    height: `${vp.height}px`,
+                    border: 'none',
+                    transform: `scale(${Math.min(1, 360 / vp.width) * zoomLevel})`,
+                    transformOrigin: 'top left',
+                    pointerEvents: 'auto'
+                  }}
+                  sandbox="allow-scripts allow-same-origin allow-forms"
+                />
               </div>
             </div>
           </div>
