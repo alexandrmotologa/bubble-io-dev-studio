@@ -865,7 +865,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           <Layers size={18} color="var(--primary)" />
           <div>
             <div style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-primary)' }}>
-              Bubble.io Dev Studio <span className="badge badge-indigo" style={{ fontSize: '0.65rem', marginLeft: '6px' }}>v1.3.0</span>
+              Bubble.io Dev Studio <span className="badge badge-indigo" style={{ fontSize: '0.65rem', marginLeft: '6px' }}>v1.4.0</span>
             </div>
             <div style={{ fontSize: '0.725rem', color: 'var(--text-muted)' }}>
               Created by <strong style={{ color: 'var(--text-secondary)' }}>Alexandr Motologa | MTLG Labs</strong>

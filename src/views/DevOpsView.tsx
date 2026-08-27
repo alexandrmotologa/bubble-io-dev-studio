@@ -167,6 +167,9 @@ export const DevOpsView: React.FC<DevOpsViewProps> = ({ activeProject, initialSu
     setCollapsedTables(new Set(schema.dataTypes.map(d => d.id || d.name)));
   };
 
+  // Active Data Grid Table Selection
+  const [dataGridActiveType, setDataGridActiveType] = useState<string>('User');
+
   // Backup & Restore state
   const [isBackingUp, setIsBackingUp] = useState(false);
   const [backupProgress, setBackupProgress] = useState(0);
@@ -1040,6 +1043,7 @@ export const DevOpsView: React.FC<DevOpsViewProps> = ({ activeProject, initialSu
         <DataGridTable 
           project={activeProject} 
           dataTypes={schema?.dataTypes || []} 
+          activeDataType={dataGridActiveType}
           onLog={onLog} 
         />
       )}
@@ -1284,12 +1288,12 @@ export const DevOpsView: React.FC<DevOpsViewProps> = ({ activeProject, initialSu
                             type="button"
                             onClick={(e) => {
                               e.stopPropagation();
-                              setQueryType(dt.name);
-                              setSubTab('query');
+                              setDataGridActiveType(dt.name);
+                              setSubTab('data_grid');
                             }}
                             className="btn btn-secondary btn-sm"
                             style={{ fontSize: '0.7rem', padding: '3px 8px', display: 'flex', alignItems: 'center', gap: '4px', whiteSpace: 'nowrap', flexShrink: 0 }}
-                            title={`Browse records of ${dt.name}`}
+                            title={`Browse and edit records of ${dt.name} in Interactive Data Studio`}
                           >
                             <Search size={11} />
                             <span>Browse Data</span>

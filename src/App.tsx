@@ -118,7 +118,7 @@ export const App: React.FC = () => {
 
   // Initial welcome log & check if first run onboarding is needed
   useEffect(() => {
-    addLog('system', 'Bubble.io Dev Studio v1.3.0 initialized.', 'success');
+    addLog('system', 'Bubble.io Dev Studio v1.4.0 initialized.', 'success');
     if (settings.projects.length === 0) {
       addLog('system', 'No Bubble application connected yet. Opening connection setup...', 'warn');
       setIsConnectModalOpen(true);

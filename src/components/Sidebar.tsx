@@ -96,9 +96,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <h1 style={{ fontSize: '1rem', fontWeight: 800, letterSpacing: '-0.02em', color: 'var(--text-primary)', margin: 0 }}>
             Bubble Studio
           </h1>
-          <span style={{ fontSize: '0.725rem', color: 'var(--text-muted)', fontWeight: 500 }}>
-            v1.3.0 • All-in-One Suite
-          </span>
+          <div style={{ fontSize: '0.675rem', color: 'var(--text-muted)' }}>
+            v1.4.0 • All-in-One Suite
+          </div>
         </div>
       </div>
 

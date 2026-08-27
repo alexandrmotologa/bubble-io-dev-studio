@@ -126,7 +126,7 @@ function createAppMenu() {
               dialog.showMessageBox(mainWindow, {
                 type: 'info',
                 title: 'About Bubble.io Dev Studio',
-                message: 'Bubble.io Dev Studio v1.3.0',
+                message: 'Bubble.io Dev Studio v1.4.0',
                 detail: 'All-in-one Developer Studio & GUI for Bubble.io (DevOps, Schema, Dead Code Audit, AI Translation, Visual QA)\n\nAuthor: Alexandr Motologa | MTLG Labs\nSupport: https://buymeacoffee.com/mtlg\nEmail: mtlg.labs.contact@gmail.com\nGitHub: https://github.com/alexandrmotologa',
                 buttons: ['OK']
               });

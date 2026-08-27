@@ -221,6 +221,13 @@ export const DataGridTable: React.FC<DataGridTableProps> = ({
   };
 
   useEffect(() => {
+    if (initialDataType && initialDataType !== selectedType) {
+      setSelectedType(initialDataType);
+      setCursor(0);
+    }
+  }, [initialDataType]);
+
+  useEffect(() => {
     if (dataTypes.length > 0 && !dataTypes.some(d => d.name.toLowerCase() === selectedType.toLowerCase())) {
       setSelectedType(dataTypes[0].name);
     }
