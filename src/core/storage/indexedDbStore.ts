@@ -270,6 +270,22 @@ export class IndexedDbStore {
     }
   }
 
+  public static async deleteBackup(backupId: string): Promise<void> {
+    try {
+      const db = await this.getDB();
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction(DB_STORES.BACKUPS, 'readwrite');
+        const store = tx.objectStore(DB_STORES.BACKUPS);
+        const req = store.delete(backupId);
+
+        req.onsuccess = () => resolve();
+        req.onerror = () => reject(req.error);
+      });
+    } catch (e) {
+      console.warn('IndexedDB deleteBackup failed:', e);
+    }
+  }
+
   /* =========================================================================
    * 4. Global Settings & Project Profiles
    * ========================================================================= */

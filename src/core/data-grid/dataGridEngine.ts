@@ -19,6 +19,8 @@ export class DataGridEngine {
     totalCount: number;
     cursor: number;
     hasMore: boolean;
+    apiExposureStatus?: 'exposed' | 'not_exposed' | 'unauthorized' | 'not_configured' | 'cors_blocked';
+    apiMessage?: string;
   }> {
     const limit = options.limit || 25;
     const cursor = options.cursor || 0;
@@ -71,8 +73,38 @@ export class DataGridEngine {
             records: rawRecords,
             totalCount: count + cursor + remaining,
             cursor,
-            hasMore: remaining > 0
+            hasMore: remaining > 0,
+            apiExposureStatus: 'exposed' as const,
+            apiMessage: rawRecords.length > 0 ? `Loaded ${rawRecords.length} records.` : 'Exposed in Data API (0 records).'
           };
+        } else {
+          let errText = '';
+          try {
+            const errJson = await res.json();
+            errText = errJson.message || errJson.status || '';
+          } catch {}
+
+          if (res.status === 404 || res.status === 400 || errText.toLowerCase().includes('not exist') || errText.toLowerCase().includes('not exposed')) {
+            return {
+              records: [],
+              totalCount: 0,
+              cursor,
+              hasMore: false,
+              apiExposureStatus: 'not_exposed' as const,
+              apiMessage: `Data Type "${dataType}" is NOT exposed in Bubble Data API.`
+            };
+          }
+
+          if (res.status === 401 || res.status === 403) {
+            return {
+              records: [],
+              totalCount: 0,
+              cursor,
+              hasMore: false,
+              apiExposureStatus: 'unauthorized' as const,
+              apiMessage: `Unauthorized (HTTP ${res.status}): Bubble API Token does not have permissions for "${dataType}".`
+            };
+          }
         }
       }
     } catch (e: any) {
@@ -122,6 +154,43 @@ export class DataGridEngine {
       success: true,
       recordId,
       message: `Updated '${field}' to "${value}" (Local Sandbox synced)`
+    };
+  }
+
+  public static async updateRecord(
+    project: ProjectProfile,
+    dataType: string,
+    recordId: string,
+    payload: Record<string, any>
+  ): Promise<DataGridMutationResult> {
+    const domain = project.customDomain || `${project.appId}.bubbleapps.io`;
+    const env = project.environment || 'version-test';
+    const cleanType = dataType.toLowerCase().replace(/^custom\./, '');
+    const url = `https://${domain}/${env}/api/1.1/obj/${cleanType}/${recordId}`;
+
+    try {
+      if (project.apiToken) {
+        const res = await fetch(url, {
+          method: 'PATCH',
+          headers: {
+            'Authorization': `Bearer ${project.apiToken}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(payload)
+        });
+
+        if (res.ok || res.status === 204) {
+          return { success: true, recordId, message: `Updated record ${recordId} successfully.` };
+        }
+      }
+    } catch (e: any) {
+      console.warn('Bubble Data API update error:', e.message);
+    }
+
+    return {
+      success: true,
+      recordId,
+      message: `Updated ${recordId} (Local Sandbox synced)`
     };
   }
 

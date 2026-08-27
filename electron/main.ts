@@ -1,9 +1,131 @@
-import { app, BrowserWindow, ipcMain, shell } from 'electron';
+import { app, BrowserWindow, ipcMain, shell, Menu, MenuItemConstructorOptions, dialog } from 'electron';
 import path from 'path';
 
 let mainWindow: BrowserWindow | null = null;
 
 const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged;
+
+function createAppMenu() {
+  const isMac = process.platform === 'darwin';
+
+  const template: MenuItemConstructorOptions[] = [
+    ...(isMac ? [{
+      label: app.name,
+      submenu: [
+        { role: 'about' as const },
+        { type: 'separator' as const },
+        { role: 'services' as const },
+        { type: 'separator' as const },
+        { role: 'hide' as const },
+        { role: 'hideOthers' as const },
+        { role: 'unhide' as const },
+        { type: 'separator' as const },
+        { role: 'quit' as const }
+      ]
+    }] : []),
+    {
+      label: 'File',
+      submenu: [
+        {
+          label: 'Quick Database Backup',
+          accelerator: 'CmdOrCtrl+B',
+          click: () => {
+            mainWindow?.webContents.send('menu:quick-backup');
+          }
+        },
+        {
+          label: 'Command Palette',
+          accelerator: 'CmdOrCtrl+K',
+          click: () => {
+            mainWindow?.webContents.send('menu:command-palette');
+          }
+        },
+        { type: 'separator' },
+        isMac ? { role: 'close' } : { role: 'quit', label: 'Exit' }
+      ]
+    },
+    {
+      label: 'Edit',
+      submenu: [
+        { role: 'undo' },
+        { role: 'redo' },
+        { type: 'separator' },
+        { role: 'cut' },
+        { role: 'copy' },
+        { role: 'paste' },
+        { role: 'selectAll' }
+      ]
+    },
+    {
+      label: 'View',
+      submenu: [
+        { role: 'reload' },
+        { role: 'forceReload' },
+        { role: 'toggleDevTools' },
+        { type: 'separator' },
+        { role: 'resetZoom' },
+        { role: 'zoomIn' },
+        { role: 'zoomOut' },
+        { type: 'separator' },
+        { role: 'togglefullscreen' }
+      ]
+    },
+    {
+      label: 'Help',
+      submenu: [
+        {
+          label: 'Author GitHub (@alexandrmotologa)',
+          click: async () => {
+            await shell.openExternal('https://github.com/alexandrmotologa');
+          }
+        },
+        {
+          label: 'Buy Me a Coffee (Support Project)',
+          click: async () => {
+            await shell.openExternal('https://buymeacoffee.com/mtlg');
+          }
+        },
+        {
+          label: 'Contact Author via Email (mtlg.labs.contact@gmail.com)',
+          click: async () => {
+            await shell.openExternal('mailto:mtlg.labs.contact@gmail.com?subject=Bubble.io%20Dev%20Studio%20Inquiry');
+          }
+        },
+        { type: 'separator' },
+        {
+          label: 'GitHub Repository',
+          click: async () => {
+            await shell.openExternal('https://github.com/alexandrmotologa/bubble-io-dev-studio');
+          }
+        },
+        {
+          label: 'Documentation & Guides',
+          click: async () => {
+            await shell.openExternal('https://github.com/alexandrmotologa/bubble-io-dev-studio#readme');
+          }
+        },
+        { type: 'separator' },
+        {
+          label: 'About Bubble.io Dev Studio',
+          click: () => {
+            if (mainWindow) {
+              dialog.showMessageBox(mainWindow, {
+                type: 'info',
+                title: 'About Bubble.io Dev Studio',
+                message: 'Bubble.io Dev Studio v1.2.0',
+                detail: 'All-in-one Developer Studio & GUI for Bubble.io (DevOps, Schema, Dead Code Audit, AI Translation, Visual QA)\n\nAuthor: Alexandr Motologa | MTLG Labs\nSupport: https://buymeacoffee.com/mtlg\nEmail: mtlg.labs.contact@gmail.com\nGitHub: https://github.com/alexandrmotologa',
+                buttons: ['OK']
+              });
+            }
+          }
+        }
+      ]
+    }
+  ];
+
+  const menu = Menu.buildFromTemplate(template);
+  Menu.setApplicationMenu(menu);
+}
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -22,6 +144,8 @@ function createWindow() {
     }
   });
 
+  createAppMenu();
+
   if (isDev) {
     mainWindow.loadURL('http://localhost:5173');
     // mainWindow.webContents.openDevTools({ mode: 'detach' });
@@ -35,7 +159,7 @@ function createWindow() {
 
   // Handle external links opening in user's default browser
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-    if (url.startsWith('https:') || url.startsWith('http:')) {
+    if (url.startsWith('https:') || url.startsWith('http:') || url.startsWith('mailto:')) {
       shell.openExternal(url);
     }
     return { action: 'deny' };

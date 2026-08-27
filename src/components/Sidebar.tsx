@@ -67,14 +67,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
       <aside className={`sidebar-container ${isOpen ? 'open' : ''}`} style={{
         width: 'var(--sidebar-width)',
-        height: '100vh',
+        height: '100%',
         backgroundColor: 'var(--bg-sidebar)',
         borderRight: '1px solid var(--border-subtle)',
         display: 'flex',
         flexDirection: 'column',
-        padding: '20px 16px',
-        gap: '20px',
-        flexShrink: 0
+        padding: '16px 14px',
+        gap: '14px',
+        flexShrink: 0,
+        boxSizing: 'border-box',
+        overflow: 'hidden'
       }}>
       {/* App Branding */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '0 8px' }}>
@@ -95,7 +97,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             Bubble Studio
           </h1>
           <span style={{ fontSize: '0.725rem', color: 'var(--text-muted)', fontWeight: 500 }}>
-            v1.0.0 • All-in-One Suite
+            v1.2.0 • All-in-One Suite
           </span>
         </div>
       </div>
@@ -137,7 +139,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       </div>
 
       {/* Navigation List */}
-      <nav style={{ display: 'flex', flexDirection: 'column', gap: '6px', flex: 1 }}>
+      <nav style={{ display: 'flex', flexDirection: 'column', gap: '4px', flex: 1, overflowY: 'auto', minHeight: 0 }}>
         {navItems.map((item) => {
           const Icon = item.icon;
           const isActive = currentTab === item.id;
@@ -149,24 +151,24 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between',
-                padding: '10px 14px',
+                padding: '9px 12px',
                 borderRadius: 'var(--radius-md)',
                 backgroundColor: isActive ? 'var(--bg-surface-elevated)' : 'transparent',
                 color: isActive ? 'var(--primary)' : 'var(--text-secondary)',
                 border: isActive ? '1px solid var(--border-active)' : '1px solid transparent',
                 fontWeight: isActive ? 700 : 500,
-                fontSize: '0.875rem',
+                fontSize: '0.825rem',
                 cursor: 'pointer',
                 transition: 'all 0.15s ease',
                 textAlign: 'left'
               }}
             >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <Icon size={18} color={isActive ? 'var(--primary)' : 'currentColor'} />
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <Icon size={17} color={isActive ? 'var(--primary)' : 'currentColor'} />
                 <span>{item.label}</span>
               </div>
               {item.badge && (
-                <span className={`badge ${isActive ? 'badge-indigo' : 'badge-cyan'}`} style={{ fontSize: '0.675rem' }}>
+                <span className={`badge ${isActive ? 'badge-indigo' : 'badge-cyan'}`} style={{ fontSize: '0.65rem' }}>
                   {item.badge}
                 </span>
               )}
@@ -177,21 +179,22 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
       {/* Environment / Footer */}
       <div style={{
-        padding: '12px',
+        padding: '10px 12px',
         borderRadius: 'var(--radius-md)',
         background: 'rgba(255, 255, 255, 0.02)',
         border: '1px solid var(--border-subtle)',
         display: 'flex',
         flexDirection: 'column',
-        gap: '4px'
+        gap: '3px',
+        flexShrink: 0
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-          <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: 'var(--accent-emerald)', display: 'inline-block' }}></span>
-          <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-primary)' }}>
+          <span style={{ width: '7px', height: '7px', borderRadius: '50%', backgroundColor: 'var(--accent-emerald)', display: 'inline-block' }}></span>
+          <span style={{ fontSize: '0.725rem', fontWeight: 600, color: 'var(--text-primary)' }}>
             System Ready
           </span>
         </div>
-        <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
+        <span style={{ fontSize: '0.675rem', color: 'var(--text-muted)' }}>
           Node 24 • Electron 34 • macOS & Win
         </span>
       </div>

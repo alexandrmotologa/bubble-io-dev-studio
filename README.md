@@ -1,5 +1,6 @@
 # 🚀 Bubble.io Dev Studio
 
+[![Version](https://img.shields.io/badge/Version-1.2.0-brightgreen.svg)]()
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.7-blue.svg?style=flat&logo=typescript)](https://www.typescriptlang.org/)
 [![Electron](https://img.shields.io/badge/Electron-34-47848F.svg?style=flat&logo=electron)](https://www.electronjs.org/)
 [![React](https://img.shields.io/badge/React-18-61DAFB.svg?style=flat&logo=react)](https://react.dev/)
@@ -11,10 +12,25 @@
 
 ---
 
+## 📥 Download Desktop App (Pre-Built Binaries)
+
+For users who want to run the app directly without compiling the source code:
+
+| Operating System | Download Link | Format | Architecture |
+| :--- | :--- | :--- | :--- |
+| **🪟 Windows** | [**Download for Windows (.exe)**](https://github.com/alexandrmotologa/bubble-io-dev-studio/releases/latest) | `.exe` NSIS Installer / Portable | x64 / ARM64 |
+| **🍎 macOS** | [**Download for macOS (.dmg)**](https://github.com/alexandrmotologa/bubble-io-dev-studio/releases/latest) | `.dmg` / `.zip` | Apple Silicon (M1/M2/M3) & Intel |
+| **🐧 Linux** | [**Download for Linux (.AppImage)**](https://github.com/alexandrmotologa/bubble-io-dev-studio/releases/latest) | `.AppImage` / `.deb` | x64 |
+
+> 💡 *All builds and release artifacts are generated directly in the `release/` directory using `npm run dist:win`, `npm run dist:mac`, or `npm run dist:linux`.*
+
+---
+
 ## 📚 Table of Contents
+- [📥 Download Desktop App](#-download-desktop-app-pre-built-binaries)
 - [🌟 Architecture & Modules Overview](#-architecture--modules-overview)
 - [✨ Core Features & Capabilities](#-core-features--capabilities)
-  - [1. DevOps & Database Studio](#1-devops--database-studio)
+  - [1. DevOps & Database Studio](#1-devops--database-studio-2-tier-categorized-architecture)
   - [2. Visual Workflow Flowchart & Logic Visualizer](#2-visual-workflow-flowchart--logic-visualizer)
   - [3. Security & Privacy Rules Auditor](#3-security--privacy-rules-auditor)
   - [4. Workload Units (WU) & Query Profiler](#4-workload-units-wu--query-profiler)
@@ -53,10 +69,16 @@
 
 ## ✨ Core Features & Capabilities
 
-### 1. DevOps & Database Studio
-* **Interactive Data Studio (CRUD)**: Airtable/Supabase-style visual grid for live Bubble Data API records. Includes inline cell editing (`PATCH`), new record modal, multi-column sorting, search, and CSV/JSON export.
+### 1. DevOps & Database Studio (2-Tier Categorized Architecture)
+* **Categorized 4-Domain Layout**: Structured into **Data Studio**, **Schema & Flow**, **Backups & DevOps**, and **Dev Tools & CI/CD** for zero cognitive clutter.
+* **Interactive Data Studio (Live Grid)**: Airtable/Supabase-style visual grid for live Bubble Data API records. Includes inline cell editing (`PATCH`), new record modal, multi-column sorting, search, and CSV/JSON export.
+* **📥 Smart CSV & JSON Batch Importer**: Upload `.csv` or `.json` files with automated column mapping, type conversion, live progress tracking, and batch creation.
+* **📖 In-App Template Guides & Syntax Previewers**: 1-Click `Download CSV` / `Download JSON` buttons with copy-pasteable syntax snippets and rules.
+* **🌱 Relational Data Seeder (DAG & 2-Pass Resolution)**: Seed interconnected multi-table datasets using `_ref: "@alias"` references with automatic topological sorting and circular link resolution.
+* **Automatic Data API Exposure Detection**: Detects HTTP 404 unexposed data types with a step-by-step checklist to enable the checkbox under Bubble *Settings ➔ API ➔ Data API*.
 * **Schema Explorer & Mermaid ERD**: Inspect custom data types, fields, nullability, and auto-generate relational ERD diagrams.
 * **TypeScript Generator**: Generate production-grade `.d.ts` definitions for Bubble plugins and external clients.
+* **Backup & Restore Hub (IndexedDB Persisted)**: Run full or incremental database backups with AES-256 encryption, local database storage, and 1-click downloads.
 * **Point-in-Time Database Snapshots & 1-Click Rollback**: Capture table states before risky migrations, compare field-level diffs, and restore previous states with automated compensations.
 * **Dev vs Live Sync**: Real-time schema drift comparisons between `version-test` and `version-live`.
 
@@ -189,6 +211,12 @@ npm run dist:mac
 ```bash
 npm run dist:linux
 ```
+
+---
+
+## 👤 Author & Maintainer
+
+Created and maintained by **[Alexandr Motologa](https://github.com/alexandrmotologa) | MTLG Labs**.
 
 ---
 

@@ -45,6 +45,7 @@ export interface GlobalSettings {
   geminiApiKey?: string;
   openrouterApiKey?: string;
   groqApiKey?: string;
+  deepseekApiKey?: string;
   xaiApiKey?: string;
   opencodeApiKey?: string;
   ollamaUrl?: string;

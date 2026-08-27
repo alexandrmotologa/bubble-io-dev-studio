@@ -1,4 +1,5 @@
-import { BubbleSchema, SeedExecutionPlan, SeedGraphNode } from '../../types';
+import { BubbleSchema, ProjectProfile, SeedExecutionPlan, SeedGraphNode } from '../../types';
+import { DataGridEngine } from '../data-grid/dataGridEngine';
 
 export class RelationalSeederEngine {
   /**
@@ -186,32 +187,63 @@ export class RelationalSeederEngine {
    */
   public static async executePlan(
     plan: SeedExecutionPlan,
+    project?: ProjectProfile,
     onProgress?: (step: number, total: number, message: string) => void
-  ): Promise<{ success: boolean; createdCount: number; createdRecords: Record<string, string> }> {
+  ): Promise<{ success: boolean; createdCount: number; createdRecords: Record<string, string>; errors: string[] }> {
     const createdMap: Record<string, string> = {}; // ref -> realId
+    const errors: string[] = [];
 
     for (let i = 0; i < plan.steps.length; i++) {
       const step = plan.steps[i];
       onProgress?.(i + 1, plan.steps.length, step.description);
-      await new Promise(r => setTimeout(r, 350));
 
       for (const ref of step.nodeRefs) {
-        if (!createdMap[ref]) {
-          const fakeBubbleId = `${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
-          createdMap[ref] = fakeBubbleId;
-          const node = plan.nodes.find(n => n.ref === ref);
-          if (node) {
-            node.status = 'created';
-            node.createdId = fakeBubbleId;
+        const node = plan.nodes.find(n => n.ref === ref);
+        if (!node) continue;
+
+        // Resolve '@ref' aliases in node.data
+        const resolvedData: Record<string, any> = {};
+        for (const [k, v] of Object.entries(node.data)) {
+          if (typeof v === 'string' && v.startsWith('@') && createdMap[v]) {
+            resolvedData[k] = createdMap[v];
+          } else if (Array.isArray(v)) {
+            resolvedData[k] = v.map(item => (typeof item === 'string' && item.startsWith('@') && createdMap[item]) ? createdMap[item] : item);
+          } else {
+            resolvedData[k] = v;
           }
         }
+
+        if (step.description.includes('2-Pass') || step.description.includes('circular')) {
+          // 2-pass PATCH update for circular relations
+          if (createdMap[ref] && project) {
+            await DataGridEngine.updateRecord(project, node.type, createdMap[ref], resolvedData);
+          }
+          node.status = 'created';
+        } else if (!createdMap[ref]) {
+          let realId = '';
+          if (project && project.apiToken) {
+            const res = await DataGridEngine.createRecord(project, node.type, resolvedData);
+            realId = res.recordId || `${node.type.toLowerCase()}_${Date.now()}`;
+            if (!res.success) {
+              errors.push(`Failed to create ${node.type} (${ref}): ${res.message}`);
+            }
+          } else {
+            realId = `${node.type.toLowerCase()}_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+          }
+
+          createdMap[ref] = realId;
+          node.status = 'created';
+          node.createdId = realId;
+        }
       }
+      await new Promise(r => setTimeout(r, 200));
     }
 
     return {
-      success: true,
-      createdCount: plan.nodes.length,
-      createdRecords: createdMap
+      success: errors.length === 0,
+      createdCount: Object.keys(createdMap).length,
+      createdRecords: createdMap,
+      errors
     };
   }
 

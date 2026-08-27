@@ -157,6 +157,13 @@ export class ProjectStore {
     return this.settings;
   }
 
+  public updateSettings(partial: Partial<GlobalSettings>): void {
+    this.save({
+      ...this.settings,
+      ...partial
+    });
+  }
+
   public getActiveProject(): ProjectProfile | undefined {
     if (this.settings.projects.length === 0) return undefined;
     return this.settings.projects.find(p => p.id === this.settings.activeProjectId) || this.settings.projects[0];

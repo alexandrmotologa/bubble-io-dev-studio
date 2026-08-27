@@ -147,6 +147,12 @@ export const TranslatorView: React.FC<TranslatorViewProps> = ({
     }
   }, [selectedTargetLangs]);
 
+  const handleLoadSampleData = () => {
+    const sampleItems = TranslatorEngine.getSampleItems();
+    setItems(sampleItems);
+    onLog('translator', `Loaded sample Bubble translation dataset (${sampleItems.length} strings).`, 'info');
+  };
+
   const handleProviderChange = (newProvider: TranslationProviderType) => {
     setProvider(newProvider);
     const availableModels = PROVIDER_MODELS[newProvider];
@@ -660,7 +666,66 @@ export const TranslatorView: React.FC<TranslatorViewProps> = ({
               </div>
 
               {/* Table rendering based on viewMode */}
-              {viewMode === 'single' ? (
+              {filteredItems.length === 0 ? (
+                <div className="card" style={{ padding: '36px 24px', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px' }}>
+                  <div style={{
+                    width: '54px',
+                    height: '54px',
+                    borderRadius: '50%',
+                    background: 'rgba(6, 182, 212, 0.12)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: 'var(--accent-cyan)'
+                  }}>
+                    <Languages size={28} />
+                  </div>
+
+                  <div>
+                    <h3 style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 6px' }}>
+                      No Application Strings Loaded Yet
+                    </h3>
+                    <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', maxWidth: '560px', margin: '0 auto', lineHeight: 1.6 }}>
+                      Import your Bubble App Texts CSV or attach your <code>.bubble</code> blueprint file to translate all UI strings into 50+ languages simultaneously using AI.
+                    </p>
+                  </div>
+
+                  {/* Step by step Bubble export guide */}
+                  <div style={{
+                    width: '100%',
+                    maxWidth: '620px',
+                    padding: '16px 20px',
+                    borderRadius: 'var(--radius-md)',
+                    background: 'var(--bg-input)',
+                    border: '1px solid var(--border-subtle)',
+                    textAlign: 'left',
+                    fontSize: '0.8rem',
+                    lineHeight: 1.7,
+                    color: 'var(--text-secondary)'
+                  }}>
+                    <div style={{ fontWeight: 700, color: 'var(--text-primary)', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <Sparkles size={15} color="var(--accent-cyan)" />
+                      <span>How to export & translate App Texts from Bubble.io:</span>
+                    </div>
+                    <div>1. <strong>In Bubble Editor:</strong> Click <strong>Settings (⚙️)</strong> ➔ <strong>Languages</strong> tab.</div>
+                    <div>2. <strong>Export CSV:</strong> Click <strong>"Export all text to CSV"</strong> to download your application strings file.</div>
+                    <div>3. <strong>Import here:</strong> Click the <strong>"Import Bubble CSV / .bubble"</strong> button in the top right.</div>
+                    <div>4. <strong>Translate:</strong> Select target languages, pick your AI model, and click <strong>"Translate All Strings"</strong>.</div>
+                    <div>5. <strong>Re-import to Bubble:</strong> Click <strong>"Export Bubble CSV"</strong> and upload it back in Bubble via <strong>"Import CSV"</strong>.</div>
+                  </div>
+
+                  <div style={{ display: 'flex', gap: '10px' }}>
+                    <label className="btn btn-primary" style={{ cursor: 'pointer', margin: 0, padding: '9px 18px' }}>
+                      <Upload size={15} />
+                      <span>Upload Bubble CSV or .bubble File</span>
+                      <input type="file" accept=".csv,.json,.bubble" onChange={handleFileUpload} style={{ display: 'none' }} />
+                    </label>
+                    <button onClick={handleLoadSampleData} className="btn btn-secondary" style={{ padding: '9px 18px' }}>
+                      <span>Load Sample Translation Dataset</span>
+                    </button>
+                  </div>
+                </div>
+              ) : viewMode === 'single' ? (
                 <div className="card">
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                     {filteredItems.map(item => {

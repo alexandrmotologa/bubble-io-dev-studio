@@ -159,13 +159,20 @@ export const StatusBar: React.FC<StatusBarProps> = ({
       {/* Right Section: AI Model, Command Palette, Terminal Drawer */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
         {/* Active AI Provider */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '5px', color: 'var(--text-secondary)' }}>
-          <Bot size={12} color="var(--primary)" />
-          <span style={{ textTransform: 'capitalize', fontWeight: 500 }}>{aiProvider || 'AI Ready'}</span>
-          {aiModel && (
-            <span style={{ color: 'var(--text-muted)', fontSize: '0.675rem' }}>({aiModel})</span>
-          )}
-        </div>
+        {aiProvider ? (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '5px', color: 'var(--text-secondary)' }}>
+            <Bot size={12} color="var(--primary)" />
+            <span style={{ textTransform: 'capitalize', fontWeight: 500 }}>{aiProvider}</span>
+            {aiModel && (
+              <span style={{ color: 'var(--text-muted)', fontSize: '0.675rem' }}>({aiModel})</span>
+            )}
+          </div>
+        ) : (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '4px', color: 'var(--text-muted)', fontSize: '0.725rem' }}>
+            <Bot size={12} style={{ opacity: 0.4 }} />
+            <span>No AI Configured</span>
+          </div>
+        )}
 
         {/* AI Copilot Button */}
         {onOpenCopilot && (

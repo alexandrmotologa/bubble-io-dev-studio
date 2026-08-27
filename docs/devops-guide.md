@@ -1,26 +1,59 @@
 # 🛠️ DevOps & Database Studio Guide
 
-The **DevOps & Database Studio** is a complete toolchain for managing Bubble.io database schemas, live records, TypeScript bindings, and environment releases.
+The **DevOps & Database Studio** is an enterprise-grade toolchain for managing Bubble.io database schemas, live records, TypeScript bindings, automated backups, and environment releases.
 
 ---
 
-## 1. Interactive Data Studio (Live CRUD Explorer)
+## 🌟 2-Tier Structured Architecture
 
-The **Interactive Data Studio** provides an Airtable / Supabase-style table for interacting directly with Bubble's Data API.
+To provide a clean, distraction-free workflow, the module is organized into **4 Focused Core Domains**:
 
-### Key Capabilities:
-1. **Table Switcher**: Quickly switch between all custom tables (`User`, `Order`, `Product`, etc.).
-2. **Inline Cell Editing**: Double-click any table cell or click the pencil icon to modify values in real-time. Changes are immediately synced to the Bubble backend via `PATCH /api/1.1/obj/[type]/[id]`.
-3. **New Record Creation**: Click **"+ New Record"** to open a schema-driven modal form with auto-detected input types (`text`, `number`, `boolean`, `date`).
-4. **Search & Multi-Column Sorting**: Filter rows instantly by text search or click column headers to sort ascending/descending.
-5. **CSV & JSON Export**: Export selected rows or the entire dataset to standard RFC 4180 CSV files.
+```
+┌────────────────────────────────────────────────────────────────────────────────────────┐
+│                              DevOps & Database Studio                                  │
+├────────────────────┬────────────────────┬────────────────────┬─────────────────────────┤
+│ 📊 Data Studio     │ 📑 Schema & Flow   │ 💾 Backups & DevOps│ 🛠️ Dev Tools & CI/CD   │
+│   • Live Data Grid │   • Schema Explorer│   • Backup & Restore│   • CI/CD Pipelines    │
+│   • REPL Query     │   • ERD Diagram    │   • Snapshots DB   │   • SQL / DB Export     │
+│   • Relational Seed│   • Flowchart Map  │   • Schema Migrates│   • Mock API Server     │
+│                    │   • TypeScript d.ts│   • Dev vs Live    │   • Workflow Trigger    │
+│                    │   • PII Privacy    │                    │                         │
+└────────────────────┴────────────────────┴────────────────────┴─────────────────────────┘
+```
 
 ---
 
-## 2. Schema Explorer & Mermaid ERD Visualizer
+## 1. Domain 1: Data Studio (`Data & Records`)
 
-* **Schema Inspector**: Inspect all data types, custom fields, data types (`text`, `number`, `date`, `list`, `custom_type`), and global Option Sets.
-* **Mermaid ERD Diagram**: Automatically generates visual entity-relationship diagrams illustrating foreign key relationships between tables.
+### 📊 Interactive Data Studio (Live Spreadsheet Grid)
+* **Live CRUD Explorer**: Direct integration with Bubble's Data API (`/api/1.1/obj/[table]`).
+* **📥 Smart CSV & JSON Batch Importer**: Upload `.csv` (RFC 4180) or `.json` (array of objects) files with automated column mapping, type casting (`number`, `boolean`, `text`), live progress tracking, and batch creation.
+* **📖 Interactive In-App Template Guides**: Preview and copy ready-to-use CSV and JSON templates matching your selected table schema with 1-click `Download CSV` / `Download JSON` buttons.
+* **Inline Cell Editing**: Double-click any cell or click the pencil icon to update fields in real-time (`PATCH`).
+* **New Record Creation**: Modal with schema-validated input types (`text`, `number`, `boolean`, `date`).
+* **Multi-Column Sorting & Filtering**: Instant text search and column sort indicators.
+* **Auto Exposure Warning**: If a table is not exposed under Bubble *Settings ➔ API ➔ Data API*, the studio automatically detects HTTP 404 and provides a 1-click checklist with Bubble settings deep-links.
+* **CSV Export**: Export filtered or selected rows to RFC 4180 CSV files.
+
+### ⚡ Live REPL & Query
+* Execute instant filter tests and complex constraint queries (`equals`, `contains`, `greater than`, `is_empty`) with immediate visual output.
+
+### 🌱 Relational Data Seeder & DAG Resolver
+* **Cross-Table Foreign Key Linking**: Define parent records using `"_ref": "@alias"` and reference them anywhere in child tables (e.g. `"owner": "@user_admin"`, `"members": ["@user_1", "@user_2"]`).
+* **Automatic DAG Resolution**: Topologically sorts tables by dependency hierarchy, creates parents first, captures real Bubble `_id`s, and replaces `@alias` references with real IDs before creating dependent children.
+* **2-Pass Deferred Resolution for Circular References**: Automatically detects circular dependencies and schedules deferred `PATCH` requests.
+* **Preflight Schema Validator**: Checks seed definitions against active Bubble schema, flagging missing tables, unmapped fields, or type mismatches.
+* **Dynamic Template Generator**: 1-click generation of multi-table relational templates directly from the active project schema or sample interconnected suites.
+
+---
+
+## 2. Domain 2: Schema & Flow (`Architecture & Types`)
+
+### 📑 Schema Explorer
+* Inspect custom data types, fields, nullability, list relations, and Option Sets.
+
+### 🕸️ Visual Mermaid ERD Diagram
+* Automatically generates entity-relationship diagrams illustrating foreign key relationships between tables:
 
 ```mermaid
 erDiagram
@@ -29,11 +62,11 @@ erDiagram
     PRODUCT ||--o{ ORDER_ITEM : referenced_in
 ```
 
----
+### 🔀 Workflow Flowchart Map
+* Interactive DAG node graph displaying workflow triggers, actions, database writes, and condition branches (`Only when...`).
 
-## 3. TypeScript Definition Generator (`.d.ts`)
-
-Converts Bubble data types into clean, strict TypeScript interfaces for plugin developers, frontend clients, and external backend microservices:
+### 🏷️ TypeScript Definitions Generator (`.d.ts`)
+* Generates strict, type-safe interfaces for Bubble plugins, external microservices, and scripts:
 
 ```typescript
 export interface BubbleUser {
@@ -41,33 +74,44 @@ export interface BubbleUser {
   'Created Date': string;
   'Modified Date': string;
   email: string;
-  first_name?: string;
-  last_name?: string;
   role: 'Admin' | 'Member' | 'Guest';
   orders?: string[];
 }
 ```
 
----
-
-## 4. Point-in-Time Database Snapshots & 1-Click Rollback
-
-Protect your development environment before performing high-risk data seedings or schema migrations.
-
-### How to use Snapshots:
-1. Navigate to the **Snapshots & Rollback** subtab.
-2. Select your target data type and click **"Capture Snapshot"**. The records are instantly stored in IndexedDB.
-3. Perform your data operations, seedings, or tests.
-4. Select your **Baseline Snapshot** and **Target State**, then click **"Run Diff"**.
-5. The differential viewer highlights:
-   - 🟢 **Added records** (new uncommitted entries)
-   - 🟡 **Modified records** with old vs new field-level values
-   - 🔴 **Deleted records** that need recreation
-6. Click **"1-Click Rollback to Baseline"** to automatically restore all records to their exact previous state.
+### 🛡️ PII & Privacy Scanner
+* Scans table schemas for sensitive credentials, emails, phone numbers, and Stripe customer tokens.
 
 ---
 
-## 5. Automated Backups & Environment Sync
+## 3. Domain 3: Backups & DevOps (`Reliability & Migrations`)
 
-* **Quick Backup**: Export all table records to JSON / CSV with timestamped archival.
-* **Dev vs Live Sync**: Compare table definitions between `version-test` and `version-live` to detect schema drifts before deployment.
+### 💾 Backup & Restore (Archival Hub)
+* Run full or incremental database backups with optional **AES-256-GCM encryption** and cloud destination uploads.
+* Instant access to backup history with row counts, file sizes, and 1-click restore/download.
+
+### 📸 Database Snapshots & 1-Click Rollback
+* Save point-in-time table states into local IndexedDB before running risky operations.
+* Run visual differential comparisons (Added 🟢, Modified 🟡, Deleted 🔴) and rollback with 1-click.
+
+### 📜 Schema Migrations (Schema-as-Code)
+* Compare current schema against baseline lockfiles (`schema.lock.json`) and generate declarative migration operations (`ADD_FIELD`, `CHANGE_TYPE`).
+
+### 🔄 Dev vs Live Sync
+* Compare table schemas between `version-test` and `version-live` to prevent schema drift during deployment.
+
+---
+
+## 4. Domain 4: Dev Tools & CI/CD (`Tooling & Automation`)
+
+### 🚀 CI/CD Pipelines
+* Generate production-ready GitHub Actions (`.github/workflows/bubble-devops.yml`) and GitLab CI configurations.
+
+### 📤 SQL / DB Exporter
+* Generate DDL and seed scripts for PostgreSQL, SQLite, and Google BigQuery.
+
+### 🔌 Mock API Server
+* Built-in HTTP emulator for testing frontend and webhook integrations without consuming live Bubble workload units.
+
+### ⚡ Workflow Trigger
+* Trigger backend Bubble workflows (`/api/1.1/wf/[workflow_name]`) with custom JSON payloads.

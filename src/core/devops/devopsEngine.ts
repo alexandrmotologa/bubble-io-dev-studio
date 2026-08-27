@@ -4,9 +4,11 @@ import {
   BubbleDataType, 
   BubbleSchema, 
   ProjectProfile, 
-  QueryResultPage,
+  QueryResultPage, 
   QueryConstraint
 } from '../../types';
+import { IndexedDbStore } from '../storage/indexedDbStore';
+import { DataGridEngine } from '../data-grid/dataGridEngine';
 
 export class DevOpsEngine {
   /**
@@ -69,7 +71,6 @@ export class DevOpsEngine {
           {
             id: 'custom.user',
             name: 'User',
-            recordCount: 1420,
             fields: [
               { name: 'email', type: 'text', required: true, description: 'User login email address' },
               { name: 'username', type: 'text', required: true, description: 'Display handle' },
@@ -82,7 +83,6 @@ export class DevOpsEngine {
           {
             id: 'custom.quiz',
             name: 'Quiz',
-            recordCount: 85,
             fields: [
               { name: 'title', type: 'text', required: true, description: 'Quiz headline title' },
               { name: 'category', type: 'text', required: true, description: 'Trivia or learning category' },
@@ -94,7 +94,6 @@ export class DevOpsEngine {
           {
             id: 'custom.question',
             name: 'Question',
-            recordCount: 512,
             fields: [
               { name: 'question_text', type: 'text', required: true, description: 'The question prompt' },
               { name: 'options_list', type: 'list of text', required: true, description: 'Available multiple choices' },
@@ -105,7 +104,6 @@ export class DevOpsEngine {
           {
             id: 'custom.reward_transaction',
             name: 'RewardTransaction',
-            recordCount: 3890,
             fields: [
               { name: 'amount', type: 'number', required: true, description: 'Coins transferred' },
               { name: 'status', type: 'text', required: true, description: 'completed | pending | failed' },
@@ -128,7 +126,6 @@ export class DevOpsEngine {
         {
           id: 'custom.user',
           name: 'User',
-          recordCount: 350,
           fields: [
             { name: 'email', type: 'text', required: true, description: 'User login email' },
             { name: 'first_name', type: 'text', required: false, description: 'First name' },
@@ -140,7 +137,6 @@ export class DevOpsEngine {
         {
           id: 'custom.order',
           name: 'Order',
-          recordCount: 1200,
           fields: [
             { name: 'order_number', type: 'text', required: true, description: 'Invoice identifier' },
             { name: 'total_amount', type: 'number', required: true, description: 'Total price in USD' },
@@ -202,7 +198,7 @@ export class DevOpsEngine {
         dataTypes.push({
           id: typeId.startsWith('custom.') ? typeId : `custom.${typeId.toLowerCase()}`,
           name: cleanName.charAt(0).toUpperCase() + cleanName.slice(1),
-          recordCount: typeObj.count || typeObj.recordCount || 0,
+          recordCount: typeObj.count || typeObj.recordCount || undefined,
           fields
         });
       }
@@ -306,7 +302,7 @@ export class DevOpsEngine {
     await new Promise(r => setTimeout(r, 200));
 
     const backupId = `bkp_${project.appId}_${Date.now()}`;
-    return {
+    const result: BackupResult = {
       backupId,
       timestamp: new Date().toISOString(),
       status: 'completed',
@@ -318,6 +314,19 @@ export class DevOpsEngine {
       encrypted: Boolean(options?.encryptPassphrase),
       cloudUrl: options?.cloudDestination ? `${options.cloudDestination}/${backupId}.json` : undefined
     };
+
+    try {
+      await IndexedDbStore.saveBackup({
+        backupId: result.backupId,
+        timestamp: result.timestamp,
+        data: result,
+        recordCount: result.recordCount
+      });
+    } catch (e) {
+      console.warn('IndexedDbStore saveBackup notice:', e);
+    }
+
+    return result;
   }
 
   /**
@@ -356,48 +365,42 @@ export class DevOpsEngine {
     cursor: number = 0,
     limit: number = 10,
     search?: string,
-    constraints?: QueryConstraint[]
+    constraints?: QueryConstraint[],
+    project?: ProjectProfile
   ): Promise<QueryResultPage> {
+    if (project) {
+      const filters = constraints?.map((c, i) => ({
+        id: `filter_${i}_${Date.now()}`,
+        field: c.key,
+        operator: (c.constraint_type === 'equals' ? 'equals' : c.constraint_type === 'not equal' ? 'not_equals' : c.constraint_type === 'text contains' ? 'contains' : c.constraint_type === 'greater than' ? 'greater_than' : c.constraint_type === 'less than' ? 'less_than' : c.constraint_type === 'is_empty' ? 'is_empty' : 'is_not_empty') as any,
+        value: c.value
+      })) || [];
+
+      const result = await DataGridEngine.fetchRecords(project, dataType, {
+        limit,
+        cursor,
+        searchTerm: search,
+        filters
+      });
+
+      return {
+        dataType,
+        records: result.records,
+        cursor: result.cursor,
+        limit,
+        total: result.totalCount,
+        hasMore: result.hasMore
+      };
+    }
+
     await new Promise(r => setTimeout(r, 250));
-
-    // Attempt live Data API query if configured, otherwise return empty results
-    let list: any[] = [];
-
-    // Apply text search
-    if (search && search.trim()) {
-      const q = search.toLowerCase();
-      list = list.filter(item => 
-        Object.values(item).some(v => String(v).toLowerCase().includes(q))
-      );
-    }
-
-    // Apply constraint filters
-    if (constraints && constraints.length > 0) {
-      for (const c of constraints) {
-        if (!c.key) continue;
-        list = list.filter(item => {
-          const val = item[c.key];
-          if (c.constraint_type === 'equals') return String(val).toLowerCase() === String(c.value).toLowerCase();
-          if (c.constraint_type === 'not equal') return String(val).toLowerCase() !== String(c.value).toLowerCase();
-          if (c.constraint_type === 'text contains') return String(val).toLowerCase().includes(String(c.value).toLowerCase());
-          if (c.constraint_type === 'greater than') return Number(val) > Number(c.value);
-          if (c.constraint_type === 'less than') return Number(val) < Number(c.value);
-          if (c.constraint_type === 'is_empty') return val === undefined || val === null || val === '';
-          if (c.constraint_type === 'is_not_empty') return val !== undefined && val !== null && val !== '';
-          return true;
-        });
-      }
-    }
-
-    const pageResults = list.slice(cursor, cursor + limit);
-
     return {
       dataType,
-      records: pageResults,
+      records: [],
       cursor,
       limit,
-      total: list.length,
-      hasMore: cursor + limit < list.length
+      total: 0,
+      hasMore: false
     };
   }
 

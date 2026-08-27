@@ -22,13 +22,16 @@ import {
   Lock,
   Upload,
   FileCode,
-  AlertCircle
+  AlertCircle,
+  Github,
+  Coffee,
+  Mail
 } from 'lucide-react';
 import { GlobalSettings, ProjectProfile, ThemeMode } from '../types';
 import { DevOpsEngine } from '../core/devops/devopsEngine';
 import { TranslatorEngine } from '../core/translator/translatorEngine';
 import { ConfirmDeleteModal } from '../components/ConfirmDeleteModal';
-import { AI_PROVIDERS, PROVIDER_MODELS, getProviderForModel, getDefaultModelForProvider } from '../core/ai/aiProviders';
+import { AI_PROVIDERS, PROVIDER_MODELS, getProviderForModel, getDefaultModelForProvider, getProviderDisplayName, getModelDisplayName } from '../core/ai/aiProviders';
 
 interface SettingsViewProps {
   settings: GlobalSettings;
@@ -88,13 +91,15 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     setSelectedProvider(newProvider);
     setProviderTestResult(null);
     const newDefaultModel = getDefaultModelForProvider(newProvider);
-    setFormData(prev => ({
-      ...prev,
+    const updated: GlobalSettings = {
+      ...formData,
       defaultAiModel: newDefaultModel,
-      projects: prev.projects.map(p => 
-        p.id === prev.activeProjectId ? { ...p, aiProvider: newProvider, aiModel: newDefaultModel } : p
+      projects: formData.projects.map(p => 
+        p.id === formData.activeProjectId ? { ...p, aiProvider: newProvider, aiModel: newDefaultModel } : p
       )
-    }));
+    };
+    setFormData(updated);
+    onSaveSettings(updated);
   };
 
   const handleTestProvider = async () => {
@@ -289,7 +294,18 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               <label className="input-label">Default LLM Model for {selectedProvider.toUpperCase()}</label>
               <select
                 value={formData.defaultAiModel}
-                onChange={(e) => setFormData({ ...formData, defaultAiModel: e.target.value })}
+                onChange={(e) => {
+                  const newModel = e.target.value;
+                  const updated: GlobalSettings = {
+                    ...formData,
+                    defaultAiModel: newModel,
+                    projects: formData.projects.map(p => 
+                      p.id === formData.activeProjectId ? { ...p, aiProvider: selectedProvider, aiModel: newModel } : p
+                    )
+                  };
+                  setFormData(updated);
+                  onSaveSettings(updated);
+                }}
                 className="select"
               >
                 {currentModels.map(m => (
@@ -810,9 +826,15 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                     <span className={`badge ${proj.apiToken ? 'badge-emerald' : 'badge-amber'}`} style={{ fontSize: '0.65rem', display: 'flex', alignItems: 'center', gap: '4px' }}>
                       <CheckCircle2 size={10} /> Step 2: {proj.apiToken ? 'Private Token' : 'Public Mode'}
                     </span>
-                    <span className="badge badge-emerald" style={{ fontSize: '0.65rem', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                      <CheckCircle2 size={10} /> Step 3: AI Configured ({proj.aiProvider ? proj.aiProvider.toUpperCase() : 'GEMINI'} • {proj.aiModel || formData.defaultAiModel})
-                    </span>
+                    {(() => {
+                      const effectiveModel = proj.aiModel || formData.defaultAiModel || 'gemini-2.0-flash';
+                      const effectiveProvider = proj.aiProvider || getProviderForModel(effectiveModel);
+                      return (
+                        <span className="badge badge-emerald" style={{ fontSize: '0.65rem', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          <CheckCircle2 size={10} /> Step 3: AI Configured ({getProviderDisplayName(effectiveProvider)} • {getModelDisplayName(effectiveModel)})
+                        </span>
+                      );
+                    })()}
                     <span className={`badge ${proj.blueprintFileName ? 'badge-emerald' : 'badge-amber'}`} style={{ fontSize: '0.65rem', display: 'flex', alignItems: 'center', gap: '4px' }}>
                       {proj.blueprintFileName ? <CheckCircle2 size={10} /> : <AlertCircle size={10} />}
                       Step 4: {proj.blueprintFileName ? 'Blueprint Synced' : 'Blueprint Pending'}
@@ -823,6 +845,77 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             })}
           </div>
         )}
+      </div>
+
+      {/* App & Creator Credits Footer */}
+      <div style={{
+        marginTop: '20px',
+        padding: '14px 18px',
+        borderRadius: 'var(--radius-md)',
+        background: 'rgba(255, 255, 255, 0.02)',
+        border: '1px solid var(--border-subtle)',
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        flexWrap: 'wrap',
+        gap: '12px'
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <Layers size={18} color="var(--primary)" />
+          <div>
+            <div style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+              Bubble.io Dev Studio <span className="badge badge-indigo" style={{ fontSize: '0.65rem', marginLeft: '6px' }}>v1.2.0</span>
+            </div>
+            <div style={{ fontSize: '0.725rem', color: 'var(--text-muted)' }}>
+              Created by <strong style={{ color: 'var(--text-secondary)' }}>Alexandr Motologa | MTLG Labs</strong>
+            </div>
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px', fontSize: '0.725rem', color: 'var(--text-muted)', flexWrap: 'wrap' }}>
+          <a
+            href="https://github.com/alexandrmotologa"
+            target="_blank"
+            rel="noreferrer"
+            style={{ color: 'var(--text-secondary)', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '5px' }}
+            title="Author GitHub Profile"
+          >
+            <Github size={13} />
+            <span>@alexandrmotologa</span>
+          </a>
+
+          <a
+            href="https://buymeacoffee.com/mtlg"
+            target="_blank"
+            rel="noreferrer"
+            style={{ color: '#fbbf24', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '5px', fontWeight: 600 }}
+            title="Support this project on Buy Me a Coffee"
+          >
+            <Coffee size={13} />
+            <span>Buy Me a Coffee</span>
+          </a>
+
+          <a
+            href="mailto:mtlg.labs.contact@gmail.com?subject=Bubble.io%20Dev%20Studio%20Inquiry"
+            target="_blank"
+            rel="noreferrer"
+            style={{ color: 'var(--accent-cyan)', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '5px' }}
+            title="Send email inquiry"
+          >
+            <Mail size={13} />
+            <span>mtlg.labs.contact@gmail.com</span>
+          </a>
+
+          <a
+            href="https://github.com/alexandrmotologa/bubble-io-dev-studio"
+            target="_blank"
+            rel="noreferrer"
+            style={{ color: 'var(--accent-indigo)', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '4px' }}
+          >
+            <span>Repository</span>
+            <ExternalLink size={11} />
+          </a>
+        </div>
       </div>
 
       {/* Confirmation Modal */}

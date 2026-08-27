@@ -19,14 +19,18 @@ import { VisualTesterView } from './views/VisualTesterView';
 import { SettingsView } from './views/SettingsView';
 import { DocGenView } from './views/DocGenView';
 import { AiCopilotModal } from './components/AiCopilotModal';
+import { ToastContainer } from './components/ToastContainer';
+import { toast } from './core/toast/toastManager';
 import { DevOpsEngine } from './core/devops/devopsEngine';
 import { AuditEngine } from './core/audit/auditEngine';
-import { getProviderDisplayName, getModelDisplayName, getProviderForModel } from './core/ai/aiProviders';
+import { getProviderDisplayName, getModelDisplayName, getProviderForModel, getDefaultModelForProvider } from './core/ai/aiProviders';
+import { DevOpsSubTab } from './views/DevOpsView';
 
 export const App: React.FC = () => {
   const store = ProjectStore.getInstance();
   const [settings, setSettings] = useState<GlobalSettings>(store.getSettings());
   const [currentTab, setCurrentTab] = useState<NavigationTab>('dashboard');
+  const [devOpsSubTab, setDevOpsSubTab] = useState<DevOpsSubTab | undefined>(undefined);
   const [isTerminalOpen, setIsTerminalOpen] = useState(false);
   const [isConnectModalOpen, setIsConnectModalOpen] = useState(false);
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
@@ -90,7 +94,7 @@ export const App: React.FC = () => {
 
   // Initial welcome log & check if first run onboarding is needed
   useEffect(() => {
-    addLog('system', 'Bubble.io Dev Studio v1.0.0 initialized.', 'success');
+    addLog('system', 'Bubble.io Dev Studio v1.2.0 initialized.', 'success');
     if (settings.projects.length === 0) {
       addLog('system', 'No Bubble application connected yet. Opening connection setup...', 'warn');
       setIsConnectModalOpen(true);
@@ -187,13 +191,34 @@ export const App: React.FC = () => {
     setIsTerminalOpen(true);
     addLog('devops', `[Quick Backup] Triggering backup for ${activeProject.appId}...`);
 
+    const toastId = toast.loading('Exporting Database Backup...', `Connecting to ${activeProject.appId} (${activeProject.environment})...`);
+
     try {
       const result = await DevOpsEngine.runBackup(activeProject, undefined, (msg: string) => {
         addLog('devops', msg);
+        toast.update(toastId, { message: msg });
       });
-      addLog('devops', `[Quick Backup] Backup completed successfully (${result.recordCount} records).`, 'success');
+      addLog('devops', `[Quick Backup] Backup completed successfully (${result.backupId} • ${result.recordCount.toLocaleString()} records). View and manage in DevOps > Backup & Restore.`, 'success');
+      toast.update(toastId, {
+        type: 'success',
+        title: 'Quick Backup Completed!',
+        message: `${result.backupId} • ${result.recordCount.toLocaleString()} records exported (${result.fileSizeKb} KB)`,
+        action: {
+          label: 'View Backups in DevOps',
+          onClick: () => {
+            setCurrentTab('devops');
+            setDevOpsSubTab('backups');
+          }
+        },
+        duration: 8000
+      });
     } catch (e: any) {
       addLog('devops', `[Quick Backup] Error: ${e.message}`, 'error');
+      toast.update(toastId, {
+        type: 'error',
+        title: 'Quick Backup Failed',
+        message: e.message
+      });
     } finally {
       setIsBackingUp(false);
     }
@@ -205,6 +230,8 @@ export const App: React.FC = () => {
     setIsTerminalOpen(true);
     addLog('audit', `[Quick Audit] Running full AST dead code inspection for ${activeProject?.name || 'Bubble app'}...`);
 
+    const toastId = toast.loading('Running AST Dead Code Audit...', `Inspecting workflows, elements & rules for ${activeProject?.name || 'Bubble app'}...`);
+
     try {
       const report = await AuditEngine.analyzeApp(activeProject?.blueprintExportJson);
       if (activeProject?.name) {
@@ -213,8 +240,25 @@ export const App: React.FC = () => {
       setHealthScore(report.score);
       setHealthGrade(report.grade);
       addLog('audit', `[Quick Audit] Completed: Health Score ${report.score}% (Grade ${report.grade}).`, 'success');
+      toast.update(toastId, {
+        type: 'success',
+        title: `AST Audit Complete (Score ${report.score}% • Grade ${report.grade})`,
+        message: `Found ${report.deadElementsCount} dead elements, ${report.deadWorkflowsCount} dead workflows.`,
+        action: {
+          label: 'Open Full Health Audit',
+          onClick: () => {
+            setCurrentTab('audit');
+          }
+        },
+        duration: 8000
+      });
     } catch (e: any) {
       addLog('audit', `[Quick Audit] Error: ${e.message}`, 'error');
+      toast.update(toastId, {
+        type: 'error',
+        title: 'AST Audit Failed',
+        message: e.message
+      });
     } finally {
       setIsAuditing(false);
     }
@@ -270,6 +314,7 @@ export const App: React.FC = () => {
             {currentTab === 'devops' && (
               <DevOpsView
                 activeProject={activeProject}
+                initialSubTab={devOpsSubTab}
                 onLog={addLog}
                 onOpenConnectModal={() => setIsConnectModalOpen(true)}
               />
@@ -401,10 +446,39 @@ export const App: React.FC = () => {
 
       {/* Bottom IDE Status Bar */}
       {(() => {
-        const activeAiProviderId = activeProject?.aiProvider || (settings.defaultAiModel ? getProviderForModel(settings.defaultAiModel) : 'gemini');
-        const activeAiModelId = activeProject?.aiModel || settings.defaultAiModel || 'gemini-2.0-flash';
-        const activeAiProviderName = getProviderDisplayName(activeAiProviderId);
-        const activeAiModelName = getModelDisplayName(activeAiModelId);
+        const hasKey = (providerId: string) => {
+          if (providerId === 'mock') return true;
+          if (activeProject?.aiProvider === providerId && activeProject?.aiApiKey && activeProject.aiApiKey.trim().length > 0) return true;
+          switch (providerId) {
+            case 'gemini': return Boolean(settings.geminiApiKey && settings.geminiApiKey.trim().length > 0);
+            case 'openai': return Boolean(settings.openaiApiKey && settings.openaiApiKey.trim().length > 0);
+            case 'anthropic': return Boolean(settings.anthropicApiKey && settings.anthropicApiKey.trim().length > 0);
+            case 'groq': return Boolean(settings.groqApiKey && settings.groqApiKey.trim().length > 0);
+            case 'deepseek': return Boolean(settings.deepseekApiKey && settings.deepseekApiKey.trim().length > 0);
+            case 'openrouter': return Boolean(settings.openrouterApiKey && settings.openrouterApiKey.trim().length > 0);
+            case 'xai': return Boolean(settings.xaiApiKey && settings.xaiApiKey.trim().length > 0);
+            case 'opencode': return Boolean(settings.opencodeApiKey && settings.opencodeApiKey.trim().length > 0);
+            case 'ollama': return Boolean(settings.ollamaUrl && settings.ollamaUrl.trim().length > 0);
+            default: return false;
+          }
+        };
+
+        let activeAiProviderName: string | undefined = undefined;
+        let activeAiModelName: string | undefined = undefined;
+
+        const effectiveProvider = activeProject?.aiProvider;
+        const effectiveModel = activeProject?.aiModel;
+
+        if (effectiveProvider && hasKey(effectiveProvider)) {
+          activeAiProviderName = getProviderDisplayName(effectiveProvider);
+          activeAiModelName = getModelDisplayName(effectiveModel || getDefaultModelForProvider(effectiveProvider));
+        } else if (!effectiveProvider && settings.defaultAiModel) {
+          const defaultProv = getProviderForModel(settings.defaultAiModel);
+          if (hasKey(defaultProv)) {
+            activeAiProviderName = getProviderDisplayName(defaultProv);
+            activeAiModelName = getModelDisplayName(settings.defaultAiModel);
+          }
+        }
 
         return (
           <StatusBar
@@ -423,6 +497,9 @@ export const App: React.FC = () => {
           />
         );
       })()}
+
+      {/* Global Interactive Toast Notification Container */}
+      <ToastContainer />
     </div>
   );
 };

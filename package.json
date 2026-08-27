@@ -1,10 +1,10 @@
 {
   "name": "bubble-io-dev-studio",
-  "version": "1.0.0",
+  "version": "1.2.0",
   "description": "All-in-one Developer Studio & GUI for Bubble.io (DevOps, Schema, Dead Code Audit, AI Translation, Visual QA)",
   "main": "dist-electron/main.js",
   "author": {
-    "name": "Alexandr Motologa",
+    "name": "Alexandr Motologa | MTLG Labs",
     "url": "https://github.com/alexandrmotologa"
   },
   "license": "MIT",
@@ -31,7 +31,8 @@
     "dist": "npm run build && electron-builder",
     "dist:win": "npm run build && electron-builder --win",
     "dist:mac": "npm run build && electron-builder --mac",
-    "dist:all": "npm run build && electron-builder -mw",
+    "dist:linux": "npm run build && electron-builder --linux",
+    "dist:all": "npm run build && electron-builder -mwl",
     "typecheck": "tsc --noEmit && tsc -p tsconfig.node.json --noEmit"
   },
   "dependencies": {
@@ -105,6 +106,13 @@
           ]
         }
       ]
+    },
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb"
+      ],
+      "category": "Development"
     },
     "nsis": {
       "oneClick": false,

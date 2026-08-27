@@ -30,6 +30,7 @@ import { ProjectProfile } from '../types';
 import { DevOpsEngine } from '../core/devops/devopsEngine';
 import { TranslatorEngine } from '../core/translator/translatorEngine';
 import { AI_PROVIDERS, PROVIDER_MODELS, getDefaultModelForProvider } from '../core/ai/aiProviders';
+import { ProjectStore } from '../core/storage/projectStore';
 
 interface ConnectAppModalProps {
   isOpen: boolean;
@@ -90,6 +91,24 @@ export const ConnectAppModal: React.FC<ConnectAppModalProps> = ({
   const [aiApiKey, setAiApiKey] = useState('');
   const [ollamaUrl, setOllamaUrl] = useState('http://localhost:11434');
   const [showAiKey, setShowAiKey] = useState(false);
+  const [useGlobalKey, setUseGlobalKey] = useState(true);
+  const [saveToGlobalSettings, setSaveToGlobalSettings] = useState(true);
+
+  const globalSettings = ProjectStore.getInstance().getSettings();
+  const getSavedKey = (prov: string): string => {
+    switch (prov) {
+      case 'gemini': return globalSettings.geminiApiKey || '';
+      case 'openai': return globalSettings.openaiApiKey || '';
+      case 'anthropic': return globalSettings.anthropicApiKey || '';
+      case 'groq': return globalSettings.groqApiKey || '';
+      case 'deepseek': return globalSettings.deepseekApiKey || '';
+      case 'openrouter': return globalSettings.openrouterApiKey || '';
+      case 'xai': return globalSettings.xaiApiKey || '';
+      case 'opencode': return globalSettings.opencodeApiKey || '';
+      case 'ollama': return globalSettings.ollamaUrl || '';
+      default: return '';
+    }
+  };
 
   // Step 3 Live Test
   const [isTestingAi, setIsTestingAi] = useState(false);
@@ -253,10 +272,13 @@ export const ConnectAppModal: React.FC<ConnectAppModalProps> = ({
   const handleTestStep3Ai = async () => {
     setIsTestingAi(true);
     try {
+      const savedKey = getSavedKey(aiProvider);
+      const effectiveKey = (useGlobalKey && savedKey) ? savedKey : (aiApiKey.trim() || undefined);
+
       const res = await TranslatorEngine.verifyProviderConnection(
         aiProvider,
         aiModel,
-        aiApiKey.trim() || undefined,
+        effectiveKey,
         ollamaUrl.trim() || undefined
       );
       setAiTestResult({
@@ -341,6 +363,26 @@ export const ConnectAppModal: React.FC<ConnectAppModalProps> = ({
   const handleFinish = () => {
     if (!appId.trim()) return;
 
+    const savedKey = getSavedKey(aiProvider);
+    const effectiveKey = (useGlobalKey && savedKey) ? savedKey : (aiApiKey.trim() || undefined);
+
+    // Save key to Global Settings if requested
+    if (aiApiKey.trim() && saveToGlobalSettings) {
+      const store = ProjectStore.getInstance();
+      const settingsPatch: any = {};
+      if (aiProvider === 'gemini') settingsPatch.geminiApiKey = aiApiKey.trim();
+      else if (aiProvider === 'openai') settingsPatch.openaiApiKey = aiApiKey.trim();
+      else if (aiProvider === 'anthropic') settingsPatch.anthropicApiKey = aiApiKey.trim();
+      else if (aiProvider === 'groq') settingsPatch.groqApiKey = aiApiKey.trim();
+      else if (aiProvider === 'deepseek') settingsPatch.deepseekApiKey = aiApiKey.trim();
+      else if (aiProvider === 'openrouter') settingsPatch.openrouterApiKey = aiApiKey.trim();
+      else if (aiProvider === 'xai') settingsPatch.xaiApiKey = aiApiKey.trim();
+      else if (aiProvider === 'opencode') settingsPatch.opencodeApiKey = aiApiKey.trim();
+      else if (aiProvider === 'ollama') settingsPatch.ollamaUrl = ollamaUrl.trim();
+      store.updateSettings(settingsPatch);
+      if (onLog) onLog('system', `Saved ${aiProvider.toUpperCase()} key to Global Settings.`, 'success');
+    }
+
     onConnect(
       {
         name: name.trim() || appId.trim(),
@@ -357,7 +399,7 @@ export const ConnectAppModal: React.FC<ConnectAppModalProps> = ({
       {
         provider: aiProvider,
         model: aiModel,
-        apiKey: aiApiKey.trim() || undefined,
+        apiKey: effectiveKey,
         ollamaUrl: ollamaUrl.trim() || undefined
       }
     );
@@ -782,185 +824,317 @@ export const ConnectAppModal: React.FC<ConnectAppModalProps> = ({
           )}
 
           {/* STEP 3: AI PROVIDER & INTEGRATIONS */}
-          {step === 3 && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', animation: 'fadeIn 0.2s ease-out' }}>
-              <div className="grid-2" style={{ gap: '14px' }}>
-                <div>
-                  <label className="input-label">AI Localization Provider</label>
-                  <select
-                    value={aiProvider}
-                    onChange={(e) => handleProviderChange(e.target.value)}
-                    className="select"
-                  >
-                    <option value="gemini">Google Gemini (Gemini 2.0 Flash / Pro)</option>
-                    <option value="openai">OpenAI (GPT-4o / GPT-4o-mini)</option>
-                    <option value="anthropic">Anthropic (Claude 3.5 Sonnet / Haiku)</option>
-                    <option value="groq">Groq (LPU Ultra-Fast Inference)</option>
-                    <option value="xai">xAI (Grok 2 / Grok Beta)</option>
-                    <option value="opencode">OpenCode (Go / Zen Router)</option>
-                    <option value="openrouter">OpenRouter (Global Multi-LLM)</option>
-                    <option value="ollama">Ollama (Local / Free Offline)</option>
-                    <option value="mock">Offline Studio Engine (Built-in)</option>
-                  </select>
-                </div>
+          {step === 3 && (() => {
+            const savedProviders = [
+              { id: 'gemini', name: 'Google Gemini', key: globalSettings.geminiApiKey },
+              { id: 'openai', name: 'OpenAI', key: globalSettings.openaiApiKey },
+              { id: 'anthropic', name: 'Anthropic Claude', key: globalSettings.anthropicApiKey },
+              { id: 'groq', name: 'Groq', key: globalSettings.groqApiKey },
+              { id: 'deepseek', name: 'DeepSeek', key: globalSettings.deepseekApiKey },
+              { id: 'openrouter', name: 'OpenRouter', key: globalSettings.openrouterApiKey },
+              { id: 'xai', name: 'xAI', key: globalSettings.xaiApiKey },
+              { id: 'opencode', name: 'OpenCode', key: globalSettings.opencodeApiKey },
+              { id: 'ollama', name: 'Ollama', key: globalSettings.ollamaUrl }
+            ].filter(p => Boolean(p.key));
 
-                <div>
-                  <label className="input-label">Model for {aiProvider.toUpperCase()}</label>
-                  <select
-                    value={aiModel}
-                    onChange={(e) => {
-                      setAiModel(e.target.value);
-                      setAiTestResult(null);
-                    }}
-                    className="select"
-                  >
-                    {currentModels.map(m => (
-                      <option key={m.id} value={m.id}>{m.name}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
+            const hasGlobalKeyForCurrent = Boolean(getSavedKey(aiProvider));
 
-              {/* Dynamic API Key input based on Provider */}
-              {aiProvider === 'ollama' ? (
-                <div>
-                  <label className="input-label">Ollama Host URL</label>
-                  <input
-                    type="text"
-                    placeholder="http://localhost:11434"
-                    value={ollamaUrl}
-                    onChange={(e) => setOllamaUrl(e.target.value)}
-                    className="input"
-                  />
-                </div>
-              ) : aiProvider !== 'mock' ? (
-                <div>
-                  <label className="input-label" style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <span>{aiProvider.toUpperCase()} API Key</span>
-                    <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Stored securely in local sandbox</span>
-                  </label>
-                  <div style={{ position: 'relative' }}>
-                    <Bot size={15} style={{ position: 'absolute', left: '12px', top: '13px', color: 'var(--text-muted)' }} />
-                    <input
-                      type={showAiKey ? 'text' : 'password'}
-                      placeholder={`Enter ${aiProvider} API key...`}
-                      value={aiApiKey}
-                      onChange={(e) => {
-                        setAiApiKey(e.target.value);
-                        setAiTestResult(null);
-                      }}
-                      className="input"
-                      style={{ paddingLeft: '36px', paddingRight: '40px' }}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowAiKey(!showAiKey)}
-                      style={{
-                        position: 'absolute',
-                        right: '12px',
-                        top: '12px',
-                        background: 'transparent',
-                        border: 'none',
-                        color: 'var(--text-muted)',
-                        cursor: 'pointer'
-                      }}
-                    >
-                      {showAiKey ? <EyeOff size={16} /> : <Eye size={16} />}
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <div style={{ padding: '12px', borderRadius: 'var(--radius-sm)', background: 'var(--bg-input)', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-                  Using built-in Studio offline engine. No API key or credit card required.
-                </div>
-              )}
-
-              {/* Step 3 How to get AI Key Guide */}
-              <div style={{ padding: '10px 14px', borderRadius: 'var(--radius-md)', background: 'rgba(6, 182, 212, 0.06)', border: '1px solid var(--border-subtle)', fontSize: '0.75rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
-                <div style={{ fontWeight: 700, color: 'var(--text-primary)', marginBottom: '3px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <Bot size={13} color="var(--accent-cyan)" />
-                    <span>Where to get your {aiProvider.toUpperCase()} Key:</span>
-                  </div>
-                  {aiProvider === 'gemini' && (
-                    <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer" style={{ color: 'var(--accent-cyan)', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '3px' }}>
-                      <span>Get Gemini Key (Free)</span><ExternalLink size={10} />
-                    </a>
-                  )}
-                  {aiProvider === 'openai' && (
-                    <a href="https://platform.openai.com/api-keys" target="_blank" rel="noreferrer" style={{ color: 'var(--accent-cyan)', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '3px' }}>
-                      <span>Get OpenAI Key</span><ExternalLink size={10} />
-                    </a>
-                  )}
-                  {aiProvider === 'anthropic' && (
-                    <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noreferrer" style={{ color: 'var(--accent-cyan)', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '3px' }}>
-                      <span>Get Claude Key</span><ExternalLink size={10} />
-                    </a>
-                  )}
-                  {aiProvider === 'groq' && (
-                    <a href="https://console.groq.com/keys" target="_blank" rel="noreferrer" style={{ color: 'var(--accent-cyan)', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '3px' }}>
-                      <span>Get Groq Key (Free LPU)</span><ExternalLink size={10} />
-                    </a>
-                  )}
-                  {aiProvider === 'xai' && (
-                    <a href="https://console.x.ai/" target="_blank" rel="noreferrer" style={{ color: 'var(--accent-cyan)', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '3px' }}>
-                      <span>Get xAI Grok Key</span><ExternalLink size={10} />
-                    </a>
-                  )}
-                  {aiProvider === 'openrouter' && (
-                    <a href="https://openrouter.ai/keys" target="_blank" rel="noreferrer" style={{ color: 'var(--accent-cyan)', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '3px' }}>
-                      <span>Get OpenRouter Key</span><ExternalLink size={10} />
-                    </a>
-                  )}
-                </div>
-                <div>Generate an API key from your provider's developer dashboard to enable batch translation and AI code auditing.</div>
-              </div>
-
-              {/* Step 3 Diagnostic Test Box */}
-              <div style={{
-                padding: '12px 14px',
-                borderRadius: 'var(--radius-md)',
-                background: 'var(--bg-input)',
-                border: '1px solid var(--border-subtle)',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '8px'
-              }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-                    <Zap size={14} color="var(--accent-cyan)" />
-                    <span>Verify {aiProvider.toUpperCase()} Credentials & Latency</span>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={handleTestStep3Ai}
-                    disabled={isTestingAi}
-                    className="btn btn-secondary btn-sm"
-                    style={{ fontSize: '0.75rem', padding: '4px 10px' }}
-                  >
-                    <Activity size={12} className={isTestingAi ? 'spin' : ''} />
-                    <span>{isTestingAi ? 'Testing...' : 'Test AI Connection'}</span>
-                  </button>
-                </div>
-
-                {aiTestResult && (
+            return (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', animation: 'fadeIn 0.2s ease-out' }}>
+                {/* Configured Global Keys Quick Selector */}
+                {savedProviders.length > 0 && (
                   <div style={{
+                    padding: '12px 14px',
+                    borderRadius: 'var(--radius-md)',
+                    background: 'rgba(16, 185, 129, 0.08)',
+                    border: '1px solid rgba(16, 185, 129, 0.25)',
                     display: 'flex',
-                    alignItems: 'center',
-                    gap: '8px',
-                    fontSize: '0.775rem',
-                    color: aiTestResult.success ? 'var(--accent-emerald)' : 'var(--accent-rose)',
-                    paddingTop: '6px',
-                    borderTop: '1px solid var(--border-subtle)'
+                    flexDirection: 'column',
+                    gap: '8px'
                   }}>
-                    {aiTestResult.success ? <CheckCircle2 size={14} /> : <AlertCircle size={14} />}
-                    <span>{aiTestResult.message} ({aiTestResult.latency}ms)</span>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '6px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.775rem', fontWeight: 700, color: 'var(--accent-emerald)' }}>
+                        <CheckCircle2 size={14} />
+                        <span>Configured Keys in Global Settings ({savedProviders.length})</span>
+                      </div>
+                      <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Click to reuse for this app</span>
+                    </div>
+
+                    <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                      {savedProviders.map(p => {
+                        const isSelected = aiProvider === p.id && useGlobalKey;
+                        return (
+                          <button
+                            key={p.id}
+                            type="button"
+                            onClick={() => {
+                              handleProviderChange(p.id);
+                              setUseGlobalKey(true);
+                              setAiApiKey('');
+                              setAiTestResult(null);
+                            }}
+                            className={`btn btn-sm ${isSelected ? 'btn-success' : 'btn-secondary'}`}
+                            style={{ fontSize: '0.75rem', padding: '4px 10px', gap: '6px' }}
+                          >
+                            <Sparkles size={11} />
+                            <span>{p.name}</span>
+                            {isSelected && <Check size={11} />}
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
                 )}
+
+                <div className="grid-2" style={{ gap: '14px' }}>
+                  <div>
+                    <label className="input-label">AI Localization Provider</label>
+                    <select
+                      value={aiProvider}
+                      onChange={(e) => {
+                        handleProviderChange(e.target.value);
+                        setUseGlobalKey(Boolean(getSavedKey(e.target.value)));
+                      }}
+                      className="select"
+                    >
+                      <option value="gemini">Google Gemini {getSavedKey('gemini') ? '• Saved Key ✓' : ''}</option>
+                      <option value="openai">OpenAI (GPT-4o) {getSavedKey('openai') ? '• Saved Key ✓' : ''}</option>
+                      <option value="anthropic">Anthropic (Claude) {getSavedKey('anthropic') ? '• Saved Key ✓' : ''}</option>
+                      <option value="groq">Groq (LPU Inference) {getSavedKey('groq') ? '• Saved Key ✓' : ''}</option>
+                      <option value="deepseek">DeepSeek (V3/R1) {getSavedKey('deepseek') ? '• Saved Key ✓' : ''}</option>
+                      <option value="xai">xAI (Grok 2) {getSavedKey('xai') ? '• Saved Key ✓' : ''}</option>
+                      <option value="opencode">OpenCode (Zen Router) {getSavedKey('opencode') ? '• Saved Key ✓' : ''}</option>
+                      <option value="openrouter">OpenRouter (Global Multi-LLM) {getSavedKey('openrouter') ? '• Saved Key ✓' : ''}</option>
+                      <option value="ollama">Ollama (Local Offline) {getSavedKey('ollama') ? '• Saved Host ✓' : ''}</option>
+                      <option value="mock">Offline Studio Engine (Built-in)</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="input-label">Model for {aiProvider.toUpperCase()}</label>
+                    <select
+                      value={aiModel}
+                      onChange={(e) => {
+                        setAiModel(e.target.value);
+                        setAiTestResult(null);
+                      }}
+                      className="select"
+                    >
+                      {currentModels.map(m => (
+                        <option key={m.id} value={m.id}>{m.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                {/* Dynamic API Key input or Global Key Card */}
+                {aiProvider === 'ollama' ? (
+                  <div>
+                    <label className="input-label">Ollama Host URL</label>
+                    <input
+                      type="text"
+                      placeholder="http://localhost:11434"
+                      value={ollamaUrl}
+                      onChange={(e) => setOllamaUrl(e.target.value)}
+                      className="input"
+                    />
+                  </div>
+                ) : aiProvider !== 'mock' ? (
+                  <div>
+                    {useGlobalKey && hasGlobalKeyForCurrent ? (
+                      <div style={{
+                        padding: '12px 14px',
+                        borderRadius: 'var(--radius-md)',
+                        background: 'rgba(16, 185, 129, 0.06)',
+                        border: '1px solid rgba(16, 185, 129, 0.25)',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        gap: '12px'
+                      }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                          <CheckCircle2 size={18} color="var(--accent-emerald)" />
+                          <div>
+                            <div style={{ fontSize: '0.825rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                              Using saved {aiProvider.toUpperCase()} key from Settings
+                            </div>
+                            <div style={{ fontSize: '0.725rem', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
+                              ••••••••••••{getSavedKey(aiProvider).slice(-4)}
+                            </div>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setUseGlobalKey(false);
+                            setAiApiKey('');
+                          }}
+                          className="btn btn-secondary btn-sm"
+                          style={{ fontSize: '0.725rem', padding: '4px 10px' }}
+                        >
+                          Enter Custom Key
+                        </button>
+                      </div>
+                    ) : (
+                      <div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                          <label className="input-label" style={{ margin: 0 }}>
+                            {aiProvider.toUpperCase()} API Key
+                          </label>
+                          {hasGlobalKeyForCurrent && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setUseGlobalKey(true);
+                                setAiApiKey('');
+                              }}
+                              style={{ background: 'none', border: 'none', color: 'var(--accent-cyan)', fontSize: '0.725rem', cursor: 'pointer', padding: 0 }}
+                            >
+                              Use Saved Settings Key instead
+                            </button>
+                          )}
+                        </div>
+
+                        <div style={{ position: 'relative' }}>
+                          <Bot size={15} style={{ position: 'absolute', left: '12px', top: '13px', color: 'var(--text-muted)' }} />
+                          <input
+                            type={showAiKey ? 'text' : 'password'}
+                            placeholder={`Enter ${aiProvider} API key...`}
+                            value={aiApiKey}
+                            onChange={(e) => {
+                              setAiApiKey(e.target.value);
+                              setAiTestResult(null);
+                            }}
+                            className="input"
+                            style={{ paddingLeft: '36px', paddingRight: '40px' }}
+                            autoFocus
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowAiKey(!showAiKey)}
+                            style={{
+                              position: 'absolute',
+                              right: '12px',
+                              top: '12px',
+                              background: 'transparent',
+                              border: 'none',
+                              color: 'var(--text-muted)',
+                              cursor: 'pointer'
+                            }}
+                          >
+                            {showAiKey ? <EyeOff size={16} /> : <Eye size={16} />}
+                          </button>
+                        </div>
+
+                        <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '8px' }}>
+                          <input
+                            type="checkbox"
+                            checked={saveToGlobalSettings}
+                            onChange={(e) => setSaveToGlobalSettings(e.target.checked)}
+                          />
+                          <span>Save this {aiProvider.toUpperCase()} key to Global Settings (so other apps can reuse it)</span>
+                        </label>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div style={{ padding: '12px', borderRadius: 'var(--radius-sm)', background: 'var(--bg-input)', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                    Using built-in Studio offline engine. No API key or credit card required.
+                  </div>
+                )}
+
+                {/* Step 3 How to get AI Key Guide */}
+                <div style={{ padding: '10px 14px', borderRadius: 'var(--radius-md)', background: 'rgba(6, 182, 212, 0.06)', border: '1px solid var(--border-subtle)', fontSize: '0.75rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+                  <div style={{ fontWeight: 700, color: 'var(--text-primary)', marginBottom: '3px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <Bot size={13} color="var(--accent-cyan)" />
+                      <span>Where to get your {aiProvider.toUpperCase()} Key:</span>
+                    </div>
+                    {aiProvider === 'gemini' && (
+                      <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer" style={{ color: 'var(--accent-cyan)', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '3px' }}>
+                        <span>Get Gemini Key (Free)</span><ExternalLink size={10} />
+                      </a>
+                    )}
+                    {aiProvider === 'openai' && (
+                      <a href="https://platform.openai.com/api-keys" target="_blank" rel="noreferrer" style={{ color: 'var(--accent-cyan)', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '3px' }}>
+                        <span>Get OpenAI Key</span><ExternalLink size={10} />
+                      </a>
+                    )}
+                    {aiProvider === 'anthropic' && (
+                      <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noreferrer" style={{ color: 'var(--accent-cyan)', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '3px' }}>
+                        <span>Get Claude Key</span><ExternalLink size={10} />
+                      </a>
+                    )}
+                    {aiProvider === 'groq' && (
+                      <a href="https://console.groq.com/keys" target="_blank" rel="noreferrer" style={{ color: 'var(--accent-cyan)', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '3px' }}>
+                        <span>Get Groq Key (Free LPU)</span><ExternalLink size={10} />
+                      </a>
+                    )}
+                    {aiProvider === 'deepseek' && (
+                      <a href="https://platform.deepseek.com/api_keys" target="_blank" rel="noreferrer" style={{ color: 'var(--accent-cyan)', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '3px' }}>
+                        <span>Get DeepSeek Key</span><ExternalLink size={10} />
+                      </a>
+                    )}
+                    {aiProvider === 'xai' && (
+                      <a href="https://console.x.ai/" target="_blank" rel="noreferrer" style={{ color: 'var(--accent-cyan)', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '3px' }}>
+                        <span>Get xAI Grok Key</span><ExternalLink size={10} />
+                      </a>
+                    )}
+                    {aiProvider === 'openrouter' && (
+                      <a href="https://openrouter.ai/keys" target="_blank" rel="noreferrer" style={{ color: 'var(--accent-cyan)', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '3px' }}>
+                        <span>Get OpenRouter Key</span><ExternalLink size={10} />
+                      </a>
+                    )}
+                  </div>
+                  <div>Generate an API key from your provider's developer dashboard to enable batch translation and AI code auditing.</div>
+                </div>
+
+                {/* Step 3 Diagnostic Test Box */}
+                <div style={{
+                  padding: '12px 14px',
+                  borderRadius: 'var(--radius-md)',
+                  background: 'var(--bg-input)',
+                  border: '1px solid var(--border-subtle)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '8px'
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                      <Zap size={14} color="var(--accent-cyan)" />
+                      <span>Verify {aiProvider.toUpperCase()} Credentials & Latency</span>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={handleTestStep3Ai}
+                      disabled={isTestingAi}
+                      className="btn btn-secondary btn-sm"
+                      style={{ fontSize: '0.75rem', padding: '4px 10px' }}
+                    >
+                      <Activity size={12} className={isTestingAi ? 'spin' : ''} />
+                      <span>{isTestingAi ? 'Testing...' : 'Test AI Connection'}</span>
+                    </button>
+                  </div>
+
+                  {aiTestResult && (
+                    <div style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      fontSize: '0.775rem',
+                      color: aiTestResult.success ? 'var(--accent-emerald)' : 'var(--accent-rose)',
+                      paddingTop: '6px',
+                      borderTop: '1px solid var(--border-subtle)'
+                    }}>
+                      {aiTestResult.success ? <CheckCircle2 size={14} /> : <AlertCircle size={14} />}
+                      <span>{aiTestResult.message} ({aiTestResult.latency}ms)</span>
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
-          )}
+            );
+          })()}
 
           {/* STEP 4: BLUEPRINT & SCHEMA EXPORT (.bubble / JSON) */}
           {step === 4 && (
@@ -1061,14 +1235,50 @@ export const ConnectAppModal: React.FC<ConnectAppModalProps> = ({
               )}
 
               {/* Guidance box */}
-              <div style={{ padding: '10px 12px', borderRadius: 'var(--radius-sm)', background: 'var(--bg-input)', border: '1px solid var(--border-subtle)', fontSize: '0.75rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
-                <div style={{ fontWeight: 600, color: 'var(--text-primary)', marginBottom: '2px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <Sparkles size={12} color="var(--primary)" />
-                  <span>How to export from Bubble.io:</span>
+              <div style={{
+                padding: '14px 16px',
+                borderRadius: 'var(--radius-md)',
+                background: 'rgba(99, 102, 241, 0.06)',
+                border: '1px solid rgba(99, 102, 241, 0.2)',
+                fontSize: '0.775rem',
+                color: 'var(--text-secondary)',
+                lineHeight: 1.6,
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '8px'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <div style={{ fontWeight: 700, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <Sparkles size={14} color="var(--primary)" />
+                    <span>How to get your application file from Bubble:</span>
+                  </div>
+                  {appId && (
+                    <a
+                      href={`https://bubble.io/page?id=${appId}&tab=general`}
+                      target="_blank"
+                      rel="noreferrer"
+                      style={{ fontSize: '0.7rem', color: 'var(--accent-cyan)', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '4px' }}
+                    >
+                      <span>Open Bubble Settings &gt; General</span>
+                      <ExternalLink size={10} />
+                    </a>
+                  )}
                 </div>
-                <div>Bubble Editor → <strong>Settings</strong> → <strong>General</strong> → <strong>Export application</strong></div>
-                <div style={{ color: 'var(--text-muted)', marginTop: '2px' }}>
-                  * Optional: If you don't have it right now, click Next to proceed and upload it later.
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                  <div><strong>1. Locate in Bubble:</strong> Open your Bubble Editor ➔ click <strong>Settings (⚙️)</strong> in the left sidebar ➔ choose the <strong>General</strong> tab.</div>
+                  <div><strong>2. Export:</strong> Scroll down to the <strong>"Export application"</strong> section and click <strong>"Export"</strong>. A <code>.bubble</code> or <code>.json</code> file will download to your computer.</div>
+                  <div><strong>3. Upload here:</strong> Drag and drop that downloaded file into the box above.</div>
+                </div>
+
+                <div style={{
+                  padding: '8px 10px',
+                  borderRadius: 'var(--radius-sm)',
+                  background: 'rgba(0, 0, 0, 0.2)',
+                  fontSize: '0.725rem',
+                  color: 'var(--text-muted)'
+                }}>
+                  💡 <strong>Note:</strong> This file contains your app's UI elements, workflows, and database schema (AST). It is 100% safe and does not contain live user records. If you don't have it right now, you can skip this step and upload it later in Settings.
                 </div>
               </div>
             </div>

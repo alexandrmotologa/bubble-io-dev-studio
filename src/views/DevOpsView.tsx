@@ -25,7 +25,12 @@ import {
   ChevronRight,
   ChevronsDownUp,
   ChevronsUpDown,
-  GitBranch
+  GitBranch,
+  Sparkles,
+  History,
+  Wrench,
+  Trash2,
+  FileSpreadsheet
 } from 'lucide-react';
 import { 
   BackupResult, 
@@ -51,18 +56,19 @@ import { TemplateScaffolderEngine } from '../core/devops/templateScaffolder';
 import { MockServerEngine } from '../core/devops/mockServer';
 import { EnvSyncEngine } from '../core/env-sync/envSyncEngine';
 import { ProjectStore } from '../core/storage/projectStore';
+import { IndexedDbStore } from '../core/storage/indexedDbStore';
 import { DataGridTable } from '../components/DataGridTable';
 import { WorkflowFlowchart } from '../components/WorkflowFlowchart';
 import { DatabaseSnapshotManager } from '../components/DatabaseSnapshotManager';
-import { History } from 'lucide-react';
 
 interface DevOpsViewProps {
   activeProject?: ProjectProfile;
+  initialSubTab?: DevOpsSubTab;
   onLog: (module: 'devops', message: string, level?: 'info' | 'success' | 'warn' | 'error') => void;
   onOpenConnectModal?: () => void;
 }
 
-type DevOpsSubTab = 
+export type DevOpsSubTab = 
   | 'data_grid'
   | 'schema'
   | 'erd'
@@ -80,8 +86,59 @@ type DevOpsSubTab =
   | 'mock_server'
   | 'workflow';
 
-export const DevOpsView: React.FC<DevOpsViewProps> = ({ activeProject, onLog, onOpenConnectModal }) => {
-  const [subTab, setSubTab] = useState<DevOpsSubTab>('schema');
+export type DevOpsCategory = 'data' | 'schema' | 'devops' | 'tools';
+
+const SUBTAB_TO_CATEGORY: Record<DevOpsSubTab, DevOpsCategory> = {
+  data_grid: 'data',
+  query: 'data',
+  seeder: 'data',
+  
+  schema: 'schema',
+  erd: 'schema',
+  workflow_flowchart: 'schema',
+  types: 'schema',
+  pii_audit: 'schema',
+  
+  backups: 'devops',
+  snapshots: 'devops',
+  migrations: 'devops',
+  env_sync: 'devops',
+  
+  cicd: 'tools',
+  export_db: 'tools',
+  mock_server: 'tools',
+  workflow: 'tools'
+};
+
+const CATEGORY_DEFAULT_SUBTAB: Record<DevOpsCategory, DevOpsSubTab> = {
+  data: 'data_grid',
+  schema: 'schema',
+  devops: 'backups',
+  tools: 'cicd'
+};
+
+export const DevOpsView: React.FC<DevOpsViewProps> = ({ activeProject, initialSubTab, onLog, onOpenConnectModal }) => {
+  const [activeCategory, setActiveCategory] = useState<DevOpsCategory>(
+    initialSubTab ? SUBTAB_TO_CATEGORY[initialSubTab] || 'schema' : 'data'
+  );
+  const [subTab, setSubTab] = useState<DevOpsSubTab>(initialSubTab || 'data_grid');
+
+  useEffect(() => {
+    if (initialSubTab) {
+      setSubTab(initialSubTab);
+      setActiveCategory(SUBTAB_TO_CATEGORY[initialSubTab] || 'schema');
+    }
+  }, [initialSubTab]);
+
+  const handleSelectCategory = (cat: DevOpsCategory) => {
+    setActiveCategory(cat);
+    const defaultSub = CATEGORY_DEFAULT_SUBTAB[cat];
+    setSubTab(defaultSub);
+    if (defaultSub === 'backups' || cat === 'devops') loadBackups();
+    if (defaultSub === 'env_sync') loadEnvSync();
+    if (defaultSub === 'export_db') updateDbExportScript();
+    if (defaultSub === 'cicd') { updateCiWorkflow(); updateScaffoldCode(); }
+  };
   const [schema, setSchema] = useState<BubbleSchema | null>(null);
   const [tsDefinitions, setTsDefinitions] = useState<string>('');
   const [mermaidErd, setMermaidErd] = useState<string>('');
@@ -137,6 +194,7 @@ export const DevOpsView: React.FC<DevOpsViewProps> = ({ activeProject, onLog, on
   const [queryConstraintOp, setQueryConstraintOp] = useState<'equals' | 'not equal' | 'text contains' | 'greater than' | 'less than' | 'is_empty' | 'is_not_empty'>('equals');
   const [queryConstraintVal, setQueryConstraintVal] = useState('');
   const [activeConstraints, setActiveConstraints] = useState<QueryConstraint[]>([]);
+  const [isFetchingQuery, setIsFetchingQuery] = useState(false);
 
   // Relational Seeder state
   const [seedDataJson, setSeedDataJson] = useState<string>('{\n  "User": [\n    {\n      "_ref": "@user_1",\n      "email": "user@example.com"\n    }\n  ]\n}');
@@ -190,10 +248,17 @@ export const DevOpsView: React.FC<DevOpsViewProps> = ({ activeProject, onLog, on
   };
 
   useEffect(() => {
+    loadBackups();
     if (activeProject) {
       loadSchema();
     }
   }, [activeProject?.id, activeProject?.blueprintFileName, activeProject?.blueprintExportJson]);
+
+  useEffect(() => {
+    if (subTab === 'backups') {
+      loadBackups();
+    }
+  }, [subTab]);
 
   const loadSchema = async () => {
     if (!activeProject) return;
@@ -410,6 +475,46 @@ export const DevOpsView: React.FC<DevOpsViewProps> = ({ activeProject, onLog, on
     onLog('devops', `Copied ${label} to clipboard.`, 'info');
   };
 
+  const loadBackups = async () => {
+    try {
+      const rawBackups = await IndexedDbStore.getAllBackups();
+      const formatted: BackupResult[] = rawBackups
+        .map(b => (b.data && b.data.backupId ? b.data : b))
+        .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+      setBackupsList(formatted);
+    } catch (e) {
+      console.warn('Failed to load backups from IndexedDbStore:', e);
+    }
+  };
+
+  const handleDeleteBackup = async (backupId: string) => {
+    try {
+      await IndexedDbStore.deleteBackup(backupId);
+      await loadBackups();
+      onLog('devops', `Deleted backup archive ${backupId}.`, 'info');
+    } catch (e: any) {
+      onLog('devops', `Failed to delete backup: ${e.message}`, 'error');
+    }
+  };
+
+  const handleDownloadBackup = (backup: BackupResult) => {
+    try {
+      const payload = JSON.stringify(backup, null, 2);
+      const blob = new Blob([payload], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${backup.backupId}.${backup.format || 'json'}`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      onLog('devops', `Downloaded backup archive ${backup.backupId}.`, 'success');
+    } catch (e: any) {
+      onLog('devops', `Failed to download backup: ${e.message}`, 'error');
+    }
+  };
+
   const handleRunBackup = async () => {
     if (!activeProject || isBackingUp) return;
     setIsBackingUp(true);
@@ -431,7 +536,7 @@ export const DevOpsView: React.FC<DevOpsViewProps> = ({ activeProject, onLog, on
           onLog('devops', msg);
         }
       );
-      setBackupsList(prev => [result, ...prev]);
+      await loadBackups();
       onLog('devops', `Backup completed: ${result.backupId} (${result.recordCount} records, ${result.fileSizeKb} KB)`, 'success');
     } catch (e: any) {
       onLog('devops', `Backup failed: ${e.message}`, 'error');
@@ -456,10 +561,21 @@ export const DevOpsView: React.FC<DevOpsViewProps> = ({ activeProject, onLog, on
   };
 
   const handleRunQuery = async () => {
-    onLog('devops', `Executing REPL query for type '${queryType}'...`);
-    const res = await DevOpsEngine.queryTable(queryType, 0, 10, querySearch, activeConstraints);
-    setQueryResults(res);
-    onLog('devops', `Query returned ${res.records.length} of ${res.total} record(s).`, 'info');
+    setIsFetchingQuery(true);
+    onLog('devops', `Executing live Bubble Data API query for table '${queryType}'...`);
+    try {
+      const res = await DevOpsEngine.queryTable(queryType, 0, 25, querySearch, activeConstraints, activeProject);
+      setQueryResults(res);
+      if (res.records.length > 0) {
+        onLog('devops', `Live query returned ${res.records.length} of ${res.total} record(s) for '${queryType}'.`, 'success');
+      } else {
+        onLog('devops', `Query returned 0 records for '${queryType}'. Check Data API permissions in Bubble.`, 'info');
+      }
+    } catch (e: any) {
+      onLog('devops', `Query error: ${e.message}`, 'error');
+    } finally {
+      setIsFetchingQuery(false);
+    }
   };
 
   const handleAddConstraint = () => {
@@ -472,6 +588,60 @@ export const DevOpsView: React.FC<DevOpsViewProps> = ({ activeProject, onLog, on
     setActiveConstraints([...activeConstraints, newConstraint]);
     setQueryConstraintKey('');
     setQueryConstraintVal('');
+  };
+
+  const handleLoadRelationalExample = () => {
+    const example = {
+      User: [
+        {
+          _ref: "@user_admin",
+          email: "alex@startup.io",
+          first_name: "Alex",
+          last_name: "Motologa",
+          role: "Admin",
+          is_active: true
+        },
+        {
+          _ref: "@user_member",
+          email: "elena@startup.io",
+          first_name: "Elena",
+          last_name: "Popescu",
+          role: "Member",
+          is_active: true
+        }
+      ],
+      Company: [
+        {
+          _ref: "@company_main",
+          name: "DevStudio Labs",
+          owner: "@user_admin",
+          tier: "Enterprise"
+        }
+      ],
+      Project: [
+        {
+          _ref: "@project_alpha",
+          title: "Bubble AI Toolchain",
+          company: "@company_main",
+          lead_user: "@user_admin",
+          members: ["@user_admin", "@user_member"],
+          budget: 15000,
+          is_active: true
+        }
+      ]
+    };
+    setSeedDataJson(JSON.stringify(example, null, 2));
+    onLog('devops', 'Loaded multi-table relational seed example with @ref aliases.', 'info');
+  };
+
+  const handleGenerateSchemaTemplate = () => {
+    if (!schema || schema.dataTypes.length === 0) {
+      onLog('devops', 'No schema data types found to generate template.', 'warn');
+      return;
+    }
+    const generated = RelationalSeederEngine.generateSeedTemplateForSchema(schema);
+    setSeedDataJson(JSON.stringify(generated, null, 2));
+    onLog('devops', `Generated relational template for ${schema.dataTypes.length} schema types.`, 'success');
   };
 
   const handleParseSeedPlan = () => {
@@ -495,10 +665,14 @@ export const DevOpsView: React.FC<DevOpsViewProps> = ({ activeProject, onLog, on
     setIsSeeding(true);
     onLog('devops', 'Starting relational graph import with automatic DAG resolution...');
     try {
-      const result = await RelationalSeederEngine.executePlan(seedPlan, (step, total, msg) => {
+      const result = await RelationalSeederEngine.executePlan(seedPlan, activeProject, (step, total, msg) => {
         onLog('devops', `[Step ${step}/${total}] ${msg}`);
       });
-      onLog('devops', `Relational seeding completed! Created ${result.createdCount} linked records.`, 'success');
+      if (result.errors && result.errors.length > 0) {
+        onLog('devops', `Relational seeding completed with ${result.errors.length} error(s): ${result.errors.join(', ')}`, 'warn');
+      } else {
+        onLog('devops', `Relational seeding completed! Created ${result.createdCount} linked records.`, 'success');
+      }
     } catch (e: any) {
       onLog('devops', `Seeding error: ${e.message}`, 'error');
     } finally {
@@ -604,81 +778,248 @@ export const DevOpsView: React.FC<DevOpsViewProps> = ({ activeProject, onLog, on
 
   return (
     <div className="view-container">
-      {/* Sub Navigation Bar with 12 Developer Operations */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
-        <div style={{ display: 'flex', gap: '6px', background: 'var(--bg-input)', padding: '4px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-subtle)', flexWrap: 'wrap' }}>
-          <button onClick={() => setSubTab('data_grid')} className={`btn btn-sm ${subTab === 'data_grid' ? 'btn-primary' : 'btn-secondary'}`} style={{ border: 'none' }}>
-            <Database size={13} />
-            <span>Interactive Data Studio</span>
+      {/* Category Tabs (Primary Domain Switcher) */}
+      <div style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        background: 'var(--bg-surface-elevated)',
+        padding: '6px 8px',
+        borderRadius: 'var(--radius-md)',
+        border: '1px solid var(--border-subtle)',
+        flexWrap: 'wrap',
+        gap: '10px'
+      }}>
+        {/* Tier 1 Categories */}
+        <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+          {/* 1. Data & Records */}
+          <button
+            onClick={() => handleSelectCategory('data')}
+            className={`btn btn-sm ${activeCategory === 'data' ? 'btn-primary' : 'btn-secondary'}`}
+            style={{
+              padding: '8px 14px',
+              fontSize: '0.825rem',
+              fontWeight: activeCategory === 'data' ? 700 : 500,
+              borderRadius: 'var(--radius-sm)'
+            }}
+          >
+            <Database size={15} />
+            <span>Data Studio</span>
           </button>
-          <button onClick={() => setSubTab('schema')} className={`btn btn-sm ${subTab === 'schema' ? 'btn-primary' : 'btn-secondary'}`} style={{ border: 'none' }}>
-            <Table size={13} />
-            <span>Schema</span>
+
+          {/* 2. Schema & Architecture */}
+          <button
+            onClick={() => handleSelectCategory('schema')}
+            className={`btn btn-sm ${activeCategory === 'schema' ? 'btn-primary' : 'btn-secondary'}`}
+            style={{
+              padding: '8px 14px',
+              fontSize: '0.825rem',
+              fontWeight: activeCategory === 'schema' ? 700 : 500,
+              borderRadius: 'var(--radius-sm)'
+            }}
+          >
+            <Layers size={15} />
+            <span>Schema & Flow</span>
           </button>
-          <button onClick={() => setSubTab('erd')} className={`btn btn-sm ${subTab === 'erd' ? 'btn-primary' : 'btn-secondary'}`} style={{ border: 'none' }}>
-            <Layers size={13} />
-            <span>ERD Graph</span>
+
+          {/* 3. Backups & Migrations */}
+          <button
+            onClick={() => handleSelectCategory('devops')}
+            className={`btn btn-sm ${activeCategory === 'devops' ? 'btn-primary' : 'btn-secondary'}`}
+            style={{
+              padding: '8px 14px',
+              fontSize: '0.825rem',
+              fontWeight: activeCategory === 'devops' ? 700 : 500,
+              borderRadius: 'var(--radius-sm)'
+            }}
+          >
+            <HardDriveDownload size={15} />
+            <span>Backups & DevOps</span>
           </button>
-          <button onClick={() => setSubTab('workflow_flowchart')} className={`btn btn-sm ${subTab === 'workflow_flowchart' ? 'btn-primary' : 'btn-secondary'}`} style={{ border: 'none' }}>
-            <GitBranch size={13} />
-            <span>Workflow Flowchart</span>
-          </button>
-          <button onClick={() => setSubTab('snapshots')} className={`btn btn-sm ${subTab === 'snapshots' ? 'btn-primary' : 'btn-secondary'}`} style={{ border: 'none' }}>
-            <History size={13} />
-            <span>Snapshots & Rollback</span>
-          </button>
-          <button onClick={() => setSubTab('types')} className={`btn btn-sm ${subTab === 'types' ? 'btn-primary' : 'btn-secondary'}`} style={{ border: 'none' }}>
-            <Code size={13} />
-            <span>TypeScript (.d.ts)</span>
-          </button>
-          <button onClick={() => setSubTab('migrations')} className={`btn btn-sm ${subTab === 'migrations' ? 'btn-primary' : 'btn-secondary'}`} style={{ border: 'none' }}>
-            <GitCompare size={13} />
-            <span>Migrations ({migrations.length})</span>
-          </button>
-          <button onClick={() => { setSubTab('env_sync'); loadEnvSync(); }} className={`btn btn-sm ${subTab === 'env_sync' ? 'btn-primary' : 'btn-secondary'}`} style={{ border: 'none' }}>
-            <Layers size={13} />
-            <span>Dev vs Live Sync</span>
-          </button>
-          <button onClick={() => setSubTab('backups')} className={`btn btn-sm ${subTab === 'backups' ? 'btn-primary' : 'btn-secondary'}`} style={{ border: 'none' }}>
-            <HardDriveDownload size={13} />
-            <span>Backup & Restore</span>
-          </button>
-          <button onClick={() => setSubTab('query')} className={`btn btn-sm ${subTab === 'query' ? 'btn-primary' : 'btn-secondary'}`} style={{ border: 'none' }}>
-            <Search size={13} />
-            <span>Data Browser REPL</span>
-          </button>
-          <button onClick={() => setSubTab('seeder')} className={`btn btn-sm ${subTab === 'seeder' ? 'btn-primary' : 'btn-secondary'}`} style={{ border: 'none' }}>
-            <Share2 size={13} />
-            <span>Relational Seeder</span>
-          </button>
-          <button onClick={() => { setSubTab('export_db'); updateDbExportScript(); }} className={`btn btn-sm ${subTab === 'export_db' ? 'btn-primary' : 'btn-secondary'}`} style={{ border: 'none' }}>
-            <Database size={13} />
-            <span>DB Export</span>
-          </button>
-          <button onClick={() => setSubTab('pii_audit')} className={`btn btn-sm ${subTab === 'pii_audit' ? 'btn-primary' : 'btn-secondary'}`} style={{ border: 'none' }}>
-            <ShieldAlert size={13} />
-            <span>PII Privacy ({piiReport?.findings.length || 0})</span>
-          </button>
-          <button onClick={() => { setSubTab('cicd'); updateCiWorkflow(); updateScaffoldCode(); }} className={`btn btn-sm ${subTab === 'cicd' ? 'btn-primary' : 'btn-secondary'}`} style={{ border: 'none' }}>
-            <FileCode size={13} />
-            <span>CI/CD & Scaffolds</span>
-          </button>
-          <button onClick={() => setSubTab('mock_server')} className={`btn btn-sm ${subTab === 'mock_server' ? 'btn-primary' : 'btn-secondary'}`} style={{ border: 'none' }}>
-            <Server size={13} />
-            <span>Mock Server</span>
-          </button>
-          <button onClick={() => setSubTab('workflow')} className={`btn btn-sm ${subTab === 'workflow' ? 'btn-primary' : 'btn-secondary'}`} style={{ border: 'none' }}>
-            <Workflow size={13} />
-            <span>Workflow Trigger</span>
+
+          {/* 4. Developer Tools & CI/CD */}
+          <button
+            onClick={() => handleSelectCategory('tools')}
+            className={`btn btn-sm ${activeCategory === 'tools' ? 'btn-primary' : 'btn-secondary'}`}
+            style={{
+              padding: '8px 14px',
+              fontSize: '0.825rem',
+              fontWeight: activeCategory === 'tools' ? 700 : 500,
+              borderRadius: 'var(--radius-sm)'
+            }}
+          >
+            <Wrench size={15} />
+            <span>Dev Tools & CI/CD</span>
           </button>
         </div>
 
+        {/* Sync Button */}
         <div style={{ display: 'flex', gap: '8px' }}>
           <button onClick={loadSchema} className="btn btn-secondary btn-sm" title="Refresh Live Schema">
             <RefreshCw size={13} />
-            <span>Sync</span>
+            <span>Sync Schema</span>
           </button>
         </div>
+      </div>
+
+      {/* Tier 2: Sub-tool Bar for Active Category */}
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: '6px',
+        padding: '4px 6px',
+        background: 'var(--bg-input)',
+        borderRadius: 'var(--radius-sm)',
+        border: '1px solid var(--border-subtle)',
+        flexWrap: 'wrap'
+      }}>
+        {activeCategory === 'data' && (
+          <>
+            <button
+              onClick={() => setSubTab('data_grid')}
+              className={`btn btn-sm ${subTab === 'data_grid' ? 'btn-primary' : 'btn-secondary'}`}
+              style={{ border: 'none', fontSize: '0.775rem' }}
+            >
+              <Table size={13} />
+              <span>Interactive Data Studio</span>
+            </button>
+            <button
+              onClick={() => setSubTab('query')}
+              className={`btn btn-sm ${subTab === 'query' ? 'btn-primary' : 'btn-secondary'}`}
+              style={{ border: 'none', fontSize: '0.775rem' }}
+            >
+              <Search size={13} />
+              <span>Live REPL & Query</span>
+            </button>
+            <button
+              onClick={() => setSubTab('seeder')}
+              className={`btn btn-sm ${subTab === 'seeder' ? 'btn-primary' : 'btn-secondary'}`}
+              style={{ border: 'none', fontSize: '0.775rem' }}
+            >
+              <Share2 size={13} />
+              <span>Relational Seeder</span>
+            </button>
+          </>
+        )}
+
+        {activeCategory === 'schema' && (
+          <>
+            <button
+              onClick={() => setSubTab('schema')}
+              className={`btn btn-sm ${subTab === 'schema' ? 'btn-primary' : 'btn-secondary'}`}
+              style={{ border: 'none', fontSize: '0.775rem' }}
+            >
+              <Table size={13} />
+              <span>Schema Explorer</span>
+            </button>
+            <button
+              onClick={() => setSubTab('erd')}
+              className={`btn btn-sm ${subTab === 'erd' ? 'btn-primary' : 'btn-secondary'}`}
+              style={{ border: 'none', fontSize: '0.775rem' }}
+            >
+              <Layers size={13} />
+              <span>ERD Graph</span>
+            </button>
+            <button
+              onClick={() => setSubTab('workflow_flowchart')}
+              className={`btn btn-sm ${subTab === 'workflow_flowchart' ? 'btn-primary' : 'btn-secondary'}`}
+              style={{ border: 'none', fontSize: '0.775rem' }}
+            >
+              <GitBranch size={13} />
+              <span>Workflow Flowchart</span>
+            </button>
+            <button
+              onClick={() => setSubTab('types')}
+              className={`btn btn-sm ${subTab === 'types' ? 'btn-primary' : 'btn-secondary'}`}
+              style={{ border: 'none', fontSize: '0.775rem' }}
+            >
+              <Code size={13} />
+              <span>TypeScript (.d.ts)</span>
+            </button>
+            <button
+              onClick={() => setSubTab('pii_audit')}
+              className={`btn btn-sm ${subTab === 'pii_audit' ? 'btn-primary' : 'btn-secondary'}`}
+              style={{ border: 'none', fontSize: '0.775rem' }}
+            >
+              <ShieldAlert size={13} />
+              <span>PII Privacy ({piiReport?.findings.length || 0})</span>
+            </button>
+          </>
+        )}
+
+        {activeCategory === 'devops' && (
+          <>
+            <button
+              onClick={() => setSubTab('backups')}
+              className={`btn btn-sm ${subTab === 'backups' ? 'btn-primary' : 'btn-secondary'}`}
+              style={{ border: 'none', fontSize: '0.775rem' }}
+            >
+              <HardDriveDownload size={13} />
+              <span>Backup & Restore</span>
+            </button>
+            <button
+              onClick={() => setSubTab('snapshots')}
+              className={`btn btn-sm ${subTab === 'snapshots' ? 'btn-primary' : 'btn-secondary'}`}
+              style={{ border: 'none', fontSize: '0.775rem' }}
+            >
+              <History size={13} />
+              <span>Database Snapshots</span>
+            </button>
+            <button
+              onClick={() => setSubTab('migrations')}
+              className={`btn btn-sm ${subTab === 'migrations' ? 'btn-primary' : 'btn-secondary'}`}
+              style={{ border: 'none', fontSize: '0.775rem' }}
+            >
+              <GitCompare size={13} />
+              <span>Schema Migrations ({migrations.length})</span>
+            </button>
+            <button
+              onClick={() => { setSubTab('env_sync'); loadEnvSync(); }}
+              className={`btn btn-sm ${subTab === 'env_sync' ? 'btn-primary' : 'btn-secondary'}`}
+              style={{ border: 'none', fontSize: '0.775rem' }}
+            >
+              <Layers size={13} />
+              <span>Dev vs Live Sync</span>
+            </button>
+          </>
+        )}
+
+        {activeCategory === 'tools' && (
+          <>
+            <button
+              onClick={() => { setSubTab('cicd'); updateCiWorkflow(); updateScaffoldCode(); }}
+              className={`btn btn-sm ${subTab === 'cicd' ? 'btn-primary' : 'btn-secondary'}`}
+              style={{ border: 'none', fontSize: '0.775rem' }}
+            >
+              <FileCode size={13} />
+              <span>CI/CD Pipelines</span>
+            </button>
+            <button
+              onClick={() => { setSubTab('export_db'); updateDbExportScript(); }}
+              className={`btn btn-sm ${subTab === 'export_db' ? 'btn-primary' : 'btn-secondary'}`}
+              style={{ border: 'none', fontSize: '0.775rem' }}
+            >
+              <Database size={13} />
+              <span>SQL / DB Export</span>
+            </button>
+            <button
+              onClick={() => setSubTab('mock_server')}
+              className={`btn btn-sm ${subTab === 'mock_server' ? 'btn-primary' : 'btn-secondary'}`}
+              style={{ border: 'none', fontSize: '0.775rem' }}
+            >
+              <Server size={13} />
+              <span>Mock API Server</span>
+            </button>
+            <button
+              onClick={() => setSubTab('workflow')}
+              className={`btn btn-sm ${subTab === 'workflow' ? 'btn-primary' : 'btn-secondary'}`}
+              style={{ border: 'none', fontSize: '0.775rem' }}
+            >
+              <Workflow size={13} />
+              <span>Workflow Trigger</span>
+            </button>
+          </>
+        )}
       </div>
 
       {/* Backup in progress banner */}
@@ -908,7 +1249,13 @@ export const DevOpsView: React.FC<DevOpsViewProps> = ({ activeProject, onLog, on
                               </h3>
                             </div>
                             <div style={{ fontSize: '0.725rem', color: 'var(--text-muted)', marginTop: '2px' }}>
-                              {dt.recordCount !== undefined ? `${dt.recordCount.toLocaleString()} records in database` : 'Custom Data Type'}
+                              {dt.recordCount && dt.recordCount > 0 ? (
+                                <span style={{ color: 'var(--accent-cyan)' }}>
+                                  {dt.recordCount.toLocaleString()} records in database
+                                </span>
+                              ) : (
+                                <span>Schema Defined • Live query via Data API</span>
+                              )}
                             </div>
                           </div>
                         </div>
@@ -1258,22 +1605,107 @@ export const DevOpsView: React.FC<DevOpsViewProps> = ({ activeProject, onLog, on
           </div>
 
           <div className="card">
-            <div className="card-title" style={{ marginBottom: '12px' }}>
-              <span>Created Backups & Snapshots ({backupsList.length})</span>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+              <div className="card-title" style={{ margin: 0 }}>
+                <HardDriveDownload size={16} color="var(--accent-cyan)" />
+                <span>Created Backups & Archives ({backupsList.length})</span>
+              </div>
+              <button onClick={loadBackups} className="btn btn-secondary btn-sm" title="Reload stored backups">
+                <RefreshCw size={12} />
+                <span>Refresh List</span>
+              </button>
             </div>
+
             {backupsList.length === 0 ? (
-              <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem', padding: '16px 0' }}>
-                No backups created yet. Click "Start Backup" above to export records.
+              <div style={{
+                background: 'rgba(255, 255, 255, 0.02)',
+                border: '1px dashed var(--border-subtle)',
+                borderRadius: 'var(--radius-md)',
+                padding: '24px 20px',
+                textAlign: 'center',
+                color: 'var(--text-muted)'
+              }}>
+                <HardDriveDownload size={32} style={{ margin: '0 auto 10px', opacity: 0.4, display: 'block' }} />
+                <div style={{ fontWeight: 600, color: 'var(--text-primary)', marginBottom: '4px' }}>
+                  No Backups Stored Yet
+                </div>
+                <div style={{ fontSize: '0.8rem', maxWidth: '460px', margin: '0 auto 12px', lineHeight: 1.5 }}>
+                  Click <strong>"Start Backup"</strong> above or press <code>Ctrl+B</code> / <code>Cmd+B</code> to export your Bubble database. Backups are stored safely in local IndexedDB.
+                </div>
               </div>
             ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                 {backupsList.map(b => (
-                  <div key={b.backupId} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', background: 'var(--bg-input)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)' }}>
-                    <div>
-                      <strong>{b.backupId}</strong> • <span style={{ color: 'var(--accent-cyan)' }}>{b.recordCount.toLocaleString()} records</span> ({b.fileSizeKb} KB)
-                      <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{b.filePath} • {new Date(b.timestamp).toLocaleString()}</div>
+                  <div
+                    key={b.backupId}
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      padding: '12px 16px',
+                      background: 'var(--bg-input)',
+                      borderRadius: 'var(--radius-sm)',
+                      border: '1px solid var(--border-subtle)',
+                      flexWrap: 'wrap',
+                      gap: '12px'
+                    }}
+                  >
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                        <span style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: '0.875rem' }}>
+                          {b.backupId}
+                        </span>
+                        <span className="badge badge-emerald" style={{ fontSize: '0.65rem' }}>
+                          COMPLETED
+                        </span>
+                        <span className="badge badge-indigo" style={{ fontSize: '0.65rem' }}>
+                          {(b.format || 'json').toUpperCase()}
+                        </span>
+                        {b.encrypted && (
+                          <span className="badge badge-amber" style={{ fontSize: '0.65rem' }}>
+                            AES-256
+                          </span>
+                        )}
+                      </div>
+                      <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                        <strong style={{ color: 'var(--accent-cyan)' }}>{b.recordCount.toLocaleString()} records</strong> • {b.fileSizeKb} KB • {new Date(b.timestamp).toLocaleString()}
+                      </div>
+                      {b.tables && b.tables.length > 0 && (
+                        <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>
+                          Tables: {b.tables.join(', ')}
+                        </div>
+                      )}
                     </div>
-                    <span className="badge badge-emerald">COMPLETED</span>
+
+                    <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                      <button
+                        onClick={() => handleDownloadBackup(b)}
+                        className="btn btn-secondary btn-sm"
+                        style={{ fontSize: '0.75rem', padding: '5px 10px' }}
+                        title="Download backup file"
+                      >
+                        <Download size={13} />
+                        <span>Download</span>
+                      </button>
+
+                      <button
+                        onClick={() => handleCopy(b.backupId, 'Backup ID')}
+                        className="btn btn-secondary btn-sm"
+                        style={{ fontSize: '0.75rem', padding: '5px 8px' }}
+                        title="Copy Backup ID"
+                      >
+                        <Copy size={13} />
+                      </button>
+
+                      <button
+                        onClick={() => handleDeleteBackup(b.backupId)}
+                        className="btn btn-secondary btn-sm"
+                        style={{ fontSize: '0.75rem', padding: '5px 8px', color: 'var(--accent-rose)' }}
+                        title="Delete Backup"
+                      >
+                        <Trash2 size={13} />
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -1318,9 +1750,9 @@ export const DevOpsView: React.FC<DevOpsViewProps> = ({ activeProject, onLog, on
                 <label className="input-label">Text Search</label>
                 <input type="text" placeholder="Search any field..." value={querySearch} onChange={e => setQuerySearch(e.target.value)} className="input" />
               </div>
-              <button onClick={handleRunQuery} className="btn btn-primary btn-sm" style={{ marginTop: '22px' }}>
-                <Search size={14} />
-                <span>Fetch Records</span>
+              <button onClick={handleRunQuery} disabled={isFetchingQuery} className="btn btn-primary btn-sm" style={{ marginTop: '22px', minWidth: '130px' }}>
+                <Search size={14} className={isFetchingQuery ? 'spin' : ''} />
+                <span>{isFetchingQuery ? 'Fetching...' : 'Fetch Records'}</span>
               </button>
             </div>
 
@@ -1367,34 +1799,124 @@ export const DevOpsView: React.FC<DevOpsViewProps> = ({ activeProject, onLog, on
           {/* Results Table */}
           {queryResults && (
             <div className="card">
-              <div className="card-header">
-                <div className="card-title">
-                  <span>Results for <code>{queryResults.dataType}</code> ({queryResults.records.length} of {queryResults.total} records)</span>
+              <div className="card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                  <div className="card-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <Database size={16} color="var(--primary)" />
+                    <span>Results for <code>{queryResults.dataType}</code> ({queryResults.records.length} of {queryResults.total} records)</span>
+                  </div>
+                  <div className="card-subtitle" style={{ fontSize: '0.75rem', marginTop: '2px', color: 'var(--text-muted)' }}>
+                    Endpoint: <code>/api/1.1/obj/{queryResults.dataType.toLowerCase()}</code> • Environment: <code>{activeProject?.environment || 'version-test'}</code>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button
+                    onClick={() => setSubTab('data_grid')}
+                    className="btn btn-secondary btn-sm"
+                    style={{ fontSize: '0.75rem' }}
+                  >
+                    <Table size={13} />
+                    <span>Open Full Data Grid</span>
+                  </button>
                 </div>
               </div>
 
-              <div style={{ overflowX: 'auto' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.825rem' }}>
-                  <thead>
-                    <tr style={{ borderBottom: '1px solid var(--border-subtle)', textAlign: 'left', color: 'var(--text-muted)' }}>
-                      {queryResults.records.length > 0 && Object.keys(queryResults.records[0]).map(k => (
-                        <th key={k} style={{ padding: '8px 12px', fontWeight: 600 }}>{k}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {queryResults.records.map((row, idx) => (
-                      <tr key={idx} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-                        {Object.values(row).map((val: any, vIdx) => (
-                          <td key={vIdx} style={{ padding: '8px 12px' }}>
-                            {typeof val === 'object' ? JSON.stringify(val) : String(val)}
-                          </td>
+              {queryResults.records.length === 0 ? (
+                <div style={{
+                  padding: '28px 20px',
+                  textAlign: 'center',
+                  background: 'var(--bg-input)',
+                  borderRadius: 'var(--radius-md)',
+                  border: '1px solid var(--border-subtle)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  gap: '14px',
+                  margin: '12px 0'
+                }}>
+                  <div style={{
+                    width: '42px',
+                    height: '42px',
+                    borderRadius: '50%',
+                    background: 'rgba(99, 102, 241, 0.12)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: 'var(--primary)'
+                  }}>
+                    <Database size={20} />
+                  </div>
+
+                  <div>
+                    <h4 style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 6px' }}>
+                      No live database records returned for "{queryResults.dataType}"
+                    </h4>
+                    <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', maxWidth: '540px', margin: '0 auto', lineHeight: 1.5 }}>
+                      The Bubble Data API queried this endpoint successfully, but returned 0 rows. This means the table is either empty or reading is restricted by Bubble privacy rules.
+                    </p>
+                  </div>
+
+                  <div style={{
+                    padding: '12px 16px',
+                    borderRadius: 'var(--radius-sm)',
+                    background: 'rgba(0, 0, 0, 0.25)',
+                    fontSize: '0.75rem',
+                    color: 'var(--text-muted)',
+                    textAlign: 'left',
+                    maxWidth: '560px',
+                    width: '100%',
+                    lineHeight: 1.6,
+                    border: '1px solid var(--border-subtle)'
+                  }}>
+                    <div style={{ fontWeight: 600, color: 'var(--text-primary)', marginBottom: '4px' }}>⚡ Checklist for Bubble Data API:</div>
+                    <div>1. Open <strong>Bubble Editor</strong> ➔ <strong>Settings (⚙️)</strong> ➔ <strong>API</strong> tab.</div>
+                    <div>2. Under <strong>"Data API"</strong>, verify that <strong>"{queryResults.dataType}"</strong> is checked.</div>
+                    <div>3. Check <strong>Data</strong> ➔ <strong>Privacy</strong> tab to verify your API token role can find and view fields.</div>
+                  </div>
+
+                  <div style={{ display: 'flex', gap: '10px', marginTop: '4px' }}>
+                    <button
+                      onClick={() => setSubTab('seeder')}
+                      className="btn btn-secondary btn-sm"
+                    >
+                      <Sparkles size={13} />
+                      <span>Seed Sample Records</span>
+                    </button>
+                    <button
+                      onClick={handleRunQuery}
+                      disabled={isFetchingQuery}
+                      className="btn btn-primary btn-sm"
+                    >
+                      <RefreshCw size={13} className={isFetchingQuery ? 'spin' : ''} />
+                      <span>Re-query Live Data</span>
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div style={{ overflowX: 'auto' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.825rem' }}>
+                    <thead>
+                      <tr style={{ borderBottom: '1px solid var(--border-subtle)', textAlign: 'left', color: 'var(--text-muted)' }}>
+                        {Object.keys(queryResults.records[0]).map(k => (
+                          <th key={k} style={{ padding: '8px 12px', fontWeight: 600 }}>{k}</th>
                         ))}
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                    </thead>
+                    <tbody>
+                      {queryResults.records.map((row, idx) => (
+                        <tr key={idx} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+                          {Object.values(row).map((val: any, vIdx) => (
+                            <td key={vIdx} style={{ padding: '8px 12px' }}>
+                              {typeof val === 'object' ? JSON.stringify(val) : String(val)}
+                            </td>
+                          ))}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -1403,29 +1925,90 @@ export const DevOpsView: React.FC<DevOpsViewProps> = ({ activeProject, onLog, on
       {/* SUBTAB 7: RELATIONAL SEEDER */}
       {subTab === 'seeder' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          {/* Relational Syntax & Rules Guide Card */}
+          <div className="card" style={{ background: 'rgba(99, 102, 241, 0.04)', border: '1px solid rgba(99, 102, 241, 0.2)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+              <Sparkles size={16} color="var(--primary)" />
+              <span style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--text-primary)' }}>
+                How Relational Seeding & Foreign Key Aliases Work
+              </span>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '12px', fontSize: '0.775rem', color: 'var(--text-secondary)', lineHeight: 1.45 }}>
+              <div style={{ background: 'var(--bg-input)', padding: '10px 12px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)' }}>
+                <strong style={{ color: 'var(--accent-cyan)', display: 'block', marginBottom: '3px' }}>1. Define Aliases (<code>_ref</code>)</strong>
+                Assign a unique alias to any parent record (e.g. <code>"_ref": "@user_admin"</code>).
+              </div>
+              <div style={{ background: 'var(--bg-input)', padding: '10px 12px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)' }}>
+                <strong style={{ color: 'var(--accent-emerald)', display: 'block', marginBottom: '3px' }}>2. Link in Child Tables</strong>
+                Reference the alias in any field (e.g. <code>"owner": "@user_admin"</code> or <code>"members": ["@user_admin"]</code>).
+              </div>
+              <div style={{ background: 'var(--bg-input)', padding: '10px 12px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)' }}>
+                <strong style={{ color: 'var(--accent-indigo)', display: 'block', marginBottom: '3px' }}>3. Auto DAG Resolution</strong>
+                The engine topologically sorts dependencies, inserts parents first, and replaces <code>@alias</code> with real Bubble IDs.
+              </div>
+              <div style={{ background: 'var(--bg-input)', padding: '10px 12px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)' }}>
+                <strong style={{ color: 'var(--accent-amber)', display: 'block', marginBottom: '3px' }}>4. 2-Pass Circular Handling</strong>
+                Circular relationships are automatically deferred and resolved via a 2nd-pass <code>PATCH</code> request.
+              </div>
+            </div>
+          </div>
+
           <div className="card">
-            <div className="card-header">
+            <div className="card-header" style={{ flexWrap: 'wrap', gap: '10px' }}>
               <div>
                 <div className="card-title">
                   <Share2 size={18} color="var(--accent-cyan)" />
-                  <span>Relational Data Seeder & DAG Resolver</span>
+                  <span>Relational Seed JSON Editor</span>
                 </div>
-                <div className="card-subtitle">Seed interconnected Bubble datasets in a single execution using <code>_ref</code> and <code>@alias</code> references</div>
+                <div className="card-subtitle">Edit multi-table relational dataset or load pre-built templates</div>
               </div>
-              <div style={{ display: 'flex', gap: '8px' }}>
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                <button onClick={handleGenerateSchemaTemplate} className="btn btn-secondary btn-sm" title="Generate seed structure from active project schema">
+                  <Sparkles size={12} />
+                  <span>Schema Template</span>
+                </button>
+                <button onClick={handleLoadRelationalExample} className="btn btn-secondary btn-sm" title="Load sample multi-table example with linked users, companies and projects">
+                  <FileSpreadsheet size={12} />
+                  <span>Sample Example</span>
+                </button>
+                <button onClick={() => handleCopy(seedDataJson, 'Relational Seed JSON')} className="btn btn-secondary btn-sm" title="Copy JSON">
+                  <Copy size={12} />
+                </button>
                 <button onClick={handleParseSeedPlan} className="btn btn-secondary btn-sm">
                   <Play size={13} />
                   <span>Validate & Plan DAG</span>
                 </button>
                 <button onClick={handleExecuteSeed} disabled={!seedPlan || isSeeding} className="btn btn-primary btn-sm">
-                  <Upload size={13} />
-                  <span>{isSeeding ? 'Seeding...' : 'Execute Seed'}</span>
+                  <Upload size={13} className={isSeeding ? 'spin' : ''} />
+                  <span>{isSeeding ? 'Seeding...' : 'Execute Live Seed'}</span>
                 </button>
               </div>
             </div>
 
+            {/* Validation Feedback Banner */}
+            {seedValidation && (
+              <div style={{
+                marginBottom: '12px',
+                padding: '10px 14px',
+                borderRadius: 'var(--radius-sm)',
+                background: seedValidation.valid ? 'rgba(16, 185, 129, 0.08)' : 'rgba(244, 63, 94, 0.08)',
+                border: `1px solid ${seedValidation.valid ? 'rgba(16, 185, 129, 0.3)' : 'rgba(244, 63, 94, 0.3)'}`,
+                fontSize: '0.775rem'
+              }}>
+                <div style={{ fontWeight: 700, color: seedValidation.valid ? 'var(--accent-emerald)' : 'var(--accent-rose)', marginBottom: '4px' }}>
+                  {seedValidation.valid ? '✓ Preflight Schema Check Passed' : '⚠ Schema Validation Issues Detected'}
+                </div>
+                {seedValidation.errors.map((err, i) => (
+                  <div key={i} style={{ color: 'var(--accent-rose)', marginLeft: '8px' }}>• {err}</div>
+                ))}
+                {seedValidation.warnings.map((warn, i) => (
+                  <div key={i} style={{ color: 'var(--accent-amber)', marginLeft: '8px' }}>• {warn}</div>
+                ))}
+              </div>
+            )}
+
             <textarea
-              rows={12}
+              rows={14}
               value={seedDataJson}
               onChange={e => setSeedDataJson(e.target.value)}
               className="input"
