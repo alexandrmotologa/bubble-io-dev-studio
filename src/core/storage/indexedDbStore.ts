@@ -5,9 +5,10 @@
  */
 
 const DB_NAME = 'BubbleDevStudioDB';
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 
 export const DB_STORES = {
+  SETTINGS: 'settings',
   BLUEPRINTS: 'blueprints',
   TRANSLATIONS: 'translations',
   BACKUPS: 'backups',
@@ -32,6 +33,11 @@ export class IndexedDbStore {
       request.onupgradeneeded = (event: IDBVersionChangeEvent) => {
         const db = (event.target as IDBOpenDBRequest).result;
         
+        // 0. Settings & Project Profiles Store
+        if (!db.objectStoreNames.contains(DB_STORES.SETTINGS)) {
+          db.createObjectStore(DB_STORES.SETTINGS, { keyPath: 'key' });
+        }
+
         // 1. Blueprints Store
         if (!db.objectStoreNames.contains(DB_STORES.BLUEPRINTS)) {
           db.createObjectStore(DB_STORES.BLUEPRINTS, { keyPath: 'projectId' });
@@ -249,6 +255,42 @@ export class IndexedDbStore {
     } catch (e) {
       console.warn('IndexedDB getAllBackups failed:', e);
       return [];
+    }
+  }
+
+  /* =========================================================================
+   * 4. Global Settings & Project Profiles
+   * ========================================================================= */
+  public static async setGlobalSettings(settings: any): Promise<void> {
+    try {
+      const db = await this.getDB();
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction(DB_STORES.SETTINGS, 'readwrite');
+        const store = tx.objectStore(DB_STORES.SETTINGS);
+        const req = store.put({ key: 'global_settings', settings, updatedAt: Date.now() });
+
+        req.onsuccess = () => resolve();
+        req.onerror = () => reject(req.error);
+      });
+    } catch (e) {
+      console.warn('IndexedDB setGlobalSettings failed:', e);
+    }
+  }
+
+  public static async getGlobalSettings(): Promise<any | null> {
+    try {
+      const db = await this.getDB();
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction(DB_STORES.SETTINGS, 'readonly');
+        const store = tx.objectStore(DB_STORES.SETTINGS);
+        const req = store.get('global_settings');
+
+        req.onsuccess = () => resolve(req.result ? req.result.settings : null);
+        req.onerror = () => reject(req.error);
+      });
+    } catch (e) {
+      console.warn('IndexedDB getGlobalSettings failed:', e);
+      return null;
     }
   }
 }

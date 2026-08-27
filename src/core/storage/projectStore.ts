@@ -62,10 +62,24 @@ export class ProjectStore {
   }
 
   /**
-   * Asynchronously hydrates full blueprint ASTs from IndexedDB into memory
+   * Asynchronously hydrates all settings, profiles, and full blueprint ASTs from IndexedDB into memory
    */
   public async hydrateAsync(): Promise<GlobalSettings> {
     try {
+      // 1. Hydrate full global settings from IndexedDB if available
+      const dbSettings = await IndexedDbStore.getGlobalSettings();
+      if (dbSettings && typeof dbSettings === 'object') {
+        this.settings = {
+          ...DEFAULT_SETTINGS,
+          ...this.settings,
+          ...dbSettings,
+          projects: dbSettings.projects && dbSettings.projects.length > 0 
+            ? dbSettings.projects 
+            : this.settings.projects
+        };
+      }
+
+      // 2. Hydrate heavy blueprint ASTs
       const blueprints = await IndexedDbStore.getAllBlueprints();
       let updated = false;
 
@@ -77,11 +91,9 @@ export class ProjectStore {
       }
 
       this.isHydrated = true;
-      if (updated) {
-        this.notify();
-      }
+      this.notify();
     } catch (e) {
-      console.warn('Could not hydrate blueprints from IndexedDB:', e);
+      console.warn('Could not hydrate settings and blueprints from IndexedDB:', e);
     }
     return this.settings;
   }
@@ -89,7 +101,12 @@ export class ProjectStore {
   public save(settings: GlobalSettings): void {
     this.settings = settings;
 
-    // 1. Persist full blueprint JSONs into IndexedDB (supports 100s of MBs)
+    // 1. Persist 100% full settings into IndexedDB (completely safe from 5MB quota)
+    IndexedDbStore.setGlobalSettings(settings).catch(err => {
+      console.warn('Failed to save settings in IndexedDB:', err);
+    });
+
+    // 2. Persist full blueprint JSONs into IndexedDB (supports 100s of MBs)
     for (const project of settings.projects) {
       if (project.blueprintExportJson) {
         IndexedDbStore.setBlueprint(project.id, project.blueprintExportJson).catch(err => {
@@ -98,7 +115,7 @@ export class ProjectStore {
       }
     }
 
-    // 2. Prepare lightweight settings for localStorage (omit massive raw blueprints if large)
+    // 3. Prepare lightweight settings for localStorage as immediate synchronous cache
     const safeSettings: GlobalSettings = {
       ...settings,
       projects: settings.projects.map(p => {
