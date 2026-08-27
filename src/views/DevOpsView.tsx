@@ -24,7 +24,8 @@ import {
   ChevronDown,
   ChevronRight,
   ChevronsDownUp,
-  ChevronsUpDown
+  ChevronsUpDown,
+  GitBranch
 } from 'lucide-react';
 import { 
   BackupResult, 
@@ -50,6 +51,10 @@ import { TemplateScaffolderEngine } from '../core/devops/templateScaffolder';
 import { MockServerEngine } from '../core/devops/mockServer';
 import { EnvSyncEngine } from '../core/env-sync/envSyncEngine';
 import { ProjectStore } from '../core/storage/projectStore';
+import { DataGridTable } from '../components/DataGridTable';
+import { WorkflowFlowchart } from '../components/WorkflowFlowchart';
+import { DatabaseSnapshotManager } from '../components/DatabaseSnapshotManager';
+import { History } from 'lucide-react';
 
 interface DevOpsViewProps {
   activeProject?: ProjectProfile;
@@ -58,8 +63,11 @@ interface DevOpsViewProps {
 }
 
 type DevOpsSubTab = 
+  | 'data_grid'
   | 'schema'
   | 'erd'
+  | 'workflow_flowchart'
+  | 'snapshots'
   | 'types'
   | 'migrations'
   | 'env_sync'
@@ -596,6 +604,10 @@ export const DevOpsView: React.FC<DevOpsViewProps> = ({ activeProject, onLog, on
       {/* Sub Navigation Bar with 12 Developer Operations */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
         <div style={{ display: 'flex', gap: '6px', background: 'var(--bg-input)', padding: '4px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-subtle)', flexWrap: 'wrap' }}>
+          <button onClick={() => setSubTab('data_grid')} className={`btn btn-sm ${subTab === 'data_grid' ? 'btn-primary' : 'btn-secondary'}`} style={{ border: 'none' }}>
+            <Database size={13} />
+            <span>Interactive Data Studio</span>
+          </button>
           <button onClick={() => setSubTab('schema')} className={`btn btn-sm ${subTab === 'schema' ? 'btn-primary' : 'btn-secondary'}`} style={{ border: 'none' }}>
             <Table size={13} />
             <span>Schema</span>
@@ -603,6 +615,14 @@ export const DevOpsView: React.FC<DevOpsViewProps> = ({ activeProject, onLog, on
           <button onClick={() => setSubTab('erd')} className={`btn btn-sm ${subTab === 'erd' ? 'btn-primary' : 'btn-secondary'}`} style={{ border: 'none' }}>
             <Layers size={13} />
             <span>ERD Graph</span>
+          </button>
+          <button onClick={() => setSubTab('workflow_flowchart')} className={`btn btn-sm ${subTab === 'workflow_flowchart' ? 'btn-primary' : 'btn-secondary'}`} style={{ border: 'none' }}>
+            <GitBranch size={13} />
+            <span>Workflow Flowchart</span>
+          </button>
+          <button onClick={() => setSubTab('snapshots')} className={`btn btn-sm ${subTab === 'snapshots' ? 'btn-primary' : 'btn-secondary'}`} style={{ border: 'none' }}>
+            <History size={13} />
+            <span>Snapshots & Rollback</span>
           </button>
           <button onClick={() => setSubTab('types')} className={`btn btn-sm ${subTab === 'types' ? 'btn-primary' : 'btn-secondary'}`} style={{ border: 'none' }}>
             <Code size={13} />
@@ -669,6 +689,32 @@ export const DevOpsView: React.FC<DevOpsViewProps> = ({ activeProject, onLog, on
             <div style={{ width: `${backupProgress}%`, height: '100%', background: 'linear-gradient(90deg, #6366f1, #06b6d4)', transition: 'width 0.3s ease' }} />
           </div>
         </div>
+      )}
+
+      {/* SUBTAB 0: INTERACTIVE DATA STUDIO */}
+      {subTab === 'data_grid' && (
+        <DataGridTable 
+          project={activeProject} 
+          dataTypes={schema?.dataTypes || []} 
+          onLog={onLog} 
+        />
+      )}
+
+      {/* SUBTAB: WORKFLOW FLOWCHART */}
+      {subTab === 'workflow_flowchart' && (
+        <WorkflowFlowchart 
+          blueprintExportJson={activeProject.blueprintExportJson} 
+          onLog={onLog} 
+        />
+      )}
+
+      {/* SUBTAB: DATABASE SNAPSHOTS & ROLLBACK */}
+      {subTab === 'snapshots' && (
+        <DatabaseSnapshotManager 
+          project={activeProject} 
+          dataTypes={schema?.dataTypes || []} 
+          onLog={onLog} 
+        />
       )}
 
       {/* SUBTAB 1: SCHEMA EXPLORER */}

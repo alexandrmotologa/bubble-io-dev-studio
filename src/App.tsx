@@ -17,6 +17,7 @@ import { ApiStudioView } from './views/ApiStudioView';
 import { TranslatorView } from './views/TranslatorView';
 import { VisualTesterView } from './views/VisualTesterView';
 import { SettingsView } from './views/SettingsView';
+import { DocGenView } from './views/DocGenView';
 import { AiCopilotModal } from './components/AiCopilotModal';
 import { DevOpsEngine } from './core/devops/devopsEngine';
 import { AuditEngine } from './core/audit/auditEngine';
@@ -317,6 +318,13 @@ export const App: React.FC = () => {
               <VisualTesterView
                 onLog={addLog}
                 activeProject={activeProject}
+              />
+            )}
+
+            {currentTab === 'doc-gen' && (
+              <DocGenView
+                activeProject={activeProject}
+                onLog={addLog}
               />
             )}
 

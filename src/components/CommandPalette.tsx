@@ -144,6 +144,15 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
       badge: currentTab === 'api-studio' ? 'Active' : undefined
     },
     {
+      id: 'nav-doc-gen',
+      title: 'Go to 1-Click Developer Documentation Book',
+      subtitle: 'Data Dictionary, ERD, Security matrix, API catalog & export',
+      category: 'Navigation',
+      icon: <Layers size={16} color="var(--primary)" />,
+      action: () => { onTabChange('doc-gen'); onClose(); },
+      badge: currentTab === 'doc-gen' ? 'Active' : undefined
+    },
+    {
       id: 'nav-translator',
       title: 'Go to AI Localization Studio',
       subtitle: '77+ languages, multi-batch translation, matrix view',

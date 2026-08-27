@@ -5,14 +5,16 @@
  */
 
 const DB_NAME = 'BubbleDevStudioDB';
-const DB_VERSION = 3;
+const DB_VERSION = 4;
 
 export const DB_STORES = {
   SETTINGS: 'settings',
   BLUEPRINTS: 'blueprints',
   TRANSLATIONS: 'translations',
   BACKUPS: 'backups',
-  VISUAL_BASELINES: 'visual_baselines'
+  VISUAL_BASELINES: 'visual_baselines',
+  SNAPSHOTS: 'snapshots',
+  DOC_BOOKS: 'doc_books'
 } as const;
 
 export type DbStoreName = typeof DB_STORES[keyof typeof DB_STORES];
@@ -56,6 +58,16 @@ export class IndexedDbStore {
         // 4. Visual Test Baselines & Screenshots Store
         if (!db.objectStoreNames.contains(DB_STORES.VISUAL_BASELINES)) {
           db.createObjectStore(DB_STORES.VISUAL_BASELINES, { keyPath: 'caseId' });
+        }
+
+        // 5. Database Snapshots & Sandbox Store
+        if (!db.objectStoreNames.contains(DB_STORES.SNAPSHOTS)) {
+          db.createObjectStore(DB_STORES.SNAPSHOTS, { keyPath: 'id' });
+        }
+
+        // 6. Developer Documentation Books Store
+        if (!db.objectStoreNames.contains(DB_STORES.DOC_BOOKS)) {
+          db.createObjectStore(DB_STORES.DOC_BOOKS, { keyPath: 'appName' });
         }
       };
 
@@ -291,6 +303,58 @@ export class IndexedDbStore {
     } catch (e) {
       console.warn('IndexedDB getGlobalSettings failed:', e);
       return null;
+    }
+  }
+
+  /* =========================================================================
+   * 5. Generic Store Operations
+   * ========================================================================= */
+  public static async put(storeName: DbStoreName, item: any): Promise<void> {
+    try {
+      const db = await this.getDB();
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction(storeName, 'readwrite');
+        const store = tx.objectStore(storeName);
+        const req = store.put(item);
+
+        req.onsuccess = () => resolve();
+        req.onerror = () => reject(req.error);
+      });
+    } catch (e) {
+      console.warn(`IndexedDB put to ${storeName} failed:`, e);
+    }
+  }
+
+  public static async getAll<T = any>(storeName: DbStoreName): Promise<T[]> {
+    try {
+      const db = await this.getDB();
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction(storeName, 'readonly');
+        const store = tx.objectStore(storeName);
+        const req = store.getAll();
+
+        req.onsuccess = () => resolve(Array.isArray(req.result) ? (req.result as T[]) : []);
+        req.onerror = () => reject(req.error);
+      });
+    } catch (e) {
+      console.warn(`IndexedDB getAll from ${storeName} failed:`, e);
+      return [];
+    }
+  }
+
+  public static async delete(storeName: DbStoreName, key: IDBValidKey): Promise<void> {
+    try {
+      const db = await this.getDB();
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction(storeName, 'readwrite');
+        const store = tx.objectStore(storeName);
+        const req = store.delete(key);
+
+        req.onsuccess = () => resolve();
+        req.onerror = () => reject(req.error);
+      });
+    } catch (e) {
+      console.warn(`IndexedDB delete from ${storeName} failed:`, e);
     }
   }
 }

@@ -9,6 +9,7 @@ export type NavigationTab =
   | 'security'
   | 'wu-profiler'
   | 'api-studio'
+  | 'doc-gen'
   | 'settings';
 
 export interface ProjectProfile {
@@ -615,4 +616,199 @@ export interface CopilotRegexResponse {
   explanation: string;
   matchesSample: boolean;
   matchedValues: string[];
+}
+
+// ============================================================================
+// 10. DATA GRID & LIVE CRUD TYPES
+// ============================================================================
+
+export interface DataGridColumn {
+  key: string;
+  label: string;
+  type: string;
+  required?: boolean;
+  isList?: boolean;
+  width?: number;
+}
+
+export interface DataGridFilter {
+  id: string;
+  field: string;
+  operator: 'equals' | 'not equal' | 'text contains' | 'greater than' | 'less than' | 'is_empty' | 'is_not_empty';
+  value: any;
+}
+
+export interface DataGridSort {
+  field: string;
+  direction: 'asc' | 'desc';
+}
+
+export interface DataGridRecord {
+  _id: string;
+  'Created Date'?: string;
+  'Modified Date'?: string;
+  'Created By'?: string;
+  [key: string]: any;
+}
+
+export interface DataGridMutationResult {
+  success: boolean;
+  recordId?: string;
+  message?: string;
+  data?: any;
+}
+
+// ============================================================================
+// 11. WORKFLOW FLOWCHART & LOGIC VISUALIZER TYPES
+// ============================================================================
+
+export type WorkflowNodeType = 
+  | 'trigger'
+  | 'condition'
+  | 'db_write'
+  | 'api_call'
+  | 'email'
+  | 'custom_event'
+  | 'navigation'
+  | 'plugin_action'
+  | 'misc';
+
+export interface WorkflowNode {
+  id: string;
+  type: WorkflowNodeType;
+  label: string;
+  sublabel?: string;
+  condition?: string;
+  actionIndex?: number;
+  details?: Record<string, any>;
+  isBlockingClient?: boolean;
+}
+
+export interface WorkflowEdge {
+  id: string;
+  from: string;
+  to: string;
+  label?: string;
+  isConditional?: boolean;
+}
+
+export interface WorkflowGraphData {
+  workflowId: string;
+  workflowName: string;
+  pageName: string;
+  eventType: string;
+  nodes: WorkflowNode[];
+  edges: WorkflowEdge[];
+  optimizationAdvice: string[];
+}
+
+// ============================================================================
+// 12. PLUGIN STUDIO & SDK GENERATOR TYPES
+// ============================================================================
+
+export interface PluginParameterDef {
+  name: string;
+  type: 'text' | 'number' | 'boolean' | 'date' | 'object' | 'list_text' | 'list_number';
+  required: boolean;
+  description?: string;
+  sampleValue?: any;
+}
+
+export interface PluginSdkActionConfig {
+  actionName: string;
+  actionType: 'server_side' | 'client_side';
+  description: string;
+  apiUrl?: string;
+  httpMethod?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
+  headers?: Record<string, string>;
+  parameters: PluginParameterDef[];
+  returnsValue: boolean;
+  returnFields?: PluginParameterDef[];
+}
+
+export interface PluginGeneratedSdk {
+  serverSideCode: string;
+  clientSideCode: string;
+  typeScriptInterfaces: string;
+  packageJsonSnippet: string;
+}
+
+// ============================================================================
+// 13. DEVELOPER DOCUMENTATION BOOK (DOCGEN) TYPES
+// ============================================================================
+
+export interface DocSection {
+  id: string;
+  title: string;
+  icon: string;
+  category: 'overview' | 'database' | 'security' | 'api' | 'workflows' | 'localization' | 'quality';
+  markdownContent: string;
+  badge?: string;
+}
+
+export interface DocBookProject {
+  title: string;
+  generatedAt: string;
+  appName: string;
+  version: string;
+  author?: string;
+  sections: DocSection[];
+  stats: {
+    dataTypesCount: number;
+    fieldsCount: number;
+    workflowsCount: number;
+    privacyRulesCount: number;
+    endpointsCount: number;
+    languagesCount: number;
+  };
+}
+
+// ============================================================================
+// 14. DATABASE SNAPSHOT & ROLLBACK TYPES
+// ============================================================================
+
+export interface DatabaseSnapshot {
+  id: string;
+  name: string;
+  description?: string;
+  appName: string;
+  environment: string;
+  createdAt: string;
+  dataType: string;
+  recordCount: number;
+  records: DataGridRecord[];
+}
+
+export interface SnapshotFieldDiff {
+  field: string;
+  oldValue: any;
+  newValue: any;
+}
+
+export interface SnapshotRecordDiff {
+  recordId: string;
+  diffType: 'added' | 'modified' | 'deleted';
+  fieldDiffs?: SnapshotFieldDiff[];
+  recordData: DataGridRecord;
+}
+
+export interface SnapshotComparisonReport {
+  baselineSnapshotId: string;
+  targetSnapshotId: string;
+  dataType: string;
+  addedCount: number;
+  modifiedCount: number;
+  deletedCount: number;
+  unchangedCount: number;
+  recordDiffs: SnapshotRecordDiff[];
+}
+
+export interface RollbackExecutionResult {
+  success: boolean;
+  totalCompensations: number;
+  recreatedRecords: number;
+  restoredFields: number;
+  purgedNewRecords: number;
+  failedCount: number;
+  logs: string[];
 }

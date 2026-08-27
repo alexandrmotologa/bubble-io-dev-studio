@@ -1,4 +1,3 @@
-import React from 'react';
 import { 
   LayoutDashboard, 
   Database, 
@@ -10,7 +9,8 @@ import {
   Plus,
   ShieldAlert,
   Zap,
-  Radio
+  Radio,
+  BookOpen
 } from 'lucide-react';
 import { NavigationTab, ProjectProfile } from '../types';
 import { ProjectDropdown } from './ProjectDropdown';
@@ -41,6 +41,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     { id: 'wu-profiler', label: 'WU & Performance', icon: Zap, badge: 'Cost' },
     { id: 'audit', label: 'Dead Code & Health', icon: Stethoscope, badge: 'Audit' },
     { id: 'api-studio', label: 'Webhooks & API', icon: Radio, badge: 'Live' },
+    { id: 'doc-gen', label: 'DocGen Book', icon: BookOpen, badge: 'Docs' },
     { id: 'translator', label: 'AI Localization', icon: Languages, badge: 'AI' },
     { id: 'visual-tester', label: 'Visual QA Suite', icon: Camera, badge: 'Visual' },
     { id: 'settings', label: 'Settings & Keys', icon: Settings, badge: null }

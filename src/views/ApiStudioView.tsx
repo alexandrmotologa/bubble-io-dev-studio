@@ -16,13 +16,14 @@ import {
 } from 'lucide-react';
 import { ApiConnectorCallConfig, OpenApiImportResult, ProjectProfile, WebhookLogEntry } from '../types';
 import { ApiStudioEngine } from '../core/api-studio/apiStudioEngine';
+import { PluginSdkGenerator } from '../components/PluginSdkGenerator';
 
 interface ApiStudioViewProps {
   activeProject?: ProjectProfile;
   onLog: (module: 'api-studio', message: string, level?: 'info' | 'success' | 'warn' | 'error') => void;
 }
 
-type ApiStudioSubTab = 'webhooks' | 'curl_import' | 'openapi' | 'connector';
+type ApiStudioSubTab = 'webhooks' | 'curl_import' | 'openapi' | 'connector' | 'plugin_sdk';
 
 export const ApiStudioView: React.FC<ApiStudioViewProps> = ({ activeProject, onLog }) => {
   const [subTab, setSubTab] = useState<ApiStudioSubTab>('webhooks');
@@ -124,6 +125,10 @@ export const ApiStudioView: React.FC<ApiStudioViewProps> = ({ activeProject, onL
         <button onClick={() => setSubTab('curl_import')} className={`btn btn-sm ${subTab === 'curl_import' ? 'btn-primary' : 'btn-secondary'}`} style={{ border: 'none' }}>
           <Code2 size={13} />
           <span>cURL ➔ Bubble Connector</span>
+        </button>
+        <button onClick={() => setSubTab('plugin_sdk')} className={`btn btn-sm ${subTab === 'plugin_sdk' ? 'btn-primary' : 'btn-secondary'}`} style={{ border: 'none' }}>
+          <Sparkles size={13} />
+          <span>Plugin Action SDK Builder</span>
         </button>
       </div>
 
@@ -323,6 +328,11 @@ export const ApiStudioView: React.FC<ApiStudioViewProps> = ({ activeProject, onL
             </div>
           )}
         </div>
+      )}
+
+      {/* SUBTAB 3: PLUGIN ACTION SDK BUILDER */}
+      {subTab === 'plugin_sdk' && (
+        <PluginSdkGenerator onLog={onLog} />
       )}
     </div>
   );
