@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   Database, 
   Plus, 
@@ -38,64 +38,43 @@ import { toast } from '../core/toast/toastManager';
  */
 export function resolveRecordValue(record: Record<string, any>, fieldKey: string): any {
   if (!record || typeof record !== 'object') return undefined;
-
-  // 1. Direct exact match
   if (record[fieldKey] !== undefined) return record[fieldKey];
 
-  // 2. Case-insensitive exact match
   const lowerKey = fieldKey.toLowerCase();
-  const foundExactKey = Object.keys(record).find(k => k.toLowerCase() === lowerKey);
-  if (foundExactKey && record[foundExactKey] !== undefined) return record[foundExactKey];
+  const foundExact = Object.keys(record).find(k => k.toLowerCase() === lowerKey);
+  if (foundExact !== undefined) return record[foundExact];
 
-  // 3. Strip type suffixes (e.g. "Pid text" -> "Pid", "Status text" -> "Status", "Wallet text" -> "Wallet", "Avatar image" -> "Avatar", "Coins number" -> "Coins", "Pk temp text" -> "Pk temp")
   const strippedKey = fieldKey.replace(/\s+(text|number|date|boolean|image|file|geo|user|list|custom)$/i, '').trim();
-  if (record[strippedKey] !== undefined) return record[strippedKey];
+  if (strippedKey && record[strippedKey] !== undefined) return record[strippedKey];
 
   const foundStripped = Object.keys(record).find(k => k.toLowerCase() === strippedKey.toLowerCase());
-  if (foundStripped && record[foundStripped] !== undefined) return record[foundStripped];
+  if (foundStripped !== undefined) return record[foundStripped];
 
-  // 4. Underscore variations (e.g. "Pid text" -> "pid_text", "pid", "pk_temp")
-  const snakeKey = fieldKey.toLowerCase().replace(/\s+/g, '_');
-  if (record[snakeKey] !== undefined) return record[snakeKey];
-
-  const strippedSnake = strippedKey.toLowerCase().replace(/\s+/g, '_');
-  if (record[strippedSnake] !== undefined) return record[strippedSnake];
-
-  // 5. Alphanumeric match (ignoring all spaces/underscores/special characters)
   const targetAlpha = fieldKey.toLowerCase().replace(/[^a-z0-9]/g, '');
   const strippedAlpha = strippedKey.toLowerCase().replace(/[^a-z0-9]/g, '');
-  for (const [k, v] of Object.entries(record)) {
+  for (const k of Object.keys(record)) {
     const kAlpha = k.toLowerCase().replace(/[^a-z0-9]/g, '');
     if (kAlpha === targetAlpha || kAlpha === strippedAlpha) {
-      if (v !== undefined) return v;
+      return record[k];
     }
   }
 
   return undefined;
 }
 
-/**
- * Finds the actual JSON key in the record corresponding to a schema field name
- */
 export function resolveRealFieldKey(record: Record<string, any>, fieldKey: string): string {
   if (!record || typeof record !== 'object') return fieldKey;
   if (record[fieldKey] !== undefined) return fieldKey;
 
   const lowerKey = fieldKey.toLowerCase();
-  const foundExactKey = Object.keys(record).find(k => k.toLowerCase() === lowerKey);
-  if (foundExactKey) return foundExactKey;
+  const foundExact = Object.keys(record).find(k => k.toLowerCase() === lowerKey);
+  if (foundExact !== undefined) return foundExact;
 
   const strippedKey = fieldKey.replace(/\s+(text|number|date|boolean|image|file|geo|user|list|custom)$/i, '').trim();
-  if (record[strippedKey] !== undefined) return strippedKey;
+  if (strippedKey && record[strippedKey] !== undefined) return strippedKey;
 
   const foundStripped = Object.keys(record).find(k => k.toLowerCase() === strippedKey.toLowerCase());
-  if (foundStripped) return foundStripped;
-
-  const snakeKey = fieldKey.toLowerCase().replace(/\s+/g, '_');
-  if (record[snakeKey] !== undefined) return snakeKey;
-
-  const strippedSnake = strippedKey.toLowerCase().replace(/\s+/g, '_');
-  if (record[strippedSnake] !== undefined) return strippedSnake;
+  if (foundStripped !== undefined) return foundStripped;
 
   const targetAlpha = fieldKey.toLowerCase().replace(/[^a-z0-9]/g, '');
   const strippedAlpha = strippedKey.toLowerCase().replace(/[^a-z0-9]/g, '');
@@ -110,12 +89,12 @@ export function resolveRealFieldKey(record: Record<string, any>, fieldKey: strin
 }
 
 /**
- * Shortens a long 32-char Bubble unique ID into a clean pill format (e.g. 1760040...758000)
+ * Shortens a long 32-char Bubble unique ID into a clean pill format (e.g. 17600401...758000)
  */
 export function formatShortId(id: string): string {
   if (!id) return '';
-  if (id.length <= 15) return id;
-  return `${id.slice(0, 7)}...${id.slice(-6)}`;
+  if (id.length <= 16) return id;
+  return `${id.slice(0, 8)}...${id.slice(-6)}`;
 }
 
 /**
@@ -200,6 +179,39 @@ export const DataGridTable: React.FC<DataGridTableProps> = ({
   const [apiStatus, setApiStatus] = useState<'exposed' | 'not_exposed' | 'unauthorized' | 'not_configured' | 'cors_blocked' | null>(null);
   const [apiMessage, setApiMessage] = useState<string | null>(null);
 
+  // Mouse Click & Drag Pan-to-Scroll State
+  const tableScrollRef = useRef<HTMLDivElement>(null);
+  const [isDraggingScroll, setIsDraggingScroll] = useState(false);
+  const [dragStartX, setDragStartX] = useState(0);
+  const [dragScrollLeft, setDragScrollLeft] = useState(0);
+
+  const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+    const target = e.target as HTMLElement;
+    if (target.closest('input, button, select, a, textarea, [data-interactive]') || target.tagName === 'INPUT' || target.tagName === 'BUTTON') {
+      return;
+    }
+    if (!tableScrollRef.current) return;
+    setIsDraggingScroll(true);
+    setDragStartX(e.pageX - tableScrollRef.current.offsetLeft);
+    setDragScrollLeft(tableScrollRef.current.scrollLeft);
+  };
+
+  const handleMouseLeave = () => {
+    setIsDraggingScroll(false);
+  };
+
+  const handleMouseUp = () => {
+    setIsDraggingScroll(false);
+  };
+
+  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!isDraggingScroll || !tableScrollRef.current) return;
+    e.preventDefault();
+    const x = e.pageX - tableScrollRef.current.offsetLeft;
+    const walk = (x - dragStartX) * 1.5;
+    tableScrollRef.current.scrollLeft = dragScrollLeft - walk;
+  };
+
   useEffect(() => {
     if (dataTypes.length > 0 && !dataTypes.some(d => d.name.toLowerCase() === selectedType.toLowerCase())) {
       setSelectedType(dataTypes[0].name);
@@ -225,8 +237,8 @@ export const DataGridTable: React.FC<DataGridTableProps> = ({
     const colList: DataGridColumn[] = [];
     const addedKeys = new Set<string>();
 
-    // 1. Always start with _id
-    colList.push({ key: '_id', label: 'Unique ID', type: 'id', width: 130 });
+    // 1. Always start with _id (160px width for breathing room)
+    colList.push({ key: '_id', label: 'Unique ID', type: 'id', width: 160 });
     addedKeys.add('_id');
 
     // 2. Add ALL schema fields (e.g. all 105 fields defined in Bubble blueprint)
@@ -745,26 +757,36 @@ export const DataGridTable: React.FC<DataGridTableProps> = ({
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.725rem', color: 'var(--text-muted)', padding: '0 4px' }}>
         <span>Showing <strong>{columns.length}</strong> fields • Double-click any cell to edit</span>
         <span style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--accent-cyan)' }}>
-          <span style={{ background: 'rgba(6, 182, 212, 0.08)', padding: '2px 8px', borderRadius: '4px', border: '1px solid rgba(6, 182, 212, 0.2)' }}>
-            ↔️ Scroll horizontally to view all {columns.length} columns
+          <span style={{ background: 'rgba(6, 182, 212, 0.08)', padding: '2px 10px', borderRadius: '4px', border: '1px solid rgba(6, 182, 212, 0.2)' }}>
+            ↔️ Scroll or Click & Drag to Pan across all {columns.length} columns
           </span>
         </span>
       </div>
 
-      {/* Main Interactive Table Grid with Smooth Horizontal Scroll */}
-      <div style={{
-        background: 'var(--bg-card)',
-        borderRadius: 'var(--radius-md)',
-        border: '1px solid var(--border-subtle)',
-        overflowX: 'auto',
-        overflowY: 'auto',
-        maxHeight: '680px',
-        width: '100%',
-        maxWidth: '100%',
-        minWidth: 0,
-        boxShadow: '0 4px 20px rgba(0,0,0,0.2)',
-        position: 'relative'
-      }}>
+      {/* Main Interactive Table Grid with Smooth Horizontal Scroll & Drag-to-Pan */}
+      <div
+        ref={tableScrollRef}
+        onMouseDown={handleMouseDown}
+        onMouseLeave={handleMouseLeave}
+        onMouseUp={handleMouseUp}
+        onMouseMove={handleMouseMove}
+        className="data-grid-scroll-container"
+        style={{
+          background: 'var(--bg-card)',
+          borderRadius: 'var(--radius-md)',
+          border: '1px solid var(--border-subtle)',
+          overflowX: 'auto',
+          overflowY: 'auto',
+          maxHeight: '680px',
+          width: '100%',
+          maxWidth: '100%',
+          minWidth: 0,
+          boxShadow: '0 4px 20px rgba(0,0,0,0.2)',
+          position: 'relative',
+          cursor: isDraggingScroll ? 'grabbing' : 'default',
+          userSelect: isDraggingScroll ? 'none' : 'auto'
+        }}
+      >
         <table style={{ minWidth: `${Math.max(1200, columns.length * 180)}px`, width: '100%', borderCollapse: 'separate', borderSpacing: 0, fontSize: '0.8rem', textAlign: 'left' }}>
           <thead>
             <tr style={{ background: 'var(--bg-input)' }}>
@@ -803,8 +825,8 @@ export const DataGridTable: React.FC<DataGridTableProps> = ({
                       cursor: isId ? 'default' : 'pointer',
                       userSelect: 'none',
                       whiteSpace: 'nowrap',
-                      width: isId ? '130px' : '180px',
-                      minWidth: isId ? '130px' : '180px',
+                      width: isId ? '160px' : '180px',
+                      minWidth: isId ? '160px' : '180px',
                       position: 'sticky',
                       top: 0,
                       left: isId ? '44px' : undefined,
@@ -902,9 +924,9 @@ export const DataGridTable: React.FC<DataGridTableProps> = ({
                           }}
                           style={{
                             padding: '8px 14px',
-                            width: isId ? '130px' : '180px',
-                            minWidth: isId ? '130px' : '180px',
-                            maxWidth: isId ? '130px' : '340px',
+                            width: isId ? '160px' : '180px',
+                            minWidth: isId ? '160px' : '180px',
+                            maxWidth: isId ? '160px' : '340px',
                             overflow: 'hidden',
                             textOverflow: 'ellipsis',
                             whiteSpace: 'nowrap',
@@ -949,18 +971,18 @@ export const DataGridTable: React.FC<DataGridTableProps> = ({
                                 color: 'var(--accent-cyan)',
                                 cursor: 'pointer',
                                 background: 'rgba(6, 182, 212, 0.08)',
-                                padding: '2px 6px',
-                                borderRadius: '4px',
+                                padding: '3px 8px',
+                                borderRadius: '5px',
                                 border: '1px solid rgba(6, 182, 212, 0.25)',
                                 display: 'inline-flex',
                                 alignItems: 'center',
-                                gap: '4px',
+                                gap: '6px',
                                 whiteSpace: 'nowrap'
                               }}
                               title={`Click to inspect full ID: ${record._id}`}
                             >
                               <span>{formatShortId(record._id)}</span>
-                              <Eye size={10} style={{ opacity: 0.7 }} />
+                              <Eye size={11} style={{ opacity: 0.8 }} />
                             </span>
                           ) : (
                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px' }}>
@@ -1553,9 +1575,8 @@ export const DataGridTable: React.FC<DataGridTableProps> = ({
         const populatedCount = allFieldEntries.filter(f => f.isPopulated).length;
         const totalCount = allFieldEntries.length;
 
-        // Filter based on modalShowAll and modalSearchTerm
+        // Filter based on modalSearchTerm
         const filteredEntries = allFieldEntries.filter(f => {
-          if (!modalShowAll && !f.isPopulated) return false;
           if (!modalSearchTerm) return true;
           const searchNorm = modalSearchTerm.toLowerCase();
           const strVal = formatDisplayValue(f.value).toLowerCase();
@@ -1580,15 +1601,16 @@ export const DataGridTable: React.FC<DataGridTableProps> = ({
             <div className="card" style={{
               width: '100%',
               maxWidth: '850px',
-              maxHeight: '88vh',
+              height: '85vh',
+              maxHeight: '85vh',
               display: 'flex',
               flexDirection: 'column',
-              gap: '14px',
+              gap: '12px',
               boxShadow: '0 20px 40px rgba(0,0,0,0.5)',
               border: '1px solid var(--border-subtle)'
             }}>
               {/* Modal Header */}
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-subtle)', paddingBottom: '12px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-subtle)', paddingBottom: '12px', flexShrink: 0 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                   <Eye size={20} color="var(--accent-cyan)" />
                   <div>
@@ -1636,17 +1658,17 @@ export const DataGridTable: React.FC<DataGridTableProps> = ({
                 </div>
               </div>
 
-              {/* Search & Filter Toolbar */}
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px' }}>
+              {/* Search & Summary Bar */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', flexShrink: 0 }}>
                 <div style={{ position: 'relative', flex: 1 }}>
                   <Search size={13} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
                   <input
                     type="text"
-                    placeholder={`Search among ${totalCount} schema fields...`}
+                    placeholder={`Search among all ${totalCount} fields (e.g. balance, email, wallet, solana)...`}
                     value={modalSearchTerm}
                     onChange={(e) => setModalSearchTerm(e.target.value)}
                     className="input"
-                    style={{ paddingLeft: '30px', height: '32px', fontSize: '0.775rem' }}
+                    style={{ paddingLeft: '30px', height: '34px', fontSize: '0.775rem', width: '100%' }}
                   />
                   {modalSearchTerm && (
                     <button
@@ -1658,133 +1680,119 @@ export const DataGridTable: React.FC<DataGridTableProps> = ({
                   )}
                 </div>
 
-                {/* Toggle Show All vs Populated */}
-                <div style={{ display: 'flex', background: 'var(--bg-input)', borderRadius: 'var(--radius-sm)', padding: '2px', border: '1px solid var(--border-subtle)' }}>
-                  <button
-                    type="button"
-                    onClick={() => setModalShowAll(false)}
-                    style={{
-                      padding: '4px 10px',
-                      fontSize: '0.725rem',
-                      border: 'none',
-                      borderRadius: '4px',
-                      cursor: 'pointer',
-                      background: !modalShowAll ? 'var(--primary)' : 'transparent',
-                      color: !modalShowAll ? '#ffffff' : 'var(--text-secondary)',
-                      fontWeight: !modalShowAll ? 700 : 500
-                    }}
-                  >
-                    Populated ({populatedCount})
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setModalShowAll(true)}
-                    style={{
-                      padding: '4px 10px',
-                      fontSize: '0.725rem',
-                      border: 'none',
-                      borderRadius: '4px',
-                      cursor: 'pointer',
-                      background: modalShowAll ? 'var(--primary)' : 'transparent',
-                      color: modalShowAll ? '#ffffff' : 'var(--text-secondary)',
-                      fontWeight: modalShowAll ? 700 : 500
-                    }}
-                  >
-                    All Schema ({totalCount})
-                  </button>
+                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
+                  <strong>{populatedCount}</strong> filled • <strong>{totalCount}</strong> total schema fields
                 </div>
               </div>
 
-              {/* Modal Body: Key-Value Table */}
-              <div style={{ overflowY: 'auto', maxHeight: '55vh', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                <div style={{ background: 'var(--bg-input)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)', overflow: 'hidden' }}>
-                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.775rem' }}>
-                    <thead>
-                      <tr style={{ background: 'rgba(255,255,255,0.03)', borderBottom: '1px solid var(--border-subtle)', textAlign: 'left' }}>
-                        <th style={{ padding: '8px 12px', width: '35%', color: 'var(--text-secondary)' }}>Field Name</th>
-                        <th style={{ padding: '8px 12px', color: 'var(--text-secondary)' }}>Value</th>
-                        <th style={{ width: '40px', padding: '8px 12px' }}></th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {/* Render ID first */}
-                      <tr style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-                        <td style={{ padding: '8px 12px', fontWeight: 600, color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>
-                          _id (Unique ID)
-                        </td>
-                        <td style={{ padding: '8px 12px', fontFamily: 'var(--font-mono)', color: 'var(--accent-cyan)' }}>
-                          {inspectingRecord._id}
-                        </td>
-                        <td style={{ padding: '8px 12px', textAlign: 'center' }}>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              navigator.clipboard.writeText(inspectingRecord._id);
-                              toast.success('ID Copied!');
-                            }}
-                            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}
-                            title="Copy ID"
-                          >
-                            <Copy size={12} />
-                          </button>
-                        </td>
-                      </tr>
+              {/* Modal Body: Scrollable Table Container */}
+              <div
+                className="data-grid-scroll-container"
+                style={{
+                  flex: 1,
+                  minHeight: 0,
+                  overflowY: 'auto',
+                  border: '1px solid var(--border-subtle)',
+                  borderRadius: 'var(--radius-sm)',
+                  background: 'var(--bg-input)'
+                }}
+              >
+                <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0, fontSize: '0.775rem' }}>
+                  <thead style={{ position: 'sticky', top: 0, zIndex: 10, background: 'var(--bg-surface-elevated)', boxShadow: '0 2px 6px rgba(0,0,0,0.1)' }}>
+                    <tr style={{ textAlign: 'left' }}>
+                      <th style={{ padding: '9px 12px', width: '38%', color: 'var(--text-secondary)', fontWeight: 700, borderBottom: '1px solid var(--border-subtle)' }}>Field Name</th>
+                      <th style={{ padding: '9px 12px', color: 'var(--text-secondary)', fontWeight: 700, borderBottom: '1px solid var(--border-subtle)' }}>Value</th>
+                      <th style={{ width: '44px', padding: '9px 12px', textAlign: 'center', borderBottom: '1px solid var(--border-subtle)' }}>Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {/* Unique ID row */}
+                    <tr style={{ borderBottom: '1px solid var(--border-subtle)', background: 'rgba(6, 182, 212, 0.04)' }}>
+                      <td style={{ padding: '8px 12px', fontWeight: 600, color: 'var(--text-primary)', fontFamily: 'var(--font-mono)', borderBottom: '1px solid var(--border-subtle)' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <span>_id (Unique ID)</span>
+                          <span style={{ fontSize: '0.65rem', color: 'var(--accent-cyan)', fontWeight: 400 }}>(id)</span>
+                        </div>
+                      </td>
+                      <td style={{ padding: '8px 12px', fontFamily: 'var(--font-mono)', color: 'var(--accent-cyan)', borderBottom: '1px solid var(--border-subtle)' }}>
+                        {inspectingRecord._id}
+                      </td>
+                      <td style={{ padding: '8px 12px', textAlign: 'center', borderBottom: '1px solid var(--border-subtle)' }}>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            navigator.clipboard.writeText(inspectingRecord._id);
+                            toast.success('ID Copied!');
+                          }}
+                          style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}
+                          title="Copy ID"
+                        >
+                          <Copy size={12} />
+                        </button>
+                      </td>
+                    </tr>
 
-                      {/* Render all other fields */}
-                      {filteredEntries.map((field) => {
-                        const displayVal = formatDisplayValue(field.value);
-                        const isNull = !field.isPopulated;
+                    {/* All other schema & record fields */}
+                    {filteredEntries.map((field) => {
+                      const displayVal = formatDisplayValue(field.value);
+                      const isNull = !field.isPopulated;
 
-                        return (
-                          <tr key={field.key} style={{ borderBottom: '1px solid var(--border-subtle)', background: isNull ? 'transparent' : 'rgba(99, 102, 241, 0.03)' }}>
-                            <td style={{ padding: '8px 12px', fontWeight: 600, color: 'var(--text-primary)' }}>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                <span>{field.label}</span>
-                                <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 400 }}>({field.type})</span>
-                              </div>
-                            </td>
-                            <td style={{ padding: '8px 12px', color: isNull ? 'var(--text-muted)' : 'var(--text-secondary)', fontStyle: isNull ? 'italic' : 'normal', wordBreak: 'break-all' }}>
-                              {isNull ? (
-                                <span style={{ opacity: 0.4 }}>null</span>
-                              ) : (
-                                displayVal
-                              )}
-                            </td>
-                            <td style={{ padding: '8px 12px', textAlign: 'center' }}>
-                              {!isNull && (
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    navigator.clipboard.writeText(displayVal);
-                                    toast.success(`Copied ${field.label}!`);
-                                  }}
-                                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}
-                                  title={`Copy ${field.label}`}
-                                >
-                                  <Copy size={12} />
-                                </button>
-                              )}
-                            </td>
-                          </tr>
-                        );
-                      })}
-
-                      {filteredEntries.length === 0 && (
-                        <tr>
-                          <td colSpan={3} style={{ padding: '24px', textAlign: 'center', color: 'var(--text-muted)' }}>
-                            No fields matching '{modalSearchTerm}'
+                      return (
+                        <tr key={field.key} style={{ background: isNull ? 'transparent' : 'rgba(99, 102, 241, 0.04)' }}>
+                          <td style={{ padding: '8px 12px', fontWeight: 600, color: 'var(--text-primary)', borderBottom: '1px solid var(--border-subtle)' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              <span>{field.label}</span>
+                              <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 400 }}>({field.type})</span>
+                            </div>
+                          </td>
+                          <td style={{
+                            padding: '8px 12px',
+                            color: isNull ? 'var(--text-muted)' : 'var(--text-primary)',
+                            fontStyle: isNull ? 'italic' : 'normal',
+                            fontWeight: isNull ? 400 : 500,
+                            wordBreak: 'break-all',
+                            borderBottom: '1px solid var(--border-subtle)'
+                          }}>
+                            {isNull ? (
+                              <span style={{ opacity: 0.35 }}>null</span>
+                            ) : (
+                              displayVal
+                            )}
+                          </td>
+                          <td style={{ padding: '8px 12px', textAlign: 'center', borderBottom: '1px solid var(--border-subtle)' }}>
+                            {!isNull && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  navigator.clipboard.writeText(displayVal);
+                                  toast.success(`Copied ${field.label}!`);
+                                }}
+                                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}
+                                title={`Copy ${field.label}`}
+                              >
+                                <Copy size={12} />
+                              </button>
+                            )}
                           </td>
                         </tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
+                      );
+                    })}
+
+                    {filteredEntries.length === 0 && (
+                      <tr>
+                        <td colSpan={3} style={{ padding: '36px', textAlign: 'center', color: 'var(--text-muted)' }}>
+                          No fields matching '{modalSearchTerm}'
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
               </div>
 
               {/* Modal Footer */}
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid var(--border-subtle)', paddingTop: '10px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid var(--border-subtle)', paddingTop: '8px', flexShrink: 0 }}>
                 <div style={{ fontSize: '0.725rem', color: 'var(--text-muted)' }}>
-                  Showing {filteredEntries.length} of {totalCount} fields
+                  Showing <strong>{filteredEntries.length}</strong> of <strong>{totalCount}</strong> fields
                 </div>
                 <button
                   type="button"

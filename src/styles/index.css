@@ -557,3 +557,68 @@ input, textarea, select, code, pre {
     width: 100% !important;
   }
 }
+
+/* Modern Theme-Aware High-Visibility Scrollbars */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.05);
+  border-radius: 99px;
+}
+
+[data-theme='dark'] ::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(99, 102, 241, 0.45);
+  border-radius: 99px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(99, 102, 241, 0.85);
+  border-radius: 99px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+
+/* High-Visibility Custom Scrollbar for Data Grid Table & Modals */
+.data-grid-scroll-container {
+  scrollbar-width: auto;
+  scrollbar-color: #6366f1 rgba(0, 0, 0, 0.08);
+}
+
+.data-grid-scroll-container::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+
+.data-grid-scroll-container::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.07);
+  border-radius: 8px;
+  border: 1px solid var(--border-subtle);
+}
+
+[data-theme='dark'] .data-grid-scroll-container::-webkit-scrollbar-track {
+  background: rgba(15, 23, 42, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.data-grid-scroll-container::-webkit-scrollbar-thumb {
+  background: linear-gradient(135deg, #6366f1, #06b6d4);
+  border-radius: 8px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+
+.data-grid-scroll-container::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(135deg, #4f46e5, #0891b2);
+  border-radius: 8px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
