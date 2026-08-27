@@ -59,16 +59,16 @@ export const VisualTesterView: React.FC<VisualTesterViewProps> = ({ onLog, activ
   const [newViewportType, setNewViewportType] = useState<'desktop' | 'tablet' | 'mobile'>('desktop');
 
   // Auth Settings
-  const [basicAuthUser, setBasicAuthUser] = useState(activeProject?.httpBasicUser || 'u');
-  const [basicAuthPass, setBasicAuthPass] = useState(activeProject?.httpBasicPassword || '1');
+  const [basicAuthUser, setBasicAuthUser] = useState(activeProject?.httpBasicUser || '');
+  const [basicAuthPass, setBasicAuthPass] = useState(activeProject?.httpBasicPassword || '');
   const [savedAuthSuccess, setSavedAuthSuccess] = useState(false);
 
   useEffect(() => {
     if (activeProject) {
-      setBasicAuthUser(activeProject.httpBasicUser || 'u');
-      setBasicAuthPass(activeProject.httpBasicPassword || '1');
+      setBasicAuthUser(activeProject.httpBasicUser || '');
+      setBasicAuthPass(activeProject.httpBasicPassword || '');
     }
-  }, [activeProject?.id]);
+  }, [activeProject?.id, activeProject?.httpBasicUser, activeProject?.httpBasicPassword]);
 
   const handleApplyAgencyAuth = () => {
     if (!activeProject) return;
@@ -559,7 +559,7 @@ export const VisualTesterView: React.FC<VisualTesterViewProps> = ({ onLog, activ
                 <label className="input-label">HTTP Basic Username</label>
                 <input
                   type="text"
-                  placeholder="e.g. u"
+                  placeholder="username"
                   value={basicAuthUser}
                   onChange={e => setBasicAuthUser(e.target.value)}
                   className="input"
@@ -569,7 +569,7 @@ export const VisualTesterView: React.FC<VisualTesterViewProps> = ({ onLog, activ
                 <label className="input-label">HTTP Basic Password</label>
                 <input
                   type="password"
-                  placeholder="e.g. 1"
+                  placeholder="password"
                   value={basicAuthPass}
                   onChange={e => setBasicAuthPass(e.target.value)}
                   className="input"

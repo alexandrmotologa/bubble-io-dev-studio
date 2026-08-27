@@ -704,7 +704,7 @@ export const ConnectAppModal: React.FC<ConnectAppModalProps> = ({
                       <label className="input-label">HTTP Basic Username *</label>
                       <input
                         type="text"
-                        placeholder="e.g. u"
+                        placeholder="username"
                         value={httpBasicUser}
                         onChange={(e) => setHttpBasicUser(e.target.value)}
                         className="input"
@@ -714,7 +714,7 @@ export const ConnectAppModal: React.FC<ConnectAppModalProps> = ({
                       <label className="input-label">HTTP Basic Password *</label>
                       <input
                         type="password"
-                        placeholder="e.g. 1"
+                        placeholder="password"
                         value={httpBasicPassword}
                         onChange={(e) => setHttpBasicPassword(e.target.value)}
                         className="input"
