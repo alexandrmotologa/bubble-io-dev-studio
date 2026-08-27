@@ -92,6 +92,30 @@ export const App: React.FC = () => {
     return unsubscribe;
   }, []);
 
+  // Listen to Electron native menu IPC events (New Project, Toast notifications)
+  useEffect(() => {
+    if (typeof window !== 'undefined' && (window as any).electronAPI) {
+      const unsubNew = (window as any).electronAPI.receiveFromMain('menu:new-project', () => {
+        setIsConnectModalOpen(true);
+      });
+      const unsubToast = (window as any).electronAPI.receiveFromMain('toast:show', (payload: any) => {
+        if (payload?.type === 'success') {
+          toast.success(payload.title, payload.message);
+        } else if (payload?.type === 'warn') {
+          toast.warn(payload.title, payload.message);
+        } else if (payload?.type === 'error') {
+          toast.error(payload.title, payload.message);
+        } else {
+          toast.info(payload?.title || 'Notice', payload?.message || '');
+        }
+      });
+      return () => {
+        unsubNew && unsubNew();
+        unsubToast && unsubToast();
+      };
+    }
+  }, []);
+
   // Initial welcome log & check if first run onboarding is needed
   useEffect(() => {
     addLog('system', 'Bubble.io Dev Studio v1.2.0 initialized.', 'success');

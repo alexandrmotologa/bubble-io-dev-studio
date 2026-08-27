@@ -32,6 +32,7 @@ import { DevOpsEngine } from '../core/devops/devopsEngine';
 import { TranslatorEngine } from '../core/translator/translatorEngine';
 import { ConfirmDeleteModal } from '../components/ConfirmDeleteModal';
 import { AI_PROVIDERS, PROVIDER_MODELS, getProviderForModel, getDefaultModelForProvider, getProviderDisplayName, getModelDisplayName } from '../core/ai/aiProviders';
+import { toast } from '../core/toast/toastManager';
 
 interface SettingsViewProps {
   settings: GlobalSettings;
@@ -895,16 +896,29 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             <span>Buy Me a Coffee</span>
           </a>
 
-          <a
-            href="mailto:mtlg.labs.contact@gmail.com?subject=Bubble.io%20Dev%20Studio%20Inquiry"
-            target="_blank"
-            rel="noreferrer"
-            style={{ color: 'var(--accent-cyan)', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '5px' }}
-            title="Send email inquiry"
+          <button
+            type="button"
+            onClick={() => {
+              const email = 'mtlg.labs.contact@gmail.com';
+              navigator.clipboard.writeText(email);
+              toast.success('Email Copied to Clipboard!', email);
+            }}
+            style={{
+              background: 'transparent',
+              border: 'none',
+              cursor: 'pointer',
+              color: 'var(--accent-cyan)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '5px',
+              padding: 0,
+              font: 'inherit'
+            }}
+            title="Click to copy author contact email"
           >
             <Mail size={13} />
             <span>mtlg.labs.contact@gmail.com</span>
-          </a>
+          </button>
 
           <a
             href="https://github.com/alexandrmotologa/bubble-io-dev-studio"

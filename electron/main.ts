@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, shell, Menu, MenuItemConstructorOptions, dialog } from 'electron';
+import { app, BrowserWindow, ipcMain, shell, Menu, MenuItemConstructorOptions, dialog, clipboard } from 'electron';
 import path from 'path';
 
 let mainWindow: BrowserWindow | null = null;
@@ -27,21 +27,16 @@ function createAppMenu() {
       label: 'File',
       submenu: [
         {
-          label: 'Quick Database Backup',
-          accelerator: 'CmdOrCtrl+B',
+          label: 'New Project...',
+          accelerator: 'CmdOrCtrl+N',
           click: () => {
-            mainWindow?.webContents.send('menu:quick-backup');
-          }
-        },
-        {
-          label: 'Command Palette',
-          accelerator: 'CmdOrCtrl+K',
-          click: () => {
-            mainWindow?.webContents.send('menu:command-palette');
+            if (mainWindow) {
+              mainWindow.webContents.send('menu:new-project');
+            }
           }
         },
         { type: 'separator' },
-        isMac ? { role: 'close' } : { role: 'quit', label: 'Exit' }
+        isMac ? { role: 'close' } : { role: 'quit' }
       ]
     },
     {
@@ -88,7 +83,26 @@ function createAppMenu() {
         {
           label: 'Contact Author via Email (mtlg.labs.contact@gmail.com)',
           click: async () => {
-            await shell.openExternal('mailto:mtlg.labs.contact@gmail.com?subject=Bubble.io%20Dev%20Studio%20Inquiry');
+            const authorEmail = 'mtlg.labs.contact@gmail.com';
+            clipboard.writeText(authorEmail);
+            if (mainWindow) {
+              mainWindow.webContents.send('toast:show', {
+                type: 'success',
+                title: 'Email Copied to Clipboard',
+                message: `Author email (${authorEmail}) has been copied to your clipboard.`
+              });
+              dialog.showMessageBox(mainWindow, {
+                type: 'info',
+                title: 'Email Copied',
+                message: 'Author Email Copied to Clipboard!',
+                detail: `The contact address "${authorEmail}" was copied to your clipboard.\n\nWould you also like to open your default email client?`,
+                buttons: ['OK (Just Copied)', 'Open Email Client']
+              }).then(res => {
+                if (res.response === 1) {
+                  shell.openExternal(`mailto:${authorEmail}?subject=Bubble.io%20Dev%20Studio%20Inquiry`);
+                }
+              });
+            }
           }
         },
         { type: 'separator' },
