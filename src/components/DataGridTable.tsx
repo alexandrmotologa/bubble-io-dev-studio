@@ -24,12 +24,90 @@ import {
   Copy,
   BookOpen,
   FileText,
-  Code2
+  Code2,
+  Eye
 } from 'lucide-react';
 import Papa from 'papaparse';
 import { BubbleDataType, DataGridColumn, DataGridFilter, DataGridRecord, DataGridSort, ProjectProfile } from '../types';
 import { DataGridEngine } from '../core/data-grid/dataGridEngine';
 import { toast } from '../core/toast/toastManager';
+
+/**
+ * Smart field resolver that matches Bubble Data API keys across naming variations,
+ * type suffixes (e.g. "Pid text" -> "Pid" / "pid"), case-insensitivity and snake_case.
+ */
+export function resolveRecordValue(record: Record<string, any>, fieldKey: string): any {
+  if (!record || typeof record !== 'object') return undefined;
+
+  // 1. Direct exact match
+  if (record[fieldKey] !== undefined) return record[fieldKey];
+
+  // 2. Case-insensitive exact match
+  const lowerKey = fieldKey.toLowerCase();
+  const foundExactKey = Object.keys(record).find(k => k.toLowerCase() === lowerKey);
+  if (foundExactKey && record[foundExactKey] !== undefined) return record[foundExactKey];
+
+  // 3. Strip type suffixes (e.g. "Pid text" -> "Pid", "Status text" -> "Status", "Wallet text" -> "Wallet", "Avatar image" -> "Avatar", "Coins number" -> "Coins", "Pk temp text" -> "Pk temp")
+  const strippedKey = fieldKey.replace(/\s+(text|number|date|boolean|image|file|geo|user|list|custom)$/i, '').trim();
+  if (record[strippedKey] !== undefined) return record[strippedKey];
+
+  const foundStripped = Object.keys(record).find(k => k.toLowerCase() === strippedKey.toLowerCase());
+  if (foundStripped && record[foundStripped] !== undefined) return record[foundStripped];
+
+  // 4. Underscore variations (e.g. "Pid text" -> "pid_text", "pid", "pk_temp")
+  const snakeKey = fieldKey.toLowerCase().replace(/\s+/g, '_');
+  if (record[snakeKey] !== undefined) return record[snakeKey];
+
+  const strippedSnake = strippedKey.toLowerCase().replace(/\s+/g, '_');
+  if (record[strippedSnake] !== undefined) return record[strippedSnake];
+
+  // 5. Alphanumeric match (ignoring all spaces/underscores/special characters)
+  const targetAlpha = fieldKey.toLowerCase().replace(/[^a-z0-9]/g, '');
+  const strippedAlpha = strippedKey.toLowerCase().replace(/[^a-z0-9]/g, '');
+  for (const [k, v] of Object.entries(record)) {
+    const kAlpha = k.toLowerCase().replace(/[^a-z0-9]/g, '');
+    if (kAlpha === targetAlpha || kAlpha === strippedAlpha) {
+      if (v !== undefined) return v;
+    }
+  }
+
+  return undefined;
+}
+
+/**
+ * Finds the actual JSON key in the record corresponding to a schema field name
+ */
+export function resolveRealFieldKey(record: Record<string, any>, fieldKey: string): string {
+  if (!record || typeof record !== 'object') return fieldKey;
+  if (record[fieldKey] !== undefined) return fieldKey;
+
+  const lowerKey = fieldKey.toLowerCase();
+  const foundExactKey = Object.keys(record).find(k => k.toLowerCase() === lowerKey);
+  if (foundExactKey) return foundExactKey;
+
+  const strippedKey = fieldKey.replace(/\s+(text|number|date|boolean|image|file|geo|user|list|custom)$/i, '').trim();
+  if (record[strippedKey] !== undefined) return strippedKey;
+
+  const foundStripped = Object.keys(record).find(k => k.toLowerCase() === strippedKey.toLowerCase());
+  if (foundStripped) return foundStripped;
+
+  const snakeKey = fieldKey.toLowerCase().replace(/\s+/g, '_');
+  if (record[snakeKey] !== undefined) return snakeKey;
+
+  const strippedSnake = strippedKey.toLowerCase().replace(/\s+/g, '_');
+  if (record[strippedSnake] !== undefined) return strippedSnake;
+
+  const targetAlpha = fieldKey.toLowerCase().replace(/[^a-z0-9]/g, '');
+  const strippedAlpha = strippedKey.toLowerCase().replace(/[^a-z0-9]/g, '');
+  for (const k of Object.keys(record)) {
+    const kAlpha = k.toLowerCase().replace(/[^a-z0-9]/g, '');
+    if (kAlpha === targetAlpha || kAlpha === strippedAlpha) {
+      return k;
+    }
+  }
+
+  return strippedKey || fieldKey;
+}
 
 interface DataGridTableProps {
   project?: ProjectProfile;
@@ -55,6 +133,9 @@ export const DataGridTable: React.FC<DataGridTableProps> = ({
   // Inline Cell Editing State
   const [editingCell, setEditingCell] = useState<{ recordId: string; field: string; value: any } | null>(null);
   const [isSavingCell, setIsSavingCell] = useState(false);
+
+  // Record Inspector Modal State
+  const [inspectingRecord, setInspectingRecord] = useState<DataGridRecord | null>(null);
 
   // New Record Modal State
   const [isNewRecordModalOpen, setIsNewRecordModalOpen] = useState(false);
@@ -92,17 +173,61 @@ export const DataGridTable: React.FC<DataGridTableProps> = ({
   }, [selectedType, cursor, limit, sort]);
 
   const activeDtObj = dataTypes.find(d => d.name === selectedType);
-  const columns: DataGridColumn[] = [
-    { key: '_id', label: 'ID / Key', type: 'id', width: 140 },
-    ...(activeDtObj?.fields.map(f => ({
+  
+  // Base columns from schema
+  const schemaColumns: DataGridColumn[] = (activeDtObj?.fields || []).map(f => {
+    const cleanLabel = f.name.replace(/\s+(text|number|date|boolean|image|file|geo|user|list|custom)$/i, '').trim();
+    return {
       key: f.name,
-      label: f.name.charAt(0).toUpperCase() + f.name.slice(1).replace(/_/g, ' '),
+      label: cleanLabel.charAt(0).toUpperCase() + cleanLabel.slice(1).replace(/_/g, ' '),
       type: f.type,
       required: f.required
-    })) || [
+    };
+  });
+
+  // Dynamic Discovery: also detect any additional columns returned by live Bubble API
+  const extraRecordColumns: DataGridColumn[] = [];
+  if (records.length > 0) {
+    const sampleRecord = records[0];
+    const knownKeys = new Set([
+      '_id', 
+      'created date', 
+      'modified date', 
+      'created by',
+      ...schemaColumns.map(c => c.key.toLowerCase()),
+      ...schemaColumns.map(c => c.label.toLowerCase()),
+      ...schemaColumns.map(c => c.key.toLowerCase().replace(/\s+(text|number|date|boolean|image|file|geo|user|list|custom)$/i, '').trim())
+    ]);
+
+    for (const [k, v] of Object.entries(sampleRecord)) {
+      const lowerK = k.toLowerCase();
+      const strippedK = lowerK.replace(/\s+(text|number|date|boolean|image|file|geo|user|list|custom)$/i, '').trim();
+      if (!knownKeys.has(lowerK) && !knownKeys.has(strippedK)) {
+        let detectedType: DataGridColumn['type'] = 'text';
+        if (typeof v === 'number') detectedType = 'number';
+        else if (typeof v === 'boolean') detectedType = 'boolean';
+        else if (lowerK.includes('date')) detectedType = 'date';
+        else if (Array.isArray(v)) detectedType = 'list';
+
+        const cleanK = k.replace(/\s+(text|number|date|boolean|image|file|geo|user|list|custom)$/i, '').trim();
+        extraRecordColumns.push({
+          key: k,
+          label: cleanK.charAt(0).toUpperCase() + cleanK.slice(1).replace(/_/g, ' '),
+          type: detectedType
+        });
+        knownKeys.add(lowerK);
+        knownKeys.add(strippedK);
+      }
+    }
+  }
+
+  const columns: DataGridColumn[] = [
+    { key: '_id', label: 'ID / Key', type: 'id', width: 160 },
+    ...(schemaColumns.length > 0 ? schemaColumns : [
       { key: 'name', label: 'Name', type: 'text' },
       { key: 'status', label: 'Status', type: 'text' }
     ]),
+    ...extraRecordColumns,
     { key: 'Created Date', label: 'Created Date', type: 'date', width: 160 },
     { key: 'Modified Date', label: 'Modified Date', type: 'date', width: 160 }
   ];
@@ -134,18 +259,32 @@ export const DataGridTable: React.FC<DataGridTableProps> = ({
     if (!editingCell || !project) return;
     setIsSavingCell(true);
     try {
+      const targetRecord = records.find(r => r._id === editingCell.recordId);
+      const realKey = targetRecord ? resolveRealFieldKey(targetRecord, editingCell.field) : editingCell.field;
+
       const res = await DataGridEngine.updateRecordField(
         project,
         selectedType,
         editingCell.recordId,
-        editingCell.field,
+        realKey,
         editingCell.value
       );
       if (res.success) {
-        setRecords(prev => prev.map(r => r._id === editingCell.recordId ? { ...r, [editingCell.field]: editingCell.value } : r));
-        onLog('devops', `Updated '${selectedType}.${editingCell.field}' for ${editingCell.recordId}`, 'success');
+        setRecords(prev => prev.map(r => {
+          if (r._id === editingCell.recordId) {
+            return {
+              ...r,
+              [editingCell.field]: editingCell.value,
+              [realKey]: editingCell.value
+            };
+          }
+          return r;
+        }));
+        toast.success('Field Updated', `Updated '${realKey}' successfully.`);
+        onLog('devops', `Updated '${selectedType}.${realKey}' for ${editingCell.recordId}`, 'success');
       }
     } catch (e: any) {
+      toast.error('Update Failed', e.message);
       onLog('devops', `Cell update failed: ${e.message}`, 'error');
     } finally {
       setIsSavingCell(false);
@@ -533,18 +672,40 @@ export const DataGridTable: React.FC<DataGridTableProps> = ({
         </div>
       )}
 
-      {/* Main Interactive Table Grid */}
+      {/* Scroll Hint & Column Count Indicator */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.725rem', color: 'var(--text-muted)', padding: '0 4px' }}>
+        <span>Showing <strong>{columns.length}</strong> fields • Double-click any cell to edit</span>
+        <span style={{ display: 'flex', alignItems: 'center', gap: '4px', color: 'var(--accent-cyan)' }}>
+          <span>↔️ Scroll horizontally to view all columns</span>
+        </span>
+      </div>
+
+      {/* Main Interactive Table Grid with Smooth Horizontal Scroll */}
       <div style={{
         background: 'var(--bg-card)',
         borderRadius: 'var(--radius-md)',
         border: '1px solid var(--border-subtle)',
         overflowX: 'auto',
-        boxShadow: '0 4px 20px rgba(0,0,0,0.2)'
+        overflowY: 'auto',
+        maxHeight: '680px',
+        boxShadow: '0 4px 20px rgba(0,0,0,0.2)',
+        position: 'relative'
       }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem', textAlign: 'left' }}>
+        <table style={{ minWidth: 'max-content', width: '100%', borderCollapse: 'separate', borderSpacing: 0, fontSize: '0.8rem', textAlign: 'left' }}>
           <thead>
-            <tr style={{ background: 'var(--bg-input)', borderBottom: '1px solid var(--border-subtle)' }}>
-              <th style={{ width: '40px', padding: '10px 12px', textAlign: 'center' }}>
+            <tr style={{ background: 'var(--bg-input)' }}>
+              <th style={{
+                width: '44px',
+                minWidth: '44px',
+                padding: '10px 12px',
+                textAlign: 'center',
+                position: 'sticky',
+                left: 0,
+                top: 0,
+                zIndex: 12,
+                background: 'var(--bg-input)',
+                borderBottom: '1px solid var(--border-subtle)'
+              }}>
                 <input
                   type="checkbox"
                   checked={records.length > 0 && selectedRowIds.size === records.length}
@@ -552,32 +713,56 @@ export const DataGridTable: React.FC<DataGridTableProps> = ({
                   style={{ cursor: 'pointer' }}
                 />
               </th>
-              {columns.map(col => (
-                <th
-                  key={col.key}
-                  onClick={() => {
-                    if (col.key === '_id') return;
-                    setSort(prev => prev?.field === col.key ? { field: col.key, direction: prev.direction === 'asc' ? 'desc' : 'asc' } : { field: col.key, direction: 'asc' });
-                  }}
-                  style={{
-                    padding: '10px 14px',
-                    color: 'var(--text-secondary)',
-                    fontWeight: 700,
-                    cursor: col.key === '_id' ? 'default' : 'pointer',
-                    userSelect: 'none',
-                    whiteSpace: 'nowrap'
-                  }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <span>{col.label}</span>
-                    <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 400 }}>({col.type})</span>
-                    {sort?.field === col.key && (
-                      <span style={{ color: 'var(--primary)' }}>{sort.direction === 'asc' ? '↑' : '↓'}</span>
-                    )}
-                  </div>
-                </th>
-              ))}
-              <th style={{ width: '60px', padding: '10px 12px', textAlign: 'center' }}>Actions</th>
+              {columns.map(col => {
+                const isId = col.key === '_id';
+                return (
+                  <th
+                    key={col.key}
+                    onClick={() => {
+                      if (isId) return;
+                      setSort(prev => prev?.field === col.key ? { field: col.key, direction: prev.direction === 'asc' ? 'desc' : 'asc' } : { field: col.key, direction: 'asc' });
+                    }}
+                    style={{
+                      padding: '10px 14px',
+                      color: 'var(--text-secondary)',
+                      fontWeight: 700,
+                      cursor: isId ? 'default' : 'pointer',
+                      userSelect: 'none',
+                      whiteSpace: 'nowrap',
+                      minWidth: isId ? '170px' : '180px',
+                      position: 'sticky',
+                      top: 0,
+                      left: isId ? '44px' : undefined,
+                      zIndex: isId ? 12 : 10,
+                      background: 'var(--bg-input)',
+                      borderBottom: '1px solid var(--border-subtle)',
+                      borderRight: isId ? '1px solid var(--border-subtle)' : undefined,
+                      boxShadow: isId ? '4px 0 8px rgba(0,0,0,0.1)' : undefined
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <span>{col.label}</span>
+                      <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 400 }}>({col.type})</span>
+                      {sort?.field === col.key && (
+                        <span style={{ color: 'var(--primary)' }}>{sort.direction === 'asc' ? '↑' : '↓'}</span>
+                      )}
+                    </div>
+                  </th>
+                );
+              })}
+              <th style={{
+                width: '80px',
+                minWidth: '80px',
+                padding: '10px 12px',
+                textAlign: 'center',
+                position: 'sticky',
+                top: 0,
+                zIndex: 10,
+                background: 'var(--bg-input)',
+                borderBottom: '1px solid var(--border-subtle)'
+              }}>
+                Actions
+              </th>
             </tr>
           </thead>
 
@@ -605,12 +790,19 @@ export const DataGridTable: React.FC<DataGridTableProps> = ({
                   <tr
                     key={record._id}
                     style={{
-                      borderBottom: '1px solid var(--border-subtle)',
-                      background: isSelected ? 'rgba(99, 102, 241, 0.08)' : 'transparent',
+                      background: isSelected ? 'rgba(99, 102, 241, 0.12)' : 'transparent',
                       transition: 'background 0.1s ease'
                     }}
                   >
-                    <td style={{ textAlign: 'center', padding: '8px 12px' }}>
+                    <td style={{
+                      textAlign: 'center',
+                      padding: '8px 12px',
+                      position: 'sticky',
+                      left: 0,
+                      zIndex: 2,
+                      background: isSelected ? 'rgba(99, 102, 241, 0.15)' : 'var(--bg-card)',
+                      borderBottom: '1px solid var(--border-subtle)'
+                    }}>
                       <input
                         type="checkbox"
                         checked={isSelected}
@@ -620,25 +812,34 @@ export const DataGridTable: React.FC<DataGridTableProps> = ({
                     </td>
 
                     {columns.map(col => {
+                      const isId = col.key === '_id';
                       const isEditing = editingCell?.recordId === record._id && editingCell?.field === col.key;
-                      const rawVal = record[col.key];
+                      const rawVal = isId ? record._id : resolveRecordValue(record, col.key);
                       const displayVal = typeof rawVal === 'object' ? JSON.stringify(rawVal) : String(rawVal ?? '');
 
                       return (
                         <td
                           key={col.key}
                           onDoubleClick={() => {
-                            if (col.key !== '_id' && !col.key.includes('Date')) {
+                            if (!isId && !col.key.includes('Date')) {
                               setEditingCell({ recordId: record._id, field: col.key, value: rawVal ?? '' });
                             }
                           }}
                           style={{
                             padding: '8px 14px',
-                            maxWidth: '260px',
+                            minWidth: isId ? '170px' : '180px',
+                            maxWidth: isId ? '220px' : '340px',
                             overflow: 'hidden',
                             textOverflow: 'ellipsis',
                             whiteSpace: 'nowrap',
-                            cursor: col.key === '_id' || col.key.includes('Date') ? 'default' : 'pointer'
+                            cursor: isId || col.key.includes('Date') ? 'default' : 'pointer',
+                            position: isId ? 'sticky' : undefined,
+                            left: isId ? '44px' : undefined,
+                            zIndex: isId ? 2 : 1,
+                            background: isSelected ? 'rgba(99, 102, 241, 0.15)' : 'var(--bg-card)',
+                            borderBottom: '1px solid var(--border-subtle)',
+                            borderRight: isId ? '1px solid var(--border-subtle)' : undefined,
+                            boxShadow: isId ? '4px 0 8px rgba(0,0,0,0.06)' : undefined
                           }}
                           title={displayVal}
                         >
@@ -654,7 +855,7 @@ export const DataGridTable: React.FC<DataGridTableProps> = ({
                                   if (e.key === 'Escape') setEditingCell(null);
                                 }}
                                 className="input"
-                                style={{ height: '26px', fontSize: '0.75rem', padding: '2px 6px' }}
+                                style={{ height: '26px', fontSize: '0.75rem', padding: '2px 6px', width: '100%' }}
                               />
                               <button onClick={handleCellSave} disabled={isSavingCell} className="btn btn-primary btn-sm" style={{ padding: '2px 6px', height: '26px' }}>
                                 <Check size={11} />
@@ -665,17 +866,33 @@ export const DataGridTable: React.FC<DataGridTableProps> = ({
                             </div>
                           ) : (
                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px' }}>
-                              <span style={{ fontFamily: col.key === '_id' || col.key.includes('Date') ? 'var(--font-mono)' : 'inherit', fontSize: col.key === '_id' ? '0.75rem' : '0.8rem', color: col.key === '_id' ? 'var(--accent-cyan)' : 'var(--text-primary)' }}>
-                                {displayVal || <span style={{ color: 'var(--text-muted)', fontStyle: 'italic' }}>null</span>}
+                              <span style={{
+                                fontFamily: isId || col.key.includes('Date') ? 'var(--font-mono)' : 'inherit',
+                                fontSize: isId ? '0.75rem' : '0.8rem',
+                                color: isId ? 'var(--accent-cyan)' : 'var(--text-primary)'
+                              }}>
+                                {displayVal ? (
+                                  isId ? (
+                                    <span 
+                                      onClick={() => setInspectingRecord(record)}
+                                      style={{ cursor: 'pointer', textDecoration: 'underline dotted' }}
+                                      title="Click to inspect full record details"
+                                    >
+                                      {displayVal}
+                                    </span>
+                                  ) : displayVal
+                                ) : (
+                                  <span style={{ color: 'var(--text-muted)', fontStyle: 'italic', opacity: 0.4 }}>null</span>
+                                )}
                               </span>
-                              {col.key !== '_id' && !col.key.includes('Date') && (
+                              {!isId && !col.key.includes('Date') && (
                                 <Edit3
                                   size={11}
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     setEditingCell({ recordId: record._id, field: col.key, value: rawVal ?? '' });
                                   }}
-                                  style={{ opacity: 0.3, cursor: 'pointer' }}
+                                  style={{ opacity: 0.3, cursor: 'pointer', flexShrink: 0 }}
                                 />
                               )}
                             </div>
@@ -684,14 +901,28 @@ export const DataGridTable: React.FC<DataGridTableProps> = ({
                       );
                     })}
 
-                    <td style={{ textAlign: 'center', padding: '8px 12px' }}>
-                      <button
-                        onClick={() => handleDeleteRecord(record._id)}
-                        style={{ background: 'none', border: 'none', color: '#f43f5e', cursor: 'pointer', opacity: 0.7 }}
-                        title="Delete Record"
-                      >
-                        <Trash2 size={13} />
-                      </button>
+                    <td style={{
+                      textAlign: 'center',
+                      padding: '8px 12px',
+                      borderBottom: '1px solid var(--border-subtle)',
+                      whiteSpace: 'nowrap'
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+                        <button
+                          onClick={() => setInspectingRecord(record)}
+                          style={{ background: 'none', border: 'none', color: 'var(--accent-cyan)', cursor: 'pointer', opacity: 0.8 }}
+                          title="Inspect Full Record"
+                        >
+                          <Eye size={13} />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteRecord(record._id)}
+                          style={{ background: 'none', border: 'none', color: '#f43f5e', cursor: 'pointer', opacity: 0.7 }}
+                          title="Delete Record"
+                        >
+                          <Trash2 size={13} />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 );
@@ -1174,6 +1405,154 @@ export const DataGridTable: React.FC<DataGridTableProps> = ({
                   </div>
                 </>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Record Details Inspector Modal */}
+      {inspectingRecord && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0, 0, 0, 0.75)',
+          backdropFilter: 'blur(4px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 9999,
+          padding: '20px'
+        }}>
+          <div className="card" style={{
+            width: '100%',
+            maxWidth: '750px',
+            maxHeight: '85vh',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '16px',
+            boxShadow: '0 20px 40px rgba(0,0,0,0.5)',
+            border: '1px solid var(--border-subtle)'
+          }}>
+            {/* Modal Header */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-subtle)', paddingBottom: '12px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Eye size={18} color="var(--accent-cyan)" />
+                <div>
+                  <div style={{ fontWeight: 700, fontSize: '0.95rem' }}>Record Details ({selectedType})</div>
+                  <div style={{ fontSize: '0.75rem', fontFamily: 'var(--font-mono)', color: 'var(--accent-cyan)' }}>
+                    {inspectingRecord._id}
+                  </div>
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    navigator.clipboard.writeText(JSON.stringify(inspectingRecord, null, 2));
+                    toast.success('JSON Copied to Clipboard!');
+                  }}
+                  className="btn btn-secondary btn-sm"
+                  title="Copy full JSON"
+                >
+                  <Copy size={12} />
+                  <span>Copy JSON</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setInspectingRecord(null)}
+                  className="btn btn-secondary btn-sm"
+                  style={{ padding: '6px' }}
+                >
+                  <X size={14} />
+                </button>
+              </div>
+            </div>
+
+            {/* Modal Body: Key-Value Table */}
+            <div style={{ overflowY: 'auto', maxHeight: '60vh', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <div style={{ background: 'var(--bg-input)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)', overflow: 'hidden' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.775rem' }}>
+                  <thead>
+                    <tr style={{ background: 'rgba(255,255,255,0.03)', borderBottom: '1px solid var(--border-subtle)', textAlign: 'left' }}>
+                      <th style={{ padding: '8px 12px', width: '35%', color: 'var(--text-secondary)' }}>Field Name</th>
+                      <th style={{ padding: '8px 12px', color: 'var(--text-secondary)' }}>Value</th>
+                      <th style={{ width: '40px', padding: '8px 12px' }}></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {/* Render ID first */}
+                    <tr style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+                      <td style={{ padding: '8px 12px', fontWeight: 600, color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>
+                        _id (Unique ID)
+                      </td>
+                      <td style={{ padding: '8px 12px', fontFamily: 'var(--font-mono)', color: 'var(--accent-cyan)' }}>
+                        {inspectingRecord._id}
+                      </td>
+                      <td style={{ padding: '8px 12px', textAlign: 'center' }}>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            navigator.clipboard.writeText(inspectingRecord._id);
+                            toast.success('ID Copied!');
+                          }}
+                          style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}
+                          title="Copy ID"
+                        >
+                          <Copy size={12} />
+                        </button>
+                      </td>
+                    </tr>
+
+                    {/* Render all other fields */}
+                    {Object.entries(inspectingRecord)
+                      .filter(([k]) => k !== '_id')
+                      .map(([key, val]) => {
+                        const strVal = typeof val === 'object' ? JSON.stringify(val, null, 2) : String(val ?? '');
+                        const isNull = val === null || val === undefined;
+
+                        return (
+                          <tr key={key} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+                            <td style={{ padding: '8px 12px', fontWeight: 600, color: 'var(--text-primary)' }}>
+                              {key}
+                            </td>
+                            <td style={{ padding: '8px 12px', color: isNull ? 'var(--text-muted)' : 'var(--text-secondary)', fontStyle: isNull ? 'italic' : 'normal', wordBreak: 'break-all' }}>
+                              {isNull ? 'null' : strVal}
+                            </td>
+                            <td style={{ padding: '8px 12px', textAlign: 'center' }}>
+                              {!isNull && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    navigator.clipboard.writeText(strVal);
+                                    toast.success(`Copied ${key}!`);
+                                  }}
+                                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}
+                                  title={`Copy ${key}`}
+                                >
+                                  <Copy size={12} />
+                                </button>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', borderTop: '1px solid var(--border-subtle)', paddingTop: '10px' }}>
+              <button
+                type="button"
+                onClick={() => setInspectingRecord(null)}
+                className="btn btn-secondary btn-sm"
+              >
+                Close
+              </button>
             </div>
           </div>
         </div>
