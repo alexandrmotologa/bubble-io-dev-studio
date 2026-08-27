@@ -7,7 +7,10 @@ import {
   Camera, 
   Settings, 
   Layers,
-  Plus
+  Plus,
+  ShieldAlert,
+  Zap,
+  Radio
 } from 'lucide-react';
 import { NavigationTab, ProjectProfile } from '../types';
 import { ProjectDropdown } from './ProjectDropdown';
@@ -34,7 +37,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, badge: null },
     { id: 'devops', label: 'DevOps & Schema', icon: Database, badge: 'CLI' },
+    { id: 'security', label: 'Security & RBAC', icon: ShieldAlert, badge: 'Shield' },
+    { id: 'wu-profiler', label: 'WU & Performance', icon: Zap, badge: 'Cost' },
     { id: 'audit', label: 'Dead Code & Health', icon: Stethoscope, badge: 'Audit' },
+    { id: 'api-studio', label: 'Webhooks & API', icon: Radio, badge: 'Live' },
     { id: 'translator', label: 'AI Localization', icon: Languages, badge: 'AI' },
     { id: 'visual-tester', label: 'Visual QA Suite', icon: Camera, badge: 'Visual' },
     { id: 'settings', label: 'Settings & Keys', icon: Settings, badge: null }

@@ -22,6 +22,7 @@ interface StatusBarProps {
   isTerminalOpen: boolean;
   onToggleTerminal: () => void;
   onOpenCommandPalette: () => void;
+  onOpenCopilot?: () => void;
   healthScore?: number;
   healthGrade?: string;
   aiProvider?: string;
@@ -37,6 +38,7 @@ export const StatusBar: React.FC<StatusBarProps> = ({
   isTerminalOpen,
   onToggleTerminal,
   onOpenCommandPalette,
+  onOpenCopilot,
   healthScore = 92,
   healthGrade = 'A',
   aiProvider = 'gemini',
@@ -144,6 +146,33 @@ export const StatusBar: React.FC<StatusBarProps> = ({
           <span style={{ textTransform: 'capitalize', fontWeight: 500 }}>{aiProvider}</span>
           <span style={{ color: 'var(--text-muted)', fontSize: '0.675rem' }}>({aiModel})</span>
         </div>
+
+        {/* AI Copilot Button */}
+        {onOpenCopilot && (
+          <button
+            onClick={onOpenCopilot}
+            title="Open Bubble AI Copilot & Expression Studio (Ctrl+I)"
+            style={{
+              background: 'transparent',
+              border: 'none',
+              color: 'var(--accent-cyan)',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px',
+              padding: '2px 6px',
+              borderRadius: '4px',
+              fontSize: '0.7rem'
+            }}
+            onMouseEnter={e => e.currentTarget.style.backgroundColor = 'var(--bg-surface-elevated)'}
+            onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
+          >
+            <Sparkles size={11} />
+            <kbd style={{ fontSize: '0.65rem', background: 'var(--bg-input)', padding: '1px 4px', borderRadius: '3px', border: '1px solid var(--border-subtle)' }}>
+              Ctrl+I
+            </kbd>
+          </button>
+        )}
 
         <div style={{ width: '1px', height: '12px', backgroundColor: 'var(--border-subtle)' }} />
 

@@ -6,6 +6,9 @@ export type NavigationTab =
   | 'audit'
   | 'translator'
   | 'visual-tester'
+  | 'security'
+  | 'wu-profiler'
+  | 'api-studio'
   | 'settings';
 
 export interface ProjectProfile {
@@ -48,7 +51,7 @@ export interface LogEntry {
   id: string;
   timestamp: string;
   level: 'info' | 'warn' | 'error' | 'success';
-  module: 'system' | 'devops' | 'audit' | 'translator' | 'visual-tester';
+  module: 'system' | 'devops' | 'audit' | 'translator' | 'visual-tester' | 'security' | 'wu-profiler' | 'api-studio' | 'copilot';
   message: string;
   details?: any;
 }
@@ -428,4 +431,183 @@ export interface VisualAuthSettings {
   username?: string;
   password?: string;
   storageStateJson?: string;
+}
+
+// ============================================================================
+// 5. SECURITY & PRIVACY RULES RBAC TYPES
+// ============================================================================
+
+export type RbacAccessLevel = 'full' | 'conditional' | 'hidden' | 'none';
+
+export interface PrivacyRuleMatrixRow {
+  dataType: string;
+  role: string;
+  findInSearches: boolean;
+  viewAllFields: boolean;
+  allowedFields: string[];
+  restrictedFields: string[];
+  conditionExpression?: string;
+  accessLevel: RbacAccessLevel;
+}
+
+export interface InsecureEndpointFinding {
+  id: string;
+  endpointName: string;
+  route: string;
+  severity: 'critical' | 'high' | 'medium' | 'low';
+  issue: string;
+  recommendation: string;
+  hasAuth: boolean;
+  isPublic: boolean;
+  ignoredPrivacyRules: boolean;
+}
+
+export interface SecurityAuditReport {
+  timestamp: string;
+  overallScore: number; // 0-100
+  securityGrade: 'A+' | 'A' | 'B' | 'C' | 'D' | 'F';
+  criticalVulnerabilitiesCount: number;
+  warningsCount: number;
+  openTypesCount: number;
+  matrix: PrivacyRuleMatrixRow[];
+  insecureEndpoints: InsecureEndpointFinding[];
+  exposedSensitiveFields: {
+    dataType: string;
+    field: string;
+    reason: string;
+    piiType?: string;
+  }[];
+}
+
+// ============================================================================
+// 6. WORKLOAD UNITS (WU) & QUERY PROFILER TYPES
+// ============================================================================
+
+export interface WuBottleneck {
+  id: string;
+  location: string;
+  pageName?: string;
+  workflowName?: string;
+  operationType: 'search_unconstrained' | 'nested_search' | 'client_filter_large_list' | 'bulk_unbatched_update' | 'recursive_scheduled_loop' | 'unindexed_sort';
+  severity: 'critical' | 'high' | 'medium';
+  description: string;
+  estimatedMonthlyWu: number;
+  estimatedCostUsd: number;
+  suggestedFix: string;
+}
+
+export interface WuProfileReport {
+  timestamp: string;
+  totalEstimatedMonthlyWu: number;
+  estimatedMonthlyCostUsd: number;
+  efficiencyScore: number; // 0-100
+  clientVsServerRatio: {
+    clientPercentage: number;
+    serverPercentage: number;
+  };
+  topConsumingPages: {
+    pageName: string;
+    wuPercent: number;
+    estimatedWu: number;
+  }[];
+  topConsumingWorkflows: {
+    workflowName: string;
+    trigger: string;
+    estimatedWu: number;
+  }[];
+  bottlenecks: WuBottleneck[];
+}
+
+// ============================================================================
+// 7. API STUDIO & WEBHOOK TYPES
+// ============================================================================
+
+export interface WebhookLogEntry {
+  id: string;
+  timestamp: string;
+  method: 'POST' | 'GET' | 'PUT' | 'DELETE' | 'PATCH';
+  endpoint: string;
+  status: number;
+  headers: Record<string, string>;
+  bodyJson: any;
+  responseBody: any;
+  durationMs: number;
+}
+
+export interface ApiConnectorCallConfig {
+  id: string;
+  name: string;
+  url: string;
+  method: 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH';
+  useAs: 'data' | 'action';
+  dataCategory: 'json' | 'text' | 'image' | 'xml';
+  headers: { key: string; value: string; isPrivate?: boolean }[];
+  parameters: { key: string; value: string; isClientSafe?: boolean; isOptional?: boolean }[];
+  bodyType: 'json' | 'form-data' | 'raw';
+  bodyPayload?: string;
+}
+
+export interface OpenApiImportResult {
+  apiTitle: string;
+  version: string;
+  callsCount: number;
+  calls: ApiConnectorCallConfig[];
+}
+
+// ============================================================================
+// 8. MULTI-ENVIRONMENT SYNC TYPES
+// ============================================================================
+
+export interface EnvDiffReport {
+  timestamp: string;
+  sourceEnv: string;
+  targetEnv: string;
+  missingDataTypesInTarget: string[];
+  missingFieldsInTarget: { dataType: string; fieldName: string; fieldType: string }[];
+  missingOptionSetsInTarget: string[];
+  secretKeyMismatches: { keyName: string; inSource: boolean; inTarget: boolean }[];
+  readyForDeploy: boolean;
+}
+
+export interface ReleaseChecklistTask {
+  id: string;
+  title: string;
+  category: 'database' | 'security' | 'api_keys' | 'verification';
+  completed: boolean;
+  autoExecutable: boolean;
+}
+
+// ============================================================================
+// 9. AI COPILOT TYPES
+// ============================================================================
+
+export interface CopilotQueryRequest {
+  naturalLanguagePrompt: string;
+  targetDataType: string;
+  provider: string;
+}
+
+export interface CopilotQueryResponse {
+  interpretedQuery: string;
+  bubbleConstraints: {
+    key: string;
+    constraint_type: string;
+    value: any;
+  }[];
+  explanation: string;
+  dataApiUrlSnippet: string;
+}
+
+export interface CopilotRegexRequest {
+  description: string;
+  sampleInput: string;
+  flavor?: 'bubble_find_and_replace' | 'bubble_extract_regex' | 'standard_pcre';
+}
+
+export interface CopilotRegexResponse {
+  regexPattern: string;
+  regexFlags: string;
+  explanation: string;
+  matchesSample: boolean;
+  matchedValues: string[];
 }

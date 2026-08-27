@@ -10,10 +10,14 @@ import { CommandPalette } from './components/CommandPalette';
 import { StatusBar } from './components/StatusBar';
 import { DashboardView } from './views/DashboardView';
 import { DevOpsView } from './views/DevOpsView';
+import { SecurityView } from './views/SecurityView';
+import { WuProfilerView } from './views/WuProfilerView';
 import { AuditView } from './views/AuditView';
+import { ApiStudioView } from './views/ApiStudioView';
 import { TranslatorView } from './views/TranslatorView';
 import { VisualTesterView } from './views/VisualTesterView';
 import { SettingsView } from './views/SettingsView';
+import { AiCopilotModal } from './components/AiCopilotModal';
 import { DevOpsEngine } from './core/devops/devopsEngine';
 import { AuditEngine } from './core/audit/auditEngine';
 
@@ -24,6 +28,7 @@ export const App: React.FC = () => {
   const [isTerminalOpen, setIsTerminalOpen] = useState(false);
   const [isConnectModalOpen, setIsConnectModalOpen] = useState(false);
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
+  const [isCopilotOpen, setIsCopilotOpen] = useState(false);
   const [projectToDelete, setProjectToDelete] = useState<ProjectProfile | null>(null);
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [isBackingUp, setIsBackingUp] = useState(false);
@@ -36,13 +41,18 @@ export const App: React.FC = () => {
     document.documentElement.setAttribute('data-theme', settings.theme);
   }, [settings.theme]);
 
-  // Global Keyboard Shortcuts (Ctrl+K, Ctrl+B, Ctrl+`)
+  // Global Keyboard Shortcuts (Ctrl+K, Ctrl+I, Ctrl+B, Ctrl+`)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       // Ctrl+K / Cmd+K -> Toggle Command Palette
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
         e.preventDefault();
         setIsCommandPaletteOpen(prev => !prev);
+      }
+      // Ctrl+I / Cmd+I -> Toggle AI Copilot
+      else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'i') {
+        e.preventDefault();
+        setIsCopilotOpen(prev => !prev);
       }
       // Ctrl+B -> Run Backup
       else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'b' && !e.shiftKey) {
@@ -72,7 +82,7 @@ export const App: React.FC = () => {
   }, []);
 
   const addLog = (
-    module: 'system' | 'devops' | 'audit' | 'translator' | 'visual-tester',
+    module: LogEntry['module'],
     message: string,
     level: 'info' | 'success' | 'warn' | 'error' = 'info'
   ) => {
@@ -241,8 +251,29 @@ export const App: React.FC = () => {
               />
             )}
 
+            {currentTab === 'security' && (
+              <SecurityView
+                activeProject={activeProject}
+                onLog={addLog}
+              />
+            )}
+
+            {currentTab === 'wu-profiler' && (
+              <WuProfilerView
+                activeProject={activeProject}
+                onLog={addLog}
+              />
+            )}
+
             {currentTab === 'audit' && (
               <AuditView
+                onLog={addLog}
+              />
+            )}
+
+            {currentTab === 'api-studio' && (
+              <ApiStudioView
+                activeProject={activeProject}
                 onLog={addLog}
               />
             )}
@@ -315,6 +346,21 @@ export const App: React.FC = () => {
             onTriggerBackup={handleQuickBackup}
             onTriggerAudit={handleQuickAudit}
             onToggleTerminal={() => setIsTerminalOpen(!isTerminalOpen)}
+            onOpenCopilot={() => setIsCopilotOpen(true)}
+          />
+
+          {/* Bubble AI Copilot Modal (Ctrl+I) */}
+          <AiCopilotModal
+            isOpen={isCopilotOpen}
+            onClose={() => setIsCopilotOpen(false)}
+            geminiApiKey={settings.geminiApiKey}
+            openaiApiKey={settings.openaiApiKey}
+            groqApiKey={settings.groqApiKey}
+            xaiApiKey={settings.xaiApiKey}
+            onApplyQueryToRepl={(dataType, constraints) => {
+              setCurrentTab('devops');
+              addLog('copilot', `Applied AI synthesized query filter for '${dataType}'`, 'success');
+            }}
           />
         </div>
       </div>
@@ -326,6 +372,7 @@ export const App: React.FC = () => {
         isTerminalOpen={isTerminalOpen}
         onToggleTerminal={() => setIsTerminalOpen(!isTerminalOpen)}
         onOpenCommandPalette={() => setIsCommandPaletteOpen(true)}
+        onOpenCopilot={() => setIsCopilotOpen(true)}
         healthScore={healthScore || 92}
         healthGrade={healthGrade || 'A'}
         aiProvider="Groq"

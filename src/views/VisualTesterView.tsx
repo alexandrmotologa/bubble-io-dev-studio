@@ -20,13 +20,14 @@ import {
 import { ProjectProfile, VisualAuthSettings, VisualSuiteResult, VisualTestCase } from '../types';
 import { VisualEngine } from '../core/visual-tester/visualEngine';
 import { SplitScreenSlider } from '../components/SplitScreenSlider';
+import { MultiDeviceViewport } from '../components/MultiDeviceViewport';
 
 interface VisualTesterViewProps {
   onLog: (module: 'visual-tester', message: string, level?: 'info' | 'success' | 'warn' | 'error') => void;
   activeProject?: ProjectProfile;
 }
 
-type VisualSubTab = 'suite' | 'inspector' | 'viewports' | 'auth' | 'settings';
+type VisualSubTab = 'suite' | 'inspector' | 'viewports' | 'responsive_matrix' | 'auth' | 'settings';
 
 export const VisualTesterView: React.FC<VisualTesterViewProps> = ({ onLog, activeProject }) => {
   const [subTab, setSubTab] = useState<VisualSubTab>('suite');
@@ -159,6 +160,10 @@ export const VisualTesterView: React.FC<VisualTesterViewProps> = ({ onLog, activ
           <button onClick={() => setSubTab('suite')} className={`btn btn-sm ${subTab === 'suite' ? 'btn-primary' : 'btn-secondary'}`} style={{ border: 'none' }}>
             <Camera size={13} />
             <span>Test Suite ({testCases.length})</span>
+          </button>
+          <button onClick={() => setSubTab('responsive_matrix')} className={`btn btn-sm ${subTab === 'responsive_matrix' ? 'btn-primary' : 'btn-secondary'}`} style={{ border: 'none' }}>
+            <Smartphone size={13} />
+            <span>4-Up Device Matrix</span>
           </button>
           <button onClick={() => setSubTab('viewports')} className={`btn btn-sm ${subTab === 'viewports' ? 'btn-primary' : 'btn-secondary'}`} style={{ border: 'none' }}>
             <SlidersHorizontal size={13} />
@@ -523,6 +528,13 @@ export const VisualTesterView: React.FC<VisualTesterViewProps> = ({ onLog, activ
             </div>
           </div>
         </div>
+      )}
+
+      {/* SUBTAB 5: RESPONSIVE 4-UP DEVICE MATRIX */}
+      {subTab === 'responsive_matrix' && (
+        <MultiDeviceViewport
+          initialUrl={activeProject ? `https://${activeProject.appId}.bubbleapps.io/version-test` : 'https://myapp.bubbleapps.io/version-test'}
+        />
       )}
     </div>
   );

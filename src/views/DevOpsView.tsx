@@ -28,10 +28,12 @@ import {
   BackupResult, 
   BubbleDataType, 
   BubbleSchema, 
+  EnvDiffReport,
   PiiAuditReport, 
   ProjectProfile, 
   QueryConstraint, 
   QueryResultPage, 
+  ReleaseChecklistTask,
   SchemaLockfile, 
   SchemaMigration, 
   SeedExecutionPlan 
@@ -44,6 +46,7 @@ import { DbExporterEngine } from '../core/devops/dbExporter';
 import { CiGeneratorsEngine } from '../core/devops/ciGenerators';
 import { TemplateScaffolderEngine } from '../core/devops/templateScaffolder';
 import { MockServerEngine } from '../core/devops/mockServer';
+import { EnvSyncEngine } from '../core/env-sync/envSyncEngine';
 
 interface DevOpsViewProps {
   activeProject?: ProjectProfile;
@@ -56,6 +59,7 @@ type DevOpsSubTab =
   | 'erd'
   | 'types'
   | 'migrations'
+  | 'env_sync'
   | 'backups'
   | 'query'
   | 'seeder'
@@ -133,7 +137,24 @@ export const DevOpsView: React.FC<DevOpsViewProps> = ({ activeProject, onLog, on
   const [wfResponse, setWfResponse] = useState<any>(null);
   const [isTriggeringWf, setIsTriggeringWf] = useState(false);
 
+  // Env Sync state
+  const [envDiff, setEnvDiff] = useState<EnvDiffReport | null>(null);
+  const [releaseTasks, setReleaseTasks] = useState<ReleaseChecklistTask[]>([]);
+  const [isSyncingEnv, setIsSyncingEnv] = useState(false);
+
   const [isFetchingSchema, setIsFetchingSchema] = useState(false);
+
+  const loadEnvSync = async () => {
+    setIsSyncingEnv(true);
+    try {
+      const diff = await EnvSyncEngine.compareEnvironments('version-test', 'live');
+      setEnvDiff(diff);
+      setReleaseTasks(EnvSyncEngine.getReleaseChecklist(diff));
+      onLog('devops', 'Completed Cross-Environment Diff (Development vs Live).', 'info');
+    } finally {
+      setIsSyncingEnv(false);
+    }
+  };
 
   useEffect(() => {
     if (activeProject) {
@@ -443,6 +464,10 @@ export const DevOpsView: React.FC<DevOpsViewProps> = ({ activeProject, onLog, on
           <button onClick={() => setSubTab('migrations')} className={`btn btn-sm ${subTab === 'migrations' ? 'btn-primary' : 'btn-secondary'}`} style={{ border: 'none' }}>
             <GitCompare size={13} />
             <span>Migrations ({migrations.length})</span>
+          </button>
+          <button onClick={() => { setSubTab('env_sync'); loadEnvSync(); }} className={`btn btn-sm ${subTab === 'env_sync' ? 'btn-primary' : 'btn-secondary'}`} style={{ border: 'none' }}>
+            <Layers size={13} />
+            <span>Dev vs Live Sync</span>
           </button>
           <button onClick={() => setSubTab('backups')} className={`btn btn-sm ${subTab === 'backups' ? 'btn-primary' : 'btn-secondary'}`} style={{ border: 'none' }}>
             <HardDriveDownload size={13} />
@@ -785,6 +810,97 @@ export const DevOpsView: React.FC<DevOpsViewProps> = ({ activeProject, onLog, on
               ))}
             </div>
           </div>
+        </div>
+      )}
+
+      {/* SUBTAB: DEV VS LIVE ENV SYNC */}
+      {subTab === 'env_sync' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          <div className="card">
+            <div className="card-header">
+              <div>
+                <div className="card-title">
+                  <Layers size={18} color="var(--accent-cyan)" />
+                  <span>Cross-Environment Diff & Pre-Release Checklist</span>
+                </div>
+                <div className="card-subtitle">
+                  Comparing <code>version-test</code> (Development) ➔ <code>live</code> (Production)
+                </div>
+              </div>
+              <button onClick={loadEnvSync} disabled={isSyncingEnv} className="btn btn-primary btn-sm">
+                <RefreshCw size={13} className={isSyncingEnv ? 'spin' : ''} />
+                <span>{isSyncingEnv ? 'Analyzing Diff...' : 'Run Env Diff'}</span>
+              </button>
+            </div>
+
+            {envDiff && (
+              <div className="grid-3" style={{ marginTop: '14px' }}>
+                <div className="card" style={{ background: 'var(--bg-input)' }}>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>NEW TABLES PENDING DEPLOY</div>
+                  <div style={{ fontSize: '1.6rem', fontWeight: 800, color: envDiff.missingDataTypesInTarget.length > 0 ? 'var(--accent-amber)' : 'var(--accent-emerald)' }}>
+                    {envDiff.missingDataTypesInTarget.length}
+                  </div>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>{envDiff.missingDataTypesInTarget.join(', ') || 'All tables synced'}</div>
+                </div>
+
+                <div className="card" style={{ background: 'var(--bg-input)' }}>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>NEW FIELDS PENDING DEPLOY</div>
+                  <div style={{ fontSize: '1.6rem', fontWeight: 800, color: envDiff.missingFieldsInTarget.length > 0 ? 'var(--accent-amber)' : 'var(--accent-emerald)' }}>
+                    {envDiff.missingFieldsInTarget.length}
+                  </div>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Across User, Order, Product</div>
+                </div>
+
+                <div className="card" style={{ background: 'var(--bg-input)' }}>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>SECRET KEYS VALIDATION</div>
+                  <div style={{ fontSize: '1.6rem', fontWeight: 800, color: envDiff.secretKeyMismatches.some(k => k.inSource && !k.inTarget) ? 'var(--accent-rose)' : 'var(--accent-emerald)' }}>
+                    {envDiff.secretKeyMismatches.filter(k => k.inSource && !k.inTarget).length} Missing
+                  </div>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>In Live environment settings</div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Release Tasks Checklist */}
+          {releaseTasks.length > 0 && (
+            <div className="card">
+              <div className="card-title" style={{ marginBottom: '12px' }}>
+                <span>Pre-Release Checklist ({releaseTasks.filter(t => t.completed).length} / {releaseTasks.length} Ready)</span>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {releaseTasks.map(task => (
+                  <div
+                    key={task.id}
+                    onClick={() => setReleaseTasks(releaseTasks.map(t => t.id === task.id ? { ...t, completed: !t.completed } : t))}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '12px',
+                      padding: '12px 14px',
+                      background: 'var(--bg-input)',
+                      borderRadius: 'var(--radius-sm)',
+                      border: task.completed ? '1px solid rgba(16, 185, 129, 0.3)' : '1px solid var(--border-subtle)',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={task.completed}
+                      onChange={() => {}}
+                      style={{ cursor: 'pointer' }}
+                    />
+                    <div style={{ flex: 1, fontSize: '0.85rem', color: task.completed ? 'var(--accent-emerald)' : 'var(--text-primary)', textDecoration: task.completed ? 'line-through' : 'none' }}>
+                      {task.title}
+                    </div>
+                    <span className={`badge ${task.category === 'database' ? 'badge-indigo' : task.category === 'security' ? 'badge-rose' : 'badge-cyan'}`} style={{ textTransform: 'capitalize' }}>
+                      {task.category}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
 

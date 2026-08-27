@@ -34,14 +34,22 @@ export const Header: React.FC<HeaderProps> = ({
         return { title: 'Workspace Overview', desc: 'Unified monitoring, health score, and quick actions' };
       case 'devops':
         return { title: 'DevOps & Database Schema', desc: 'Automated backups, ERD visualizer, schema diffs & TypeScript generator' };
+      case 'security':
+        return { title: 'Security & Privacy Rules Auditor', desc: 'RBAC permissions matrix, vulnerable public endpoints & exposed sensitive fields' };
+      case 'wu-profiler':
+        return { title: 'Workload Units (WU) & Query Profiler', desc: 'Detect unindexed searches, nested N+1 loops & estimate monthly costs' };
       case 'audit':
         return { title: 'Dead Code & Health Scorer', desc: 'AST dependency graph, orphaned workflows & performance recommendations' };
+      case 'api-studio':
+        return { title: 'Live Webhook & API Connector Studio', desc: 'Inspect live incoming webhooks, test payload contracts & convert cURL / OpenAPI' };
       case 'translator':
         return { title: 'AI Localization Studio', desc: 'Translate Bubble apps with OpenAI, Anthropic, Gemini & glossaries' };
       case 'visual-tester':
         return { title: 'Visual QA & Regression Suite', desc: 'Multi-viewport pixel diff testing, baseline comparisons & automated reports' };
       case 'settings':
         return { title: 'Settings & Credentials', desc: 'Manage Bubble app credentials, AI provider keys, and studio preferences' };
+      default:
+        return { title: 'Bubble Studio', desc: 'Professional developer and DevOps environment' };
     }
   };
 

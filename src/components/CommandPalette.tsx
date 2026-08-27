@@ -17,7 +17,9 @@ import {
   ChevronRight,
   Zap,
   Globe,
-  X
+  X,
+  FileCode,
+  Radio
 } from 'lucide-react';
 import { ProjectProfile, NavigationTab } from '../types';
 
@@ -33,6 +35,7 @@ interface CommandPaletteProps {
   onTriggerBackup: () => void;
   onTriggerAudit: () => void;
   onToggleTerminal: () => void;
+  onOpenCopilot?: () => void;
 }
 
 interface CommandItem {
@@ -56,7 +59,8 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
   onOpenConnectModal,
   onTriggerBackup,
   onTriggerAudit,
-  onToggleTerminal
+  onToggleTerminal,
+  onOpenCopilot
 }) => {
   const [query, setQuery] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -104,13 +108,40 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
       badge: currentTab === 'devops' ? 'Active' : undefined
     },
     {
+      id: 'nav-security',
+      title: 'Go to Security & Privacy Rules Matrix',
+      subtitle: 'RBAC permissions, insecure endpoints, exposed fields',
+      category: 'Navigation',
+      icon: <ShieldAlert size={16} color="var(--accent-rose)" />,
+      action: () => { onTabChange('security'); onClose(); },
+      badge: currentTab === 'security' ? 'Active' : undefined
+    },
+    {
+      id: 'nav-wu-profiler',
+      title: 'Go to Workload Units (WU) & Query Profiler',
+      subtitle: 'WU cost breakdown, unindexed queries, performance advisor',
+      category: 'Navigation',
+      icon: <Zap size={16} color="var(--accent-amber)" />,
+      action: () => { onTabChange('wu-profiler'); onClose(); },
+      badge: currentTab === 'wu-profiler' ? 'Active' : undefined
+    },
+    {
       id: 'nav-audit',
       title: 'Go to AST Dead Code Detector',
       subtitle: 'Dependency DAG, orphan elements, security rules',
       category: 'Navigation',
-      icon: <ShieldAlert size={16} color="var(--accent-rose)" />,
+      icon: <FileCode size={16} color="var(--primary)" />,
       action: () => { onTabChange('audit'); onClose(); },
       badge: currentTab === 'audit' ? 'Active' : undefined
+    },
+    {
+      id: 'nav-api-studio',
+      title: 'Go to Live Webhooks & API Connector Studio',
+      subtitle: 'Live webhook inspector, cURL and Swagger importer',
+      category: 'Navigation',
+      icon: <Radio size={16} color="var(--accent-cyan)" />,
+      action: () => { onTabChange('api-studio'); onClose(); },
+      badge: currentTab === 'api-studio' ? 'Active' : undefined
     },
     {
       id: 'nav-translator',
@@ -138,6 +169,16 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
       icon: <Settings size={16} color="var(--text-secondary)" />,
       action: () => { onTabChange('settings'); onClose(); },
       badge: currentTab === 'settings' ? 'Active' : undefined
+    },
+
+    // Quick Actions
+    {
+      id: 'act-copilot',
+      title: 'Open Bubble AI Copilot & Expression Studio',
+      subtitle: 'Natural language to Data API query, regex compiler (Ctrl+I)',
+      category: 'Actions',
+      icon: <Sparkles size={16} color="var(--accent-cyan)" />,
+      action: () => { if (onOpenCopilot) onOpenCopilot(); onClose(); }
     },
 
     // Quick Actions
