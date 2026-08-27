@@ -19,10 +19,12 @@ import {
   Download,
   Share2,
   Workflow,
-  CheckCircle2,
-  AlertTriangle,
   Upload,
-  ArrowRight
+  ArrowRight,
+  ChevronDown,
+  ChevronRight,
+  ChevronsDownUp,
+  ChevronsUpDown
 } from 'lucide-react';
 import { 
   BackupResult, 
@@ -77,6 +79,28 @@ export const DevOpsView: React.FC<DevOpsViewProps> = ({ activeProject, onLog, on
   const [mermaidErd, setMermaidErd] = useState<string>('');
   const [copied, setCopied] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [collapsedTables, setCollapsedTables] = useState<Set<string>>(new Set());
+
+  const toggleCollapseTable = (id: string) => {
+    setCollapsedTables(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
+
+  const expandAllTables = () => {
+    setCollapsedTables(new Set());
+  };
+
+  const collapseAllTables = () => {
+    if (!schema) return;
+    setCollapsedTables(new Set(schema.dataTypes.map(d => d.id || d.name)));
+  };
 
   // Backup & Restore state
   const [isBackingUp, setIsBackingUp] = useState(false);
@@ -651,7 +675,7 @@ export const DevOpsView: React.FC<DevOpsViewProps> = ({ activeProject, onLog, on
       {subTab === 'schema' && (
         <div>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '12px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
               <div style={{ position: 'relative', width: '280px' }}>
                 <Search size={14} style={{ position: 'absolute', left: '12px', top: '11px', color: 'var(--text-muted)' }} />
                 <input
@@ -665,8 +689,34 @@ export const DevOpsView: React.FC<DevOpsViewProps> = ({ activeProject, onLog, on
               </div>
 
               {schema && (
-                <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-                  {schema.dataTypes.length} Tables • {schema.optionSets.length} Option Sets
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span className="badge badge-indigo" style={{ fontSize: '0.75rem' }}>
+                    {schema.dataTypes.length} Tables • {schema.optionSets.length} Option Sets
+                  </span>
+
+                  {/* Expand All / Collapse All Controls */}
+                  <div style={{ display: 'flex', gap: '4px' }}>
+                    <button
+                      type="button"
+                      onClick={expandAllTables}
+                      className="btn btn-secondary btn-sm"
+                      style={{ fontSize: '0.7rem', padding: '3px 8px' }}
+                      title="Expand all table field lists"
+                    >
+                      <ChevronsUpDown size={12} />
+                      <span>Expand All</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={collapseAllTables}
+                      className="btn btn-secondary btn-sm"
+                      style={{ fontSize: '0.7rem', padding: '3px 8px' }}
+                      title="Collapse all table field lists"
+                    >
+                      <ChevronsDownUp size={12} />
+                      <span>Collapse All</span>
+                    </button>
+                  </div>
                 </div>
               )}
             </div>
@@ -751,65 +801,139 @@ export const DevOpsView: React.FC<DevOpsViewProps> = ({ activeProject, onLog, on
               </div>
             </div>
           ) : (
-            <div className="grid-2">
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(420px, 1fr))',
+              gap: '16px',
+              alignItems: 'start'
+            }}>
               {schema.dataTypes
                 .filter(dt => !searchTerm || dt.name.toLowerCase().includes(searchTerm.toLowerCase()) || dt.fields.some(f => f.name.toLowerCase().includes(searchTerm.toLowerCase())))
-                .map((dt) => (
-                <div key={dt.id} className="card">
-                  <div className="card-header">
-                    <div>
-                      <div className="card-title">
-                        <Database size={18} color="var(--primary)" />
-                        <span>{dt.name}</span>
-                      </div>
-                      <div className="card-subtitle">
-                        {dt.recordCount !== undefined ? `${dt.recordCount.toLocaleString()} records in database` : 'Custom Data Type'}
-                      </div>
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <span className="badge badge-indigo">{dt.fields.length} Fields</span>
-                      <button
-                        onClick={() => {
-                          setQueryType(dt.name);
-                          setSubTab('query');
-                        }}
-                        className="btn btn-secondary btn-sm"
-                        style={{ fontSize: '0.7rem', padding: '3px 8px', display: 'flex', alignItems: 'center', gap: '4px' }}
-                        title={`Browse records of ${dt.name}`}
-                      >
-                        <Search size={11} />
-                        <span>Browse Data</span>
-                      </button>
-                    </div>
-                  </div>
+                .map((dt) => {
+                  const tableKey = dt.id || dt.name;
+                  const isCollapsed = collapsedTables.has(tableKey);
 
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                    {dt.fields.map((f, i) => (
+                  return (
+                    <div
+                      key={dt.id}
+                      className="card"
+                      style={{
+                        padding: '16px 18px',
+                        transition: 'all 0.15s ease',
+                        border: isCollapsed ? '1px solid var(--border-subtle)' : '1px solid var(--border-active)'
+                      }}
+                    >
+                      {/* Clickable Header with Expand/Collapse toggle */}
                       <div
-                        key={i}
+                        onClick={() => toggleCollapseTable(tableKey)}
                         style={{
                           display: 'flex',
                           justifyContent: 'space-between',
                           alignItems: 'center',
-                          padding: '8px 12px',
-                          borderRadius: 'var(--radius-sm)',
-                          background: 'var(--bg-input)',
-                          border: '1px solid var(--border-subtle)',
-                          fontSize: '0.825rem'
+                          cursor: 'pointer',
+                          userSelect: 'none',
+                          paddingBottom: isCollapsed ? '0' : '14px',
+                          borderBottom: isCollapsed ? 'none' : '1px solid var(--border-subtle)',
+                          marginBottom: isCollapsed ? '0' : '14px'
                         }}
                       >
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <code style={{ color: 'var(--text-primary)', fontWeight: 600 }}>{f.name}</code>
-                          {f.required && <span className="badge badge-rose" style={{ fontSize: '0.65rem' }}>Required</span>}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                          <div style={{
+                            width: '24px',
+                            height: '24px',
+                            borderRadius: '6px',
+                            background: isCollapsed ? 'rgba(255, 255, 255, 0.05)' : 'rgba(99, 102, 241, 0.15)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            color: isCollapsed ? 'var(--text-muted)' : 'var(--primary)'
+                          }}>
+                            {isCollapsed ? <ChevronRight size={15} /> : <ChevronDown size={15} />}
+                          </div>
+
+                          <div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              <Database size={15} color="var(--primary)" />
+                              <h3 style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
+                                {dt.name}
+                              </h3>
+                            </div>
+                            <div style={{ fontSize: '0.725rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                              {dt.recordCount !== undefined ? `${dt.recordCount.toLocaleString()} records in database` : 'Custom Data Type'}
+                            </div>
+                          </div>
                         </div>
-                        <span style={{ color: 'var(--accent-cyan)', fontFamily: 'var(--font-mono)', fontSize: '0.75rem' }}>
-                          {f.type}{f.isList ? '[]' : ''}
-                        </span>
+
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <span className={`badge ${isCollapsed ? 'badge-indigo' : 'badge-cyan'}`} style={{ fontSize: '0.68rem' }}>
+                            {dt.fields.length} Fields
+                          </span>
+
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setQueryType(dt.name);
+                              setSubTab('query');
+                            }}
+                            className="btn btn-secondary btn-sm"
+                            style={{ fontSize: '0.7rem', padding: '3px 8px', display: 'flex', alignItems: 'center', gap: '4px' }}
+                            title={`Browse records of ${dt.name}`}
+                          >
+                            <Search size={11} />
+                            <span>Browse Data</span>
+                          </button>
+                        </div>
                       </div>
-                    ))}
-                  </div>
-                </div>
-              ))}
+
+                      {/* Collapsible Fields Section */}
+                      {!isCollapsed && (
+                        <div>
+                          <div
+                            style={{
+                              display: 'flex',
+                              flexDirection: 'column',
+                              gap: '6px',
+                              maxHeight: dt.fields.length > 8 ? '360px' : 'none',
+                              overflowY: dt.fields.length > 8 ? 'auto' : 'visible',
+                              paddingRight: dt.fields.length > 8 ? '4px' : '0'
+                            }}
+                          >
+                            {dt.fields.map((f, i) => (
+                              <div
+                                key={i}
+                                style={{
+                                  display: 'flex',
+                                  justifyContent: 'space-between',
+                                  alignItems: 'center',
+                                  padding: '7px 10px',
+                                  borderRadius: 'var(--radius-sm)',
+                                  background: 'var(--bg-input)',
+                                  border: '1px solid var(--border-subtle)',
+                                  fontSize: '0.8rem'
+                                }}
+                              >
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                  <code style={{ color: 'var(--text-primary)', fontWeight: 600 }}>{f.name}</code>
+                                  {f.required && <span className="badge badge-rose" style={{ fontSize: '0.625rem' }}>Required</span>}
+                                </div>
+                                <span style={{ color: 'var(--accent-cyan)', fontFamily: 'var(--font-mono)', fontSize: '0.725rem' }}>
+                                  {f.type}{f.isList ? '[]' : ''}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+
+                          {dt.fields.length > 8 && (
+                            <div style={{ textAlign: 'center', fontSize: '0.7rem', color: 'var(--text-muted)', paddingTop: '8px' }}>
+                              Showing all {dt.fields.length} fields (scrollable list)
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
             </div>
           )}
         </div>
