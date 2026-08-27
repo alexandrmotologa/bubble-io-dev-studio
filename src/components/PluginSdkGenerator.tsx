@@ -76,7 +76,7 @@ export const PluginSdkGenerator: React.FC<PluginSdkGeneratorProps> = ({ onLog })
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-      <div className="grid-2" style={{ gridTemplateColumns: '1fr 1.2fr', alignItems: 'start', gap: '16px' }}>
+      <div className="responsive-split" style={{ alignItems: 'start' }}>
         {/* Left Column: Action Config & Parameters Builder */}
         <div className="card">
           <div className="card-header">

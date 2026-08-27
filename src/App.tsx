@@ -220,6 +220,8 @@ export const App: React.FC = () => {
     }
   };
 
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+
   return (
     <div className="app-container" style={{ display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden' }}>
       <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
@@ -232,6 +234,8 @@ export const App: React.FC = () => {
           onSelectProject={handleSelectProject}
           onOpenConnectModal={() => setIsConnectModalOpen(true)}
           onDeleteProject={(proj) => setProjectToDelete(proj)}
+          isOpen={isMobileSidebarOpen}
+          onCloseMobile={() => setIsMobileSidebarOpen(false)}
         />
 
         {/* Main Content Area */}
@@ -244,6 +248,7 @@ export const App: React.FC = () => {
             isTerminalOpen={isTerminalOpen}
             onToggleTerminal={() => setIsTerminalOpen(!isTerminalOpen)}
             logCount={logs.length}
+            onToggleMobileSidebar={() => setIsMobileSidebarOpen(prev => !prev)}
           />
 
           {/* View Switcher */}

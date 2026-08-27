@@ -5,7 +5,9 @@ import {
   Sun, 
   Globe, 
   ShieldCheck, 
-  Sparkles 
+  Sparkles,
+  Menu,
+  BookOpen
 } from 'lucide-react';
 import { NavigationTab, ProjectProfile, ThemeMode } from '../types';
 
@@ -17,6 +19,7 @@ interface HeaderProps {
   isTerminalOpen: boolean;
   onToggleTerminal: () => void;
   logCount: number;
+  onToggleMobileSidebar?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -26,14 +29,15 @@ export const Header: React.FC<HeaderProps> = ({
   onToggleTheme,
   isTerminalOpen,
   onToggleTerminal,
-  logCount
+  logCount,
+  onToggleMobileSidebar
 }) => {
   const getTabDetails = (tab: NavigationTab) => {
     switch (tab) {
       case 'dashboard':
         return { title: 'Workspace Overview', desc: 'Unified monitoring, health score, and quick actions' };
       case 'devops':
-        return { title: 'DevOps & Database Schema', desc: 'Automated backups, ERD visualizer, schema diffs & TypeScript generator' };
+        return { title: 'DevOps & Database Studio', desc: 'Interactive Data Studio (CRUD), schema migrations, ERD & snapshots' };
       case 'security':
         return { title: 'Security & Privacy Rules Auditor', desc: 'RBAC permissions matrix, vulnerable public endpoints & exposed sensitive fields' };
       case 'wu-profiler':
@@ -41,9 +45,11 @@ export const Header: React.FC<HeaderProps> = ({
       case 'audit':
         return { title: 'Dead Code & Health Scorer', desc: 'AST dependency graph, orphaned workflows & performance recommendations' };
       case 'api-studio':
-        return { title: 'Live Webhook & API Connector Studio', desc: 'Inspect live incoming webhooks, test payload contracts & convert cURL / OpenAPI' };
+        return { title: 'Live Webhook & API Connector Studio', desc: 'Inspect live incoming webhooks, test payload contracts & convert cURL / Plugin SDK' };
+      case 'doc-gen':
+        return { title: '1-Click Developer Documentation Book', desc: 'Auto-generated Data Dictionary, ERD, Security Matrix & API reference' };
       case 'translator':
-        return { title: 'AI Localization Studio', desc: 'Translate Bubble apps with OpenAI, Anthropic, Gemini & glossaries' };
+        return { title: 'AI Localization Studio', desc: 'Translate Bubble apps with OpenAI, Anthropic, Gemini, Groq & glossaries' };
       case 'visual-tester':
         return { title: 'Visual QA & Regression Suite', desc: 'Multi-viewport pixel diff testing, baseline comparisons & automated reports' };
       case 'settings':
@@ -56,7 +62,7 @@ export const Header: React.FC<HeaderProps> = ({
   const details = getTabDetails(currentTab);
 
   return (
-    <header style={{
+    <header className="header-container" style={{
       height: 'var(--header-height)',
       backgroundColor: 'var(--bg-card)',
       borderBottom: '1px solid var(--border-subtle)',
@@ -65,30 +71,44 @@ export const Header: React.FC<HeaderProps> = ({
       justifyContent: 'space-between',
       padding: '0 32px',
       flexShrink: 0,
-      backdropFilter: 'blur(12px)'
+      backdropFilter: 'blur(12px)',
+      gap: '12px'
     }}>
-      {/* Title & Context */}
-      <div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <h2 style={{ fontSize: '1.2rem', fontWeight: 800, color: 'var(--text-primary)' }}>
-            {details.title}
-          </h2>
-          {activeProject && (
-            <span className={`badge ${activeProject.environment === 'live' ? 'badge-emerald' : 'badge-amber'}`}>
-              <ShieldCheck size={12} />
-              {activeProject.environment.toUpperCase()}
-            </span>
-          )}
+      {/* Mobile Toggle & Title */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+        {onToggleMobileSidebar && (
+          <button
+            onClick={onToggleMobileSidebar}
+            className="btn btn-secondary btn-sm"
+            style={{ padding: '6px 8px' }}
+            title="Toggle Navigation Menu"
+          >
+            <Menu size={16} />
+          </button>
+        )}
+
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <h2 style={{ fontSize: '1.15rem', fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>
+              {details.title}
+            </h2>
+            {activeProject && (
+              <span className={`badge ${activeProject.environment === 'live' ? 'badge-emerald' : 'badge-amber'}`}>
+                <ShieldCheck size={12} />
+                {activeProject.environment.toUpperCase()}
+              </span>
+            )}
+          </div>
+          <p className="mobile-hide" style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
+            {details.desc}
+          </p>
         </div>
-        <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-          {details.desc}
-        </p>
       </div>
 
       {/* Action Controls */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
         {activeProject?.customDomain && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+          <div className="mobile-hide" style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
             <Globe size={14} />
             <span>{activeProject.customDomain}</span>
           </div>

@@ -165,7 +165,7 @@ export const DocGenView: React.FC<DocGenViewProps> = ({ activeProject, onLog }) 
       </div>
 
       {/* Main Two-Column Layout */}
-      <div className="grid-2" style={{ gridTemplateColumns: '300px 1fr', alignItems: 'start', gap: '16px' }}>
+      <div className="responsive-split" style={{ gridTemplateColumns: '280px 1fr', alignItems: 'start' }}>
         {/* Left Column: Table of Contents */}
         <div className="card" style={{ padding: '16px' }}>
           <div style={{ marginBottom: '12px' }}>

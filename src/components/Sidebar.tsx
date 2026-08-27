@@ -23,6 +23,8 @@ interface SidebarProps {
   onSelectProject: (id: string) => void;
   onOpenConnectModal: () => void;
   onDeleteProject?: (project: ProjectProfile) => void;
+  isOpen?: boolean;
+  onCloseMobile?: () => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -32,7 +34,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
   projects,
   onSelectProject,
   onOpenConnectModal,
-  onDeleteProject
+  onDeleteProject,
+  isOpen,
+  onCloseMobile
 }) => {
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, badge: null },
@@ -47,18 +51,31 @@ export const Sidebar: React.FC<SidebarProps> = ({
     { id: 'settings', label: 'Settings & Keys', icon: Settings, badge: null }
   ];
 
+  const handleNavClick = (tabId: NavigationTab) => {
+    onTabChange(tabId);
+    if (onCloseMobile) onCloseMobile();
+  };
+
   return (
-    <aside style={{
-      width: 'var(--sidebar-width)',
-      height: '100vh',
-      backgroundColor: 'var(--bg-sidebar)',
-      borderRight: '1px solid var(--border-subtle)',
-      display: 'flex',
-      flexDirection: 'column',
-      padding: '20px 16px',
-      gap: '20px',
-      flexShrink: 0
-    }}>
+    <>
+      {isOpen && (
+        <div 
+          className="mobile-sidebar-backdrop" 
+          onClick={onCloseMobile} 
+        />
+      )}
+
+      <aside className={`sidebar-container ${isOpen ? 'open' : ''}`} style={{
+        width: 'var(--sidebar-width)',
+        height: '100vh',
+        backgroundColor: 'var(--bg-sidebar)',
+        borderRight: '1px solid var(--border-subtle)',
+        display: 'flex',
+        flexDirection: 'column',
+        padding: '20px 16px',
+        gap: '20px',
+        flexShrink: 0
+      }}>
       {/* App Branding */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '0 8px' }}>
         <div style={{
@@ -127,7 +144,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           return (
             <button
               key={item.id}
-              onClick={() => onTabChange(item.id as NavigationTab)}
+              onClick={() => handleNavClick(item.id as NavigationTab)}
               style={{
                 display: 'flex',
                 alignItems: 'center',
@@ -179,5 +196,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </span>
       </div>
     </aside>
+    </>
   );
 };

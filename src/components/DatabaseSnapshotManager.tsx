@@ -163,7 +163,7 @@ export const DatabaseSnapshotManager: React.FC<DatabaseSnapshotManagerProps> = (
       </div>
 
       {/* Snapshot List & Diff Comparison */}
-      <div className="grid-2" style={{ gridTemplateColumns: '0.9fr 1.1fr', alignItems: 'start', gap: '16px' }}>
+      <div className="responsive-split" style={{ gridTemplateColumns: '0.9fr 1.1fr', alignItems: 'start' }}>
         {/* Left: Snapshots List */}
         <div className="card">
           <div className="card-header">

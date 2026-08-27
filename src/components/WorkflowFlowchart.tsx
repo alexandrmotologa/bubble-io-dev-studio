@@ -144,7 +144,7 @@ export const WorkflowFlowchart: React.FC<WorkflowFlowchartProps> = ({
       </div>
 
       {activeGraph && (
-        <div className="grid-2" style={{ gridTemplateColumns: '1.4fr 0.6fr', alignItems: 'start', gap: '16px' }}>
+        <div className="responsive-split" style={{ gridTemplateColumns: '1.4fr 0.6fr', alignItems: 'start' }}>
           {/* Main Visual Flowchart / Nodes */}
           <div className="card">
             <div className="card-header">
