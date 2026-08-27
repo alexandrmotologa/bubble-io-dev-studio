@@ -168,8 +168,13 @@ export class DevOpsEngine {
     onProgress?.('Finalizing checksum verification & indexing...', 100);
     await new Promise(r => setTimeout(r, 200));
 
+    onProgress?.('Compressing backup archive & generating checksum...', 90);
+    await new Promise(r => setTimeout(r, 200));
+
     const backupId = `bkp_${project.appId}_${Date.now()}`;
-    return {
+    const filename = this.downloadBackupFile(project, schema, backupId);
+
+    const result: BackupResult = {
       backupId,
       timestamp: new Date().toISOString(),
       status: 'completed',
@@ -295,6 +300,29 @@ export class DevOpsEngine {
         executedAt: new Date().toISOString()
       }
     };
+
+    // Persist backup history in localStorage
+    try {
+      const storageKey = `bubble_backups_${project.id}`;
+      const existing: BackupResult[] = JSON.parse(localStorage.getItem(storageKey) || '[]');
+      localStorage.setItem(storageKey, JSON.stringify([result, ...existing].slice(0, 25)));
+    } catch (e) {
+      console.warn('Could not persist backup in localStorage', e);
+    }
+
+    return result;
+  }
+
+  /**
+   * Loads persisted backup history for a project
+   */
+  public static getPersistedBackups(projectId: string): BackupResult[] {
+    try {
+      const storageKey = `bubble_backups_${projectId}`;
+      return JSON.parse(localStorage.getItem(storageKey) || '[]');
+    } catch {
+      return [];
+    }
   }
 
   /**
@@ -329,15 +357,8 @@ export class DevOpsEngine {
           tsType = `${field.type.charAt(0).toUpperCase() + field.type.slice(1)} | string`;
         }
 
-        if (field.isList) {
-          tsType = `${tsType}[]`;
-        }
-
-        const optMark = field.required ? '' : '?';
-        tsCode += `  ${field.name}${optMark}: ${tsType};\n`;
+        tsCode += `}\n\n`;
       }
-
-      tsCode += `}\n\n`;
     }
 
     return tsCode;
@@ -347,12 +368,23 @@ export class DevOpsEngine {
    * Generates Mermaid ERD Diagram code
    */
   public static generateMermaidERD(schema: BubbleSchema): string {
+    if (schema.dataTypes.length === 0) {
+      return `erDiagram\n    NO_TABLES_LOADED {\n        string message "Upload JSON export or connect Data API"\n    }`;
+    }
+
     let mermaid = 'erDiagram\n';
+
+    // 1. Define entities and their attributes
     for (const dt of schema.dataTypes) {
-      const tableName = dt.name.replace(/[^a-zA-Z0-9_]/g, '');
-      mermaid += `    ${tableName} {\n`;
+      const cleanName = dt.name.replace(/[^a-zA-Z0-9_]/g, '_');
+      mermaid += `    ${cleanName} {\n`;
+      mermaid += `        string _id PK\n`;
+      mermaid += `        date Created_Date\n`;
+      
       for (const field of dt.fields) {
-        mermaid += `        ${field.type} ${field.name}\n`;
+        const cleanField = field.name.replace(/[^a-zA-Z0-9_]/g, '_');
+        const cleanType = field.type.replace(/[^a-zA-Z0-9_]/g, '_');
+        mermaid += `        ${cleanType} ${cleanField}\n`;
       }
       mermaid += `    }\n`;
     }

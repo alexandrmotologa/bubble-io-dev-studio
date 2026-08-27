@@ -27,6 +27,7 @@ import { BUBBLE_LANGUAGES, DEFAULT_TARGET_LANGUAGE, DEFAULT_SOURCE_LANGUAGE, get
 import { SearchableLanguageSelect } from '../components/SearchableLanguageSelect';
 
 interface TranslatorViewProps {
+  settings?: GlobalSettings;
   onLog: (module: 'translator', message: string, level?: 'info' | 'success' | 'warn' | 'error') => void;
   geminiApiKey?: string;
   openaiApiKey?: string;
@@ -180,7 +181,7 @@ export const TranslatorView: React.FC<TranslatorViewProps> = ({
       sourceLang,
       provider,
       model,
-      temperature: 0.3,
+      temperature: 0.2,
       tone,
       useGlossary,
       useCache,

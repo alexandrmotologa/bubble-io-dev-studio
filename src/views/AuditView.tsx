@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   Stethoscope, 
   Trash2, 
@@ -24,6 +24,9 @@ import { AppDiffEngine } from '../core/audit/appDiffEngine';
 import { SafeCleanerEngine } from '../core/audit/safeCleaner';
 
 interface AuditViewProps {
+  activeProject?: ProjectProfile;
+  currentReport?: AuditHealthReport | null;
+  onReportUpdate?: (report: AuditHealthReport) => void;
   onLog: (module: 'audit', message: string, level?: 'info' | 'success' | 'warn' | 'error') => void;
 }
 
@@ -59,9 +62,26 @@ export const AuditView: React.FC<AuditViewProps> = ({ onLog }) => {
     }
   };
 
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const json = JSON.parse(event.target?.result as string);
+        runAudit(json, file.name);
+      } catch (err: any) {
+        onLog('audit', `Failed to parse JSON file: ${err.message}`, 'error');
+        alert('Invalid JSON file format. Please upload a valid Bubble application export.');
+      }
+    };
+    reader.readAsText(file);
+  };
+
   const handleCleanItem = (item: DeadItem) => {
     setCleanedIds(prev => new Set(prev).add(item.id));
-    onLog('audit', `Marked '${item.name}' for purge / clean-up.`, 'success');
+    onLog('audit', `Marked '${item.name}' (${item.type}) as reviewed/cleaned in Bubble editor.`, 'info');
   };
 
   const handleBatchClean = async () => {
@@ -138,7 +158,7 @@ export const AuditView: React.FC<AuditViewProps> = ({ onLog }) => {
     reader.readAsText(file);
   };
 
-  const filteredItems = (report?.deadItems || []).filter(item => {
+  const filteredItems = report?.deadItems.filter(item => {
     if (cleanedIds.has(item.id)) return false;
     if (filterType !== 'all' && item.type !== filterType) return false;
     if (filterSeverity !== 'all' && item.severity !== filterSeverity) return false;
@@ -188,7 +208,7 @@ export const AuditView: React.FC<AuditViewProps> = ({ onLog }) => {
             <span>{isScanning ? 'Scanning AST...' : 'Re-run Scan'}</span>
           </button>
         </div>
-      </div>
+      )}
 
       {/* EMPTY STATE: No scan run yet */}
       {!report && !isScanning && (
@@ -443,7 +463,24 @@ export const AuditView: React.FC<AuditViewProps> = ({ onLog }) => {
                   Incoming refs: <strong>{n.incomingEdges}</strong> • Outgoing: <strong>{n.outgoingEdges}</strong>
                 </div>
               </div>
-            ))}
+              <div className="card-subtitle">
+                Review and clean orphaned items in your Bubble.io application
+              </div>
+            </div>
+
+            {/* Filter Pills */}
+            <div style={{ display: 'flex', gap: '6px' }}>
+              {(['all', 'element', 'workflow', 'field', 'style'] as const).map(type => (
+                <button
+                  key={type}
+                  onClick={() => setFilterType(type)}
+                  className={`btn btn-sm ${filterType === type ? 'btn-primary' : 'btn-secondary'}`}
+                  style={{ textTransform: 'capitalize', fontSize: '0.75rem', padding: '4px 10px' }}
+                >
+                  {type}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
       )}

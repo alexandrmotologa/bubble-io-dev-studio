@@ -2,9 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { 
   Settings, 
   Key, 
-  ShieldCheck, 
-  Plus, 
-  Trash2, 
   Save, 
   Check, 
   Sparkles, 
@@ -124,7 +121,15 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     onSaveSettings(formData);
     setSavedSuccess(true);
     setTimeout(() => setSavedSuccess(false), 2500);
-    onLog('system', 'Settings and API credentials updated successfully.', 'success');
+    onLog('system', 'Settings & AI model configurations saved successfully.', 'success');
+  };
+
+  const handleAiConfigChange = (updates: Partial<GlobalSettings>) => {
+    setFormData(prev => {
+      const updated = { ...prev, ...updates };
+      onSaveSettings(updated);
+      return updated;
+    });
   };
 
   const handleProviderChange = (newProvider: string) => {
@@ -226,10 +231,11 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           </p>
         </div>
 
-        <button onClick={handleSave} className="btn btn-primary">
-          {savedSuccess ? <Check size={16} /> : <Save size={16} />}
-          <span>{savedSuccess ? 'Changes Saved!' : 'Save All Settings'}</span>
-        </button>
+        {/* Master-Detail AI Model Catalog Configurator */}
+        <AiProvidersConfigurator
+          settings={formData}
+          onChange={handleAiConfigChange}
+        />
       </div>
 
       <div className="grid-2">
@@ -552,6 +558,167 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             </div>
           </div>
         </div>
+
+        {/* Bubble Profiles Summary */}
+        <div className="card">
+          <div className="card-header">
+            <div>
+              <div className="card-title">
+                <Layers size={18} color="var(--accent-emerald)" />
+                <span>Active Bubble Workspaces</span>
+              </div>
+              <div className="card-subtitle">{formData.projects.length} application profiles configured</div>
+            </div>
+
+            {onLoadDemoProject && (
+              <button onClick={onLoadDemoProject} className="btn btn-secondary btn-sm" style={{ fontSize: '0.75rem' }}>
+                <FlaskConical size={13} />
+                <span>Load Sandbox App</span>
+              </button>
+            )}
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            {formData.projects.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '24px 0', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+                No applications connected. Use the form below to add your first app.
+              </div>
+            ) : (
+              formData.projects.map(proj => {
+                const isEditingThis = editingTokenId === proj.id;
+
+                return (
+                  <div
+                    key={proj.id}
+                    style={{
+                      padding: '12px 14px',
+                      borderRadius: 'var(--radius-md)',
+                      background: 'var(--bg-input)',
+                      border: '1px solid var(--border-subtle)',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '10px',
+                      transition: 'all 0.2s ease'
+                    }}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      {/* Left: Avatar + App Identity */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                        <div style={{
+                          width: '36px',
+                          height: '36px',
+                          borderRadius: '10px',
+                          background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.25) 0%, rgba(6, 182, 212, 0.25) 100%)',
+                          border: '1px solid rgba(99, 102, 241, 0.35)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          color: 'var(--primary)',
+                          fontWeight: 800,
+                          fontSize: '0.85rem',
+                          flexShrink: 0
+                        }}>
+                          {proj.name.charAt(0).toUpperCase()}
+                        </div>
+
+                        <div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <strong style={{ fontSize: '0.9rem', color: 'var(--text-primary)' }}>{proj.name}</strong>
+                            <span 
+                              className={`badge ${proj.environment === 'live' ? 'badge-emerald' : proj.environment === 'staging' ? 'badge-amber' : 'badge-cyan'}`} 
+                              style={{ fontSize: '0.625rem', padding: '1px 6px' }}
+                            >
+                              {proj.environment.toUpperCase()}
+                            </span>
+                            {proj.apiToken ? (
+                              <span className="badge badge-emerald" style={{ fontSize: '0.625rem', padding: '1px 6px', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                                <ShieldCheck size={11} /> API Token Set
+                              </span>
+                            ) : (
+                              <span className="badge badge-amber" style={{ fontSize: '0.625rem', padding: '1px 6px' }}>
+                                No API Token
+                              </span>
+                            )}
+                          </div>
+
+                          <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                            <span>App ID: <code style={{ color: 'var(--text-primary)', fontWeight: 600 }}>{proj.appId}</code></span>
+                            <span>•</span>
+                            <span>URL: <code style={{ color: 'var(--accent-cyan)' }}>{proj.customDomain || `${proj.appId}.bubbleapps.io`}</code></span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Right: Actions */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <button
+                          onClick={() => setEditingTokenId(isEditingThis ? null : proj.id)}
+                          className="btn btn-secondary btn-sm"
+                          style={{ fontSize: '0.725rem', padding: '4px 10px' }}
+                          title="Configure Bubble Data API Token"
+                        >
+                          <Key size={12} color="var(--primary)" />
+                          <span>{isEditingThis ? 'Close' : proj.apiToken ? 'Edit Token' : 'Add Token'}</span>
+                        </button>
+
+                        <button
+                          onClick={() => handleDeleteProject(proj.id)}
+                          className="btn btn-secondary btn-sm"
+                          style={{ padding: '4px 8px', fontSize: '0.75rem' }}
+                          title="Remove project profile"
+                        >
+                          <Trash2 size={13} color="var(--accent-rose)" />
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Smooth Token Editor Expander */}
+                    {isEditingThis && (
+                      <div style={{
+                        padding: '10px 12px',
+                        background: 'var(--bg-surface-elevated)',
+                        borderRadius: 'var(--radius-sm)',
+                        border: '1px solid var(--border-active)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        marginTop: '2px'
+                      }}>
+                        <Key size={14} color="var(--primary)" style={{ flexShrink: 0 }} />
+                        <input
+                          type="password"
+                          placeholder="Paste Bubble Data API Token (from Bubble Settings > API)..."
+                          defaultValue={proj.apiToken || ''}
+                          onBlur={(e) => handleUpdateProjectToken(proj.id, e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              handleUpdateProjectToken(proj.id, (e.target as HTMLInputElement).value);
+                              setEditingTokenId(null);
+                            }
+                          }}
+                          className="input"
+                          style={{ height: '32px', fontSize: '0.8rem', flex: 1 }}
+                          autoFocus
+                        />
+                        <button
+                          onClick={(e) => {
+                            const input = (e.currentTarget.previousElementSibling as HTMLInputElement);
+                            if (input) handleUpdateProjectToken(proj.id, input.value);
+                            setEditingTokenId(null);
+                          }}
+                          className="btn btn-primary btn-sm"
+                          style={{ height: '32px', fontSize: '0.75rem', padding: '0 12px' }}
+                        >
+                          Save
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </div>
       </div>
 
       {/* Bubble Application Profiles Section - CLEAN WIZARD ONLY */}
@@ -565,6 +732,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             <div className="card-subtitle">
               Connected Bubble applications with live Data API, Meta API, and automated QA workflows
             </div>
+            <div className="card-subtitle">Add another development, staging, or live Bubble workspace</div>
           </div>
 
           {onOpenConnectModal && (

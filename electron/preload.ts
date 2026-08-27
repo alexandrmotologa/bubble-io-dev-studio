@@ -10,6 +10,7 @@ export interface ElectronAPI {
   sendToMain: (channel: string, data: any) => void;
   receiveFromMain: (channel: string, func: (...args: any[]) => void) => () => void;
   openExternal: (url: string) => Promise<void>;
+  fetchHttp: (url: string, headers?: Record<string, string>) => Promise<{ ok: boolean; status?: number; data?: any; error?: string }>;
 }
 
 const api: ElectronAPI = {
@@ -31,6 +32,9 @@ const api: ElectronAPI = {
   },
   openExternal: async (url: string) => {
     return ipcRenderer.invoke('shell:open-external', url);
+  },
+  fetchHttp: async (url: string, headers?: Record<string, string>) => {
+    return ipcRenderer.invoke('http:fetch', url, headers);
   }
 };
 

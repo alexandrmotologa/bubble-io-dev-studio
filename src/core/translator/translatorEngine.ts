@@ -20,6 +20,7 @@ export class TranslatorEngine {
   public static async runTranslation(
     items: TranslationItem[],
     config: TranslationJobConfig,
+    apiKeys?: { openai?: string; groq?: string; opencode?: string; ollamaEndpoint?: string },
     onProgress?: (index: number, total: number) => void
   ): Promise<TranslationJobResult> {
     const translatedItems: TranslationItem[] = [];

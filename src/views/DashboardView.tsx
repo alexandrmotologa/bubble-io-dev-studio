@@ -4,7 +4,6 @@ import {
   Stethoscope, 
   Languages, 
   Camera, 
-  Play, 
   CheckCircle2, 
   AlertTriangle, 
   ArrowRight, 
@@ -15,7 +14,7 @@ import {
   Layers,
   Activity
 } from 'lucide-react';
-import { NavigationTab, ProjectProfile } from '../types';
+import { NavigationTab, ProjectProfile, AuditHealthReport } from '../types';
 
 interface DashboardViewProps {
   activeProject?: ProjectProfile;
@@ -23,6 +22,8 @@ interface DashboardViewProps {
   onOpenConnectModal: () => void;
   onRunQuickBackup: () => void;
   onRunQuickAudit: () => void;
+  onOpenAddProject?: () => void;
+  onLoadDemoProject?: () => void;
   isBackingUp: boolean;
   isAuditing: boolean;
   healthScore: number | null;
@@ -35,10 +36,11 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   onOpenConnectModal,
   onRunQuickBackup,
   onRunQuickAudit,
+  onOpenAddProject,
+  onLoadDemoProject,
   isBackingUp,
   isAuditing,
-  healthScore,
-  healthGrade
+  auditReport
 }) => {
   // Empty State: No app configured yet
   if (!activeProject) {
@@ -107,6 +109,44 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               )}
             </div>
           </div>
+        </div>
+      ) : (
+        /* Empty State Banner */
+        <div className="card" style={{
+          background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.1) 0%, rgba(6, 182, 212, 0.08) 100%)',
+          border: '1px dashed var(--border-active)',
+          textAlign: 'center',
+          padding: '36px 24px'
+        }}>
+          <div style={{
+            width: '48px',
+            height: '48px',
+            borderRadius: '12px',
+            background: 'var(--primary-glow)',
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: 'var(--primary)',
+            marginBottom: '12px'
+          }}>
+            <Plus size={24} />
+          </div>
+          <h2 style={{ fontSize: '1.3rem', fontWeight: 800 }}>No Bubble.io Application Connected</h2>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', maxWidth: '480px', margin: '8px auto 20px' }}>
+            Connect your Bubble.io application to start managing backups, analyzing dead code, translating UI texts, and running visual QA tests.
+          </p>
+          <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
+            <button onClick={onOpenAddProject} className="btn btn-primary">
+              <Plus size={16} />
+              <span>Connect Your Bubble App</span>
+            </button>
+            <button onClick={onLoadDemoProject} className="btn btn-secondary">
+              <FlaskConical size={16} />
+              <span>Load Sandbox Demo</span>
+            </button>
+          </div>
+        </div>
+      )}
 
           <div style={{ display: 'flex', gap: '12px' }}>
             <button 
@@ -244,6 +284,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
       {/* Bottom Row: App Health & System Ready */}
       <div className="grid-2">
+        {/* Dynamic Health Card */}
         <div className="card">
           <div className="card-header">
             <div>
@@ -295,6 +336,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           )}
         </div>
 
+        {/* Dynamic Recommendations Card */}
         <div className="card">
           <div className="card-header">
             <div>
@@ -366,7 +408,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               </div>
               <ArrowRight size={14} color="var(--accent-amber)" />
             </div>
-          </div>
+          )}
         </div>
       </div>
     </div>
