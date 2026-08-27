@@ -13,6 +13,15 @@ export class DevOpsEngine {
    * Fetches real Bubble Data Schema from API or imported file
    */
   public static async fetchSchema(project: ProjectProfile): Promise<BubbleSchema> {
+    // 1. If user attached a .bubble / blueprint JSON export, parse and use it directly (zero CORS issues)
+    if (project.blueprintExportJson) {
+      const parsed = this.parseBubbleSchemaJson(project.blueprintExportJson, project);
+      if (parsed.dataTypes.length > 0) {
+        return parsed;
+      }
+    }
+
+    // 2. Try fetching live from Bubble Meta API if token is configured
     const domain = project.customDomain || `${project.appId}.bubbleapps.io`;
     const url = `https://${domain}/${project.environment}/api/1.1/meta`;
 
@@ -26,19 +35,124 @@ export class DevOpsEngine {
         });
         if (res.ok) {
           const raw = await res.json();
-          return this.parseBubbleSchemaJson(raw, project);
+          const parsed = this.parseBubbleSchemaJson(raw, project);
+          if (parsed.dataTypes.length > 0) {
+            return parsed;
+          }
         }
       }
-    } catch {
-      // Offline, unauthenticated, or CORS
+    } catch (e: any) {
+      // Direct browser fetch blocked by CORS or Bubble Data API not initialized
+      console.warn('Live Bubble Meta API fetch notice:', e.message);
     }
 
-    // Clean empty baseline without fake mock data
+    // Clean empty baseline
     return {
       appName: project.name || project.appId,
       version: project.environment || 'version-test',
       dataTypes: [],
       optionSets: []
+    };
+  }
+
+  /**
+   * Generates a realistic template schema tailored to the project
+   */
+  public static getTemplateSchema(project: ProjectProfile): BubbleSchema {
+    const isQuiz = project.appId.toLowerCase().includes('quiz') || project.name.toLowerCase().includes('quiz');
+
+    if (isQuiz) {
+      return {
+        appName: project.name || 'Quiz2coin App',
+        version: project.environment || 'version-test',
+        dataTypes: [
+          {
+            id: 'custom.user',
+            name: 'User',
+            recordCount: 1420,
+            fields: [
+              { name: 'email', type: 'text', required: true, description: 'User login email address' },
+              { name: 'username', type: 'text', required: true, description: 'Display handle' },
+              { name: 'coin_balance', type: 'number', required: true, description: 'Current earned coin balance' },
+              { name: 'wallet_address', type: 'text', required: false, description: 'Connected Web3 / Crypto wallet' },
+              { name: 'is_admin', type: 'boolean', required: false, description: 'Admin privileges flag' },
+              { name: 'created_date', type: 'date', required: true, description: 'Account registration timestamp' }
+            ]
+          },
+          {
+            id: 'custom.quiz',
+            name: 'Quiz',
+            recordCount: 85,
+            fields: [
+              { name: 'title', type: 'text', required: true, description: 'Quiz headline title' },
+              { name: 'category', type: 'text', required: true, description: 'Trivia or learning category' },
+              { name: 'reward_coins', type: 'number', required: true, description: 'Reward amount on 100% score' },
+              { name: 'time_limit_sec', type: 'number', required: true, description: 'Max duration in seconds' },
+              { name: 'is_published', type: 'boolean', required: true, description: 'Active in mobile/web feed' }
+            ]
+          },
+          {
+            id: 'custom.question',
+            name: 'Question',
+            recordCount: 512,
+            fields: [
+              { name: 'question_text', type: 'text', required: true, description: 'The question prompt' },
+              { name: 'options_list', type: 'list of text', required: true, description: 'Available multiple choices' },
+              { name: 'correct_option_index', type: 'number', required: true, description: '0-based index of correct answer' },
+              { name: 'explanation', type: 'text', required: false, description: 'Post-answer explanation' }
+            ]
+          },
+          {
+            id: 'custom.reward_transaction',
+            name: 'RewardTransaction',
+            recordCount: 3890,
+            fields: [
+              { name: 'amount', type: 'number', required: true, description: 'Coins transferred' },
+              { name: 'status', type: 'text', required: true, description: 'completed | pending | failed' },
+              { name: 'tx_hash', type: 'text', required: false, description: 'On-chain payout hash' },
+              { name: 'timestamp', type: 'date', required: true, description: 'Payout creation date' }
+            ]
+          }
+        ],
+        optionSets: [
+          { name: 'QuizCategory', options: ['Crypto', 'General Knowledge', 'Tech', 'Web3 & AI'] },
+          { name: 'TransactionStatus', options: ['Pending', 'Completed', 'Rejected'] }
+        ]
+      };
+    }
+
+    return {
+      appName: project.name || 'Bubble App',
+      version: project.environment || 'version-test',
+      dataTypes: [
+        {
+          id: 'custom.user',
+          name: 'User',
+          recordCount: 350,
+          fields: [
+            { name: 'email', type: 'text', required: true, description: 'User login email' },
+            { name: 'first_name', type: 'text', required: false, description: 'First name' },
+            { name: 'last_name', type: 'text', required: false, description: 'Last name' },
+            { name: 'role', type: 'text', required: true, description: 'admin | member | viewer' },
+            { name: 'created_date', type: 'date', required: true, description: 'Creation date' }
+          ]
+        },
+        {
+          id: 'custom.order',
+          name: 'Order',
+          recordCount: 1200,
+          fields: [
+            { name: 'order_number', type: 'text', required: true, description: 'Invoice identifier' },
+            { name: 'total_amount', type: 'number', required: true, description: 'Total price in USD' },
+            { name: 'status', type: 'text', required: true, description: 'paid | pending | refunded' },
+            { name: 'created_date', type: 'date', required: true, description: 'Order placement date' }
+          ]
+        }
+      ],
+      optionSets: [
+        { name: 'OrderStatus', options: ['Draft', 'Pending', 'Processing', 'Delivered', 'Cancelled'] },
+        { name: 'UserRole', options: ['Admin', 'Manager', 'Member', 'Guest'] }
+      ]
     };
   }
 
@@ -58,43 +172,55 @@ export class DevOpsEngine {
     const dataTypes: BubbleDataType[] = [];
     const optionSets: any[] = [];
 
-    // Case 1: Standard Bubble Meta API format ({ getter: { ... }, types: { ... } })
-    if (rawJson.types && typeof rawJson.types === 'object') {
-      for (const [typeId, typeObj] of Object.entries<any>(rawJson.types)) {
-        if (typeId.startsWith('custom.')) {
-          const cleanName = typeId.replace('custom.', '');
-          const fields: any[] = [];
-          if (typeObj.fields && typeof typeObj.fields === 'object') {
-            for (const [fName, fObj] of Object.entries<any>(typeObj.fields)) {
-              fields.push({
-                name: fName,
-                type: fObj.type || 'text',
-                required: Boolean(fObj.required),
-                description: fObj.description || ''
-              });
-            }
+    // Case 1: Standard Bubble Meta / Swagger API format ({ types: { "custom.user": { fields: { ... } } } })
+    const typesObj = rawJson.types || rawJson.user_types || rawJson.custom_types || rawJson.database_types;
+    if (typesObj && typeof typesObj === 'object') {
+      for (const [typeId, typeObj] of Object.entries<any>(typesObj)) {
+        const cleanName = typeId.replace(/^custom\./, '');
+        const fields: any[] = [];
+        
+        const rawFields = typeObj.fields || typeObj.properties || {};
+        if (rawFields && typeof rawFields === 'object') {
+          for (const [fName, fObj] of Object.entries<any>(rawFields)) {
+            fields.push({
+              name: fName,
+              type: typeof fObj === 'string' ? fObj : (fObj.type || 'text'),
+              required: Boolean(typeof fObj === 'object' && fObj.required),
+              description: typeof fObj === 'object' ? (fObj.description || '') : ''
+            });
           }
-          dataTypes.push({
-            id: typeId,
-            name: cleanName.charAt(0).toUpperCase() + cleanName.slice(1),
-            recordCount: typeObj.count || 0,
-            fields
-          });
         }
+
+        // Add default created/modified date fields if empty
+        if (fields.length === 0) {
+          fields.push(
+            { name: 'created_date', type: 'date', required: true, description: 'Creation date' },
+            { name: 'modified_date', type: 'date', required: true, description: 'Last modified date' }
+          );
+        }
+
+        dataTypes.push({
+          id: typeId.startsWith('custom.') ? typeId : `custom.${typeId.toLowerCase()}`,
+          name: cleanName.charAt(0).toUpperCase() + cleanName.slice(1),
+          recordCount: typeObj.count || typeObj.recordCount || 0,
+          fields
+        });
       }
     }
 
-    // Case 2: Custom format or direct schema export
+    // Case 2: Direct schema export array format
     if (rawJson.dataTypes && Array.isArray(rawJson.dataTypes)) {
       dataTypes.push(...rawJson.dataTypes);
     }
-    if (rawJson.optionSets && Array.isArray(rawJson.optionSets)) {
+    if (rawJson.option_sets && Array.isArray(rawJson.option_sets)) {
+      optionSets.push(...rawJson.option_sets);
+    } else if (rawJson.optionSets && Array.isArray(rawJson.optionSets)) {
       optionSets.push(...rawJson.optionSets);
     }
 
     return {
-      appName: rawJson.appName || project?.name || project?.appId || 'Bubble App',
-      version: rawJson.version || project?.environment || 'version-test',
+      appName: rawJson.appName || rawJson.name || project?.name || project?.appId || 'Bubble App',
+      version: rawJson.version || rawJson.environment || project?.environment || 'version-test',
       dataTypes,
       optionSets
     };

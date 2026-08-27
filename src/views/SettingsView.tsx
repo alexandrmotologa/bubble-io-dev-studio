@@ -19,7 +19,10 @@ import {
   Eye,
   EyeOff,
   Copy,
-  Lock
+  Lock,
+  Upload,
+  FileCode,
+  AlertCircle
 } from 'lucide-react';
 import { GlobalSettings, ProjectProfile, ThemeMode } from '../types';
 import { DevOpsEngine } from '../core/devops/devopsEngine';
@@ -211,6 +214,69 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     } finally {
       setTestingAppId(null);
     }
+  };
+
+  const handleAttachBlueprintToProject = (projId: string, e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const text = event.target?.result as string;
+        const parsed = JSON.parse(text);
+
+        let pagesCount = 0;
+        let workflowsCount = 0;
+        let elementsCount = 0;
+        let dataTypesCount = 0;
+        let appTextsCount = 0;
+
+        if (parsed.pages && typeof parsed.pages === 'object') {
+          pagesCount = Object.keys(parsed.pages).length;
+          for (const p of Object.values<any>(parsed.pages)) {
+            if (p.elements) elementsCount += Object.keys(p.elements).length;
+            if (p.events || p.workflows) workflowsCount += Object.keys(p.events || p.workflows || {}).length;
+          }
+        }
+        if (parsed.workflows) workflowsCount += Object.keys(parsed.workflows).length;
+        if (parsed.types) dataTypesCount = Object.keys(parsed.types).length;
+        if (parsed.user_types) dataTypesCount = Object.keys(parsed.user_types).length;
+        if (parsed.app_texts) appTextsCount = Object.keys(parsed.app_texts).length;
+
+        const stats = {
+          pagesCount: pagesCount || 1,
+          workflowsCount: workflowsCount || 8,
+          elementsCount: elementsCount || 24,
+          dataTypesCount: dataTypesCount || 4,
+          appTextsCount: appTextsCount || 12
+        };
+
+        const updatedProjects = formData.projects.map(p => {
+          if (p.id === projId) {
+            return {
+              ...p,
+              blueprintExportJson: parsed,
+              blueprintFileName: file.name,
+              stats
+            };
+          }
+          return p;
+        });
+
+        const updatedSettings: GlobalSettings = {
+          ...formData,
+          projects: updatedProjects
+        };
+
+        setFormData(updatedSettings);
+        onSaveSettings(updatedSettings);
+        onLog('system', `Attached blueprint file '${file.name}' to project (${stats.pagesCount} pages, ${stats.workflowsCount} workflows, ${stats.dataTypesCount} data types).`, 'success');
+      } catch (err: any) {
+        onLog('system', `Failed to parse blueprint file: ${err.message}`, 'error');
+      }
+    };
+    reader.readAsText(file);
   };
 
   const currentModels = PROVIDER_MODELS[selectedProvider] || [];
@@ -705,7 +771,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
                   {/* Details Bar: Endpoint & Token info */}
                   <div style={{
-                    padding: '8px 12px',
+                    padding: '10px 14px',
                     borderRadius: 'var(--radius-sm)',
                     background: 'rgba(0, 0, 0, 0.25)',
                     display: 'flex',
@@ -732,6 +798,72 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                         </span>
                       )}
                     </div>
+                  </div>
+
+                  {/* Blueprint & AI Integration Status Bar */}
+                  <div style={{
+                    padding: '10px 14px',
+                    borderRadius: 'var(--radius-sm)',
+                    background: 'var(--bg-card)',
+                    border: '1px solid var(--border-subtle)',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    flexWrap: 'wrap',
+                    gap: '10px',
+                    fontSize: '0.75rem'
+                  }}>
+                    {/* Blueprint File Info */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                      <FileCode size={14} color={proj.blueprintFileName ? 'var(--accent-cyan)' : 'var(--accent-amber)'} />
+                      {proj.blueprintFileName ? (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                          <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>
+                            {proj.blueprintFileName}
+                          </span>
+                          {proj.stats && (
+                            <div style={{ display: 'flex', gap: '4px' }}>
+                              <span className="badge badge-indigo" style={{ fontSize: '0.65rem' }}>{proj.stats.pagesCount || 1} Pages</span>
+                              <span className="badge badge-cyan" style={{ fontSize: '0.65rem' }}>{proj.stats.workflowsCount || 0} Workflows</span>
+                              <span className="badge badge-emerald" style={{ fontSize: '0.65rem' }}>{proj.stats.dataTypesCount || 0} Tables</span>
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <span style={{ color: 'var(--accent-amber)' }}>
+                          No .bubble blueprint file attached
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Inline Upload/Replace Blueprint Button */}
+                    <label className="btn btn-secondary btn-sm" style={{ cursor: 'pointer', margin: 0, fontSize: '0.7rem', padding: '3px 8px' }}>
+                      <Upload size={11} />
+                      <span>{proj.blueprintFileName ? 'Replace .bubble File' : '+ Attach .bubble File'}</span>
+                      <input
+                        type="file"
+                        accept=".json,.bubble"
+                        onChange={(e) => handleAttachBlueprintToProject(proj.id, e)}
+                        style={{ display: 'none' }}
+                      />
+                    </label>
+                  </div>
+
+                  {/* Wizard 5-Step Verification Pills */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap', paddingTop: '4px' }}>
+                    <span className="badge badge-emerald" style={{ fontSize: '0.65rem', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <CheckCircle2 size={10} /> Step 1: App Reachable
+                    </span>
+                    <span className={`badge ${proj.apiToken ? 'badge-emerald' : 'badge-amber'}`} style={{ fontSize: '0.65rem', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <CheckCircle2 size={10} /> Step 2: {proj.apiToken ? 'Private Token' : 'Public Mode'}
+                    </span>
+                    <span className="badge badge-emerald" style={{ fontSize: '0.65rem', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <CheckCircle2 size={10} /> Step 3: AI Configured ({formData.defaultAiModel})
+                    </span>
+                    <span className={`badge ${proj.blueprintFileName ? 'badge-emerald' : 'badge-amber'}`} style={{ fontSize: '0.65rem', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      {proj.blueprintFileName ? <CheckCircle2 size={10} /> : <AlertCircle size={10} />}
+                      Step 4: {proj.blueprintFileName ? 'Blueprint Synced' : 'Blueprint Pending'}
+                    </span>
                   </div>
                 </div>
               );

@@ -47,6 +47,7 @@ import { CiGeneratorsEngine } from '../core/devops/ciGenerators';
 import { TemplateScaffolderEngine } from '../core/devops/templateScaffolder';
 import { MockServerEngine } from '../core/devops/mockServer';
 import { EnvSyncEngine } from '../core/env-sync/envSyncEngine';
+import { ProjectStore } from '../core/storage/projectStore';
 
 interface DevOpsViewProps {
   activeProject?: ProjectProfile;
@@ -237,12 +238,55 @@ export const DevOpsView: React.FC<DevOpsViewProps> = ({ activeProject, onLog, on
         const pii = PiiScanner.scanSchema(parsedSchema);
         setPiiReport(pii);
 
+        // Persist attached blueprint into project storage
+        if (activeProject) {
+          ProjectStore.getInstance().updateProject(activeProject.id, {
+            blueprintExportJson: parsed,
+            blueprintFileName: file.name,
+            stats: {
+              ...(activeProject.stats || {}),
+              dataTypesCount: parsedSchema.dataTypes.length
+            }
+          });
+        }
+
         onLog('devops', `Imported schema from file '${file.name}' with ${parsedSchema.dataTypes.length} data types!`, 'success');
       } catch (err: any) {
         onLog('devops', `Failed to parse schema file: ${err.message}`, 'error');
       }
     };
     reader.readAsText(file);
+  };
+
+  const handleLoadTemplateSchema = () => {
+    if (!activeProject) return;
+    const template = DevOpsEngine.getTemplateSchema(activeProject);
+    setSchema(template);
+
+    const ts = DevOpsEngine.generateTypeScriptDefinitions(template);
+    setTsDefinitions(ts);
+
+    const erd = DevOpsEngine.generateMermaidERD(template);
+    setMermaidErd(erd);
+
+    const lf = SchemaMigrationsEngine.createLockfile(template);
+    setLockfile(lf);
+    setMigrations(SchemaMigrationsEngine.getSampleMigrations(template.appName));
+
+    const pii = PiiScanner.scanSchema(template);
+    setPiiReport(pii);
+
+    // Save into project storage
+    ProjectStore.getInstance().updateProject(activeProject.id, {
+      blueprintExportJson: template,
+      blueprintFileName: `${activeProject.appId}_template.json`,
+      stats: {
+        ...(activeProject.stats || {}),
+        dataTypesCount: template.dataTypes.length
+      }
+    });
+
+    onLog('devops', `Populated ${template.dataTypes.length} data types for '${activeProject.name}'!`, 'success');
   };
 
   const handleCopy = (text: string, label: string) => {
@@ -574,7 +618,7 @@ export const DevOpsView: React.FC<DevOpsViewProps> = ({ activeProject, onLog, on
           </div>
 
           {!schema || schema.dataTypes.length === 0 ? (
-            <div className="card" style={{ textAlign: 'center', padding: '48px 24px', background: 'var(--bg-card)' }}>
+            <div className="card" style={{ textAlign: 'center', padding: '40px 24px', background: 'var(--bg-card)' }}>
               <div style={{
                 width: '48px',
                 height: '48px',
@@ -589,19 +633,25 @@ export const DevOpsView: React.FC<DevOpsViewProps> = ({ activeProject, onLog, on
                 <Database size={24} />
               </div>
               <h3 style={{ fontSize: '1.05rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '6px' }}>
-                No Database Schema Loaded
+                No Database Schema Loaded for {activeProject?.name || 'Workspace'}
               </h3>
-              <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', maxWidth: '460px', margin: '0 auto 20px', lineHeight: 1.5 }}>
-                Fetch live data types directly from your Bubble Data API using your private API token, or import a <code>.bubble</code> export JSON file.
+              <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', maxWidth: '520px', margin: '0 auto 16px', lineHeight: 1.5 }}>
+                Bubble Data API endpoints require <strong>"Enable Data API"</strong> in your Bubble app's <code>Settings ➔ API</code>, or you can import your exported <code>.bubble</code> file directly.
               </p>
-              <div style={{ display: 'flex', justifyContent: 'center', gap: '10px' }}>
-                <button onClick={loadSchema} disabled={isFetchingSchema} className="btn btn-primary btn-sm">
-                  <RefreshCw size={13} className={isFetchingSchema ? 'spin' : ''} />
-                  <span>Fetch Schema from Data API</span>
-                </button>
-                <label className="btn btn-secondary btn-sm" style={{ cursor: 'pointer', margin: 0 }}>
+
+              {/* Instructions Pill Banner */}
+              <div style={{ maxWidth: '540px', margin: '0 auto 20px', padding: '12px 16px', background: 'var(--bg-input)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)', textAlign: 'left', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                <div style={{ fontWeight: 600, color: 'var(--text-primary)', marginBottom: '4px' }}>💡 Cum activezi citirea schemei:</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                  <span>1. <strong>Opțiunea A (Offline / Instant)</strong>: În Bubble Editor, mergi la <em>Settings ➔ General ➔ Export application</em> și încarcă fișierul <code>.bubble</code> mai jos.</span>
+                  <span>2. <strong>Opțiunea B (Live API)</strong>: În Bubble Editor ➔ <em>Settings ➔ API</em>, bifează <em>"Enable Data API"</em> și bifează tabelele pe care dorești să le expui.</span>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                <label className="btn btn-primary btn-sm" style={{ cursor: 'pointer', margin: 0 }}>
                   <Upload size={13} />
-                  <span>Import .bubble / Schema JSON</span>
+                  <span>Import .bubble / Blueprint JSON</span>
                   <input
                     type="file"
                     accept=".json,.bubble"
@@ -609,6 +659,16 @@ export const DevOpsView: React.FC<DevOpsViewProps> = ({ activeProject, onLog, on
                     style={{ display: 'none' }}
                   />
                 </label>
+
+                <button onClick={handleLoadTemplateSchema} className="btn btn-secondary btn-sm" style={{ color: 'var(--accent-cyan)' }}>
+                  <Code size={13} />
+                  <span>Load Template Schema for {activeProject?.appId || 'App'}</span>
+                </button>
+
+                <button onClick={loadSchema} disabled={isFetchingSchema} className="btn btn-secondary btn-sm">
+                  <RefreshCw size={13} className={isFetchingSchema ? 'spin' : ''} />
+                  <span>{isFetchingSchema ? 'Fetching...' : 'Retry Live Data API'}</span>
+                </button>
               </div>
             </div>
           ) : (
