@@ -110,6 +110,15 @@ export function resolveRealFieldKey(record: Record<string, any>, fieldKey: strin
 }
 
 /**
+ * Shortens a long 32-char Bubble unique ID into a clean pill format (e.g. 1760040...758000)
+ */
+export function formatShortId(id: string): string {
+  if (!id) return '';
+  if (id.length <= 15) return id;
+  return `${id.slice(0, 7)}...${id.slice(-6)}`;
+}
+
+/**
  * Cleanly formats any complex or primitive value for spreadsheet display
  */
 export function formatDisplayValue(val: any): string {
@@ -163,6 +172,8 @@ export const DataGridTable: React.FC<DataGridTableProps> = ({
 
   // Record Inspector Modal State
   const [inspectingRecord, setInspectingRecord] = useState<DataGridRecord | null>(null);
+  const [modalSearchTerm, setModalSearchTerm] = useState('');
+  const [modalShowAll, setModalShowAll] = useState(false);
 
   // New Record Modal State
   const [isNewRecordModalOpen, setIsNewRecordModalOpen] = useState(false);
@@ -190,7 +201,7 @@ export const DataGridTable: React.FC<DataGridTableProps> = ({
   const [apiMessage, setApiMessage] = useState<string | null>(null);
 
   useEffect(() => {
-    if (dataTypes.length > 0 && !dataTypes.some(d => d.name === selectedType)) {
+    if (dataTypes.length > 0 && !dataTypes.some(d => d.name.toLowerCase() === selectedType.toLowerCase())) {
       setSelectedType(dataTypes[0].name);
     }
   }, [dataTypes]);
@@ -199,88 +210,93 @@ export const DataGridTable: React.FC<DataGridTableProps> = ({
     loadRecords();
   }, [selectedType, cursor, limit, sort]);
 
-  const activeDtObj = dataTypes.find(d => d.name === selectedType);
+  // Robust case-insensitive and custom. prefix matching for active DataType
+  const activeDtObj = React.useMemo(() => {
+    if (!dataTypes || dataTypes.length === 0) return undefined;
+    const selNorm = selectedType.toLowerCase().replace(/^custom\./, '').trim();
+    return dataTypes.find(d => {
+      const dNorm = d.name.toLowerCase().replace(/^custom\./, '').trim();
+      return dNorm === selNorm || d.name.toLowerCase() === selectedType.toLowerCase();
+    }) || dataTypes[0];
+  }, [dataTypes, selectedType]);
   
-  // Dynamically build columns prioritizing REAL keys returned by Bubble Data API
+  // Dynamically build ALL columns including all 100+ schema fields and live record keys
   const columns: DataGridColumn[] = React.useMemo(() => {
     const colList: DataGridColumn[] = [];
     const addedKeys = new Set<string>();
 
     // 1. Always start with _id
-    colList.push({ key: '_id', label: 'ID / Key', type: 'id', width: 170 });
+    colList.push({ key: '_id', label: 'Unique ID', type: 'id', width: 130 });
     addedKeys.add('_id');
 
-    // 2. Discover all real keys present in live records
-    if (records.length > 0) {
-      const allRecordKeys = new Set<string>();
-      for (const rec of records.slice(0, 10)) {
-        for (const k of Object.keys(rec)) {
-          allRecordKeys.add(k);
-        }
-      }
-
-      for (const k of allRecordKeys) {
-        if (k === '_id' || k.toLowerCase() === 'created date' || k.toLowerCase() === 'modified date') continue;
-        
-        // Find matching schema field for type info if available
-        const matchingField = activeDtObj?.fields.find(f => 
-          f.name.toLowerCase() === k.toLowerCase() ||
-          f.name.toLowerCase().replace(/\s+(text|number|date|boolean|image|file|geo|user|list|custom)$/i, '').trim() === k.toLowerCase()
-        );
-
-        let colType: DataGridColumn['type'] = matchingField?.type || 'text';
-        if (!matchingField) {
-          const sampleVal = records.find(r => r[k] !== undefined && r[k] !== null)?.[k];
-          if (typeof sampleVal === 'number') colType = 'number';
-          else if (typeof sampleVal === 'boolean') colType = 'boolean';
-          else if (k.toLowerCase().includes('date')) colType = 'date';
-          else if (Array.isArray(sampleVal)) colType = 'list';
-        }
-
-        // Clean label
-        let label = k.replace(/_/g, ' ');
-        if (k === 'authentication') label = 'Authentication (Email)';
-        else label = label.charAt(0).toUpperCase() + label.slice(1);
-
-        colList.push({
-          key: k,
-          label,
-          type: colType,
-          required: matchingField?.required
-        });
-        addedKeys.add(k.toLowerCase());
-      }
-    }
-
-    // 3. Add any remaining schema fields not yet present in the records
-    if (activeDtObj?.fields) {
+    // 2. Add ALL schema fields (e.g. all 105 fields defined in Bubble blueprint)
+    if (activeDtObj?.fields && activeDtObj.fields.length > 0) {
       for (const f of activeDtObj.fields) {
         const cleanName = f.name.replace(/\s+(text|number|date|boolean|image|file|geo|user|list|custom)$/i, '').trim();
-        if (!addedKeys.has(f.name.toLowerCase()) && !addedKeys.has(cleanName.toLowerCase())) {
+        const keyLower = f.name.toLowerCase();
+        const cleanLower = cleanName.toLowerCase();
+
+        if (cleanLower === '_id' || cleanLower === 'created date' || cleanLower === 'modified date') continue;
+
+        if (!addedKeys.has(keyLower) && !addedKeys.has(cleanLower)) {
+          let label = cleanName.replace(/_/g, ' ');
+          label = label.charAt(0).toUpperCase() + label.slice(1);
+
           colList.push({
             key: f.name,
-            label: cleanName.charAt(0).toUpperCase() + cleanName.slice(1).replace(/_/g, ' '),
+            label,
             type: f.type,
-            required: f.required
+            required: f.required,
+            width: 180
           });
-          addedKeys.add(f.name.toLowerCase());
-          addedKeys.add(cleanName.toLowerCase());
+          addedKeys.add(keyLower);
+          addedKeys.add(cleanLower);
         }
       }
     }
 
-    // Fallback if no schema and no records
+    // 3. Add any extra keys discovered in live records (e.g. authentication object)
+    if (records.length > 0) {
+      for (const rec of records.slice(0, 10)) {
+        for (const [k, v] of Object.entries(rec)) {
+          const kLower = k.toLowerCase();
+          const cleanK = k.replace(/\s+(text|number|date|boolean|image|file|geo|user|list|custom)$/i, '').trim().toLowerCase();
+
+          if (k === '_id' || kLower === 'created date' || kLower === 'modified date') continue;
+
+          if (!addedKeys.has(kLower) && !addedKeys.has(cleanK)) {
+            let detectedType: DataGridColumn['type'] = 'text';
+            if (typeof v === 'number') detectedType = 'number';
+            else if (typeof v === 'boolean') detectedType = 'boolean';
+            else if (kLower.includes('date')) detectedType = 'date';
+            else if (Array.isArray(v)) detectedType = 'list';
+
+            let label = k.replace(/_/g, ' ');
+            if (k === 'authentication') label = 'Authentication (Email)';
+            else label = label.charAt(0).toUpperCase() + label.slice(1);
+
+            colList.push({
+              key: k,
+              label,
+              type: detectedType,
+              width: 180
+            });
+            addedKeys.add(kLower);
+            addedKeys.add(cleanK);
+          }
+        }
+      }
+    }
+
+    // Fallback if empty
     if (colList.length === 1) {
-      colList.push({ key: 'name', label: 'Name', type: 'text' });
-      colList.push({ key: 'status', label: 'Status', type: 'text' });
+      colList.push({ key: 'name', label: 'Name', type: 'text', width: 180 });
+      colList.push({ key: 'status', label: 'Status', type: 'text', width: 180 });
     }
 
     // 4. Always end with Created Date and Modified Date
-    const hasCreated = records.some(r => r['Created Date'] !== undefined || r['created_date'] !== undefined);
-    const hasModified = records.some(r => r['Modified Date'] !== undefined || r['modified_date'] !== undefined);
-
-    colList.push({ key: hasCreated && records[0]?.['created_date'] !== undefined ? 'created_date' : 'Created Date', label: 'Created Date', type: 'date', width: 160 });
-    colList.push({ key: hasModified && records[0]?.['modified_date'] !== undefined ? 'modified_date' : 'Modified Date', label: 'Modified Date', type: 'date', width: 160 });
+    colList.push({ key: 'Created Date', label: 'Created Date', type: 'date', width: 160 });
+    colList.push({ key: 'Modified Date', label: 'Modified Date', type: 'date', width: 160 });
 
     return colList;
   }, [records, activeDtObj, selectedType]);
@@ -728,8 +744,10 @@ export const DataGridTable: React.FC<DataGridTableProps> = ({
       {/* Scroll Hint & Column Count Indicator */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.725rem', color: 'var(--text-muted)', padding: '0 4px' }}>
         <span>Showing <strong>{columns.length}</strong> fields • Double-click any cell to edit</span>
-        <span style={{ display: 'flex', alignItems: 'center', gap: '4px', color: 'var(--accent-cyan)' }}>
-          <span>↔️ Scroll horizontally to view all columns</span>
+        <span style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--accent-cyan)' }}>
+          <span style={{ background: 'rgba(6, 182, 212, 0.08)', padding: '2px 8px', borderRadius: '4px', border: '1px solid rgba(6, 182, 212, 0.2)' }}>
+            ↔️ Scroll horizontally to view all {columns.length} columns
+          </span>
         </span>
       </div>
 
@@ -741,10 +759,13 @@ export const DataGridTable: React.FC<DataGridTableProps> = ({
         overflowX: 'auto',
         overflowY: 'auto',
         maxHeight: '680px',
+        width: '100%',
+        maxWidth: '100%',
+        minWidth: 0,
         boxShadow: '0 4px 20px rgba(0,0,0,0.2)',
         position: 'relative'
       }}>
-        <table style={{ minWidth: 'max-content', width: '100%', borderCollapse: 'separate', borderSpacing: 0, fontSize: '0.8rem', textAlign: 'left' }}>
+        <table style={{ minWidth: `${Math.max(1200, columns.length * 180)}px`, width: '100%', borderCollapse: 'separate', borderSpacing: 0, fontSize: '0.8rem', textAlign: 'left' }}>
           <thead>
             <tr style={{ background: 'var(--bg-input)' }}>
               <th style={{
@@ -782,7 +803,8 @@ export const DataGridTable: React.FC<DataGridTableProps> = ({
                       cursor: isId ? 'default' : 'pointer',
                       userSelect: 'none',
                       whiteSpace: 'nowrap',
-                      minWidth: isId ? '170px' : '180px',
+                      width: isId ? '130px' : '180px',
+                      minWidth: isId ? '130px' : '180px',
                       position: 'sticky',
                       top: 0,
                       left: isId ? '44px' : undefined,
@@ -880,8 +902,9 @@ export const DataGridTable: React.FC<DataGridTableProps> = ({
                           }}
                           style={{
                             padding: '8px 14px',
-                            minWidth: isId ? '170px' : '180px',
-                            maxWidth: isId ? '220px' : '340px',
+                            width: isId ? '130px' : '180px',
+                            minWidth: isId ? '130px' : '180px',
+                            maxWidth: isId ? '130px' : '340px',
                             overflow: 'hidden',
                             textOverflow: 'ellipsis',
                             whiteSpace: 'nowrap',
@@ -894,7 +917,7 @@ export const DataGridTable: React.FC<DataGridTableProps> = ({
                             borderRight: isId ? '1px solid var(--border-subtle)' : undefined,
                             boxShadow: isId ? '4px 0 8px rgba(0,0,0,0.06)' : undefined
                           }}
-                          title={displayVal}
+                          title={isId ? record._id : displayVal}
                         >
                           {isEditing ? (
                             <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
@@ -917,28 +940,42 @@ export const DataGridTable: React.FC<DataGridTableProps> = ({
                                 <X size={11} />
                               </button>
                             </div>
+                          ) : isId ? (
+                            <span
+                              onClick={() => setInspectingRecord(record)}
+                              style={{
+                                fontFamily: 'var(--font-mono)',
+                                fontSize: '0.725rem',
+                                color: 'var(--accent-cyan)',
+                                cursor: 'pointer',
+                                background: 'rgba(6, 182, 212, 0.08)',
+                                padding: '2px 6px',
+                                borderRadius: '4px',
+                                border: '1px solid rgba(6, 182, 212, 0.25)',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '4px',
+                                whiteSpace: 'nowrap'
+                              }}
+                              title={`Click to inspect full ID: ${record._id}`}
+                            >
+                              <span>{formatShortId(record._id)}</span>
+                              <Eye size={10} style={{ opacity: 0.7 }} />
+                            </span>
                           ) : (
                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px' }}>
                               <span style={{
-                                fontFamily: isId || col.key.includes('Date') ? 'var(--font-mono)' : 'inherit',
-                                fontSize: isId ? '0.75rem' : '0.8rem',
-                                color: isId ? 'var(--accent-cyan)' : 'var(--text-primary)'
+                                fontFamily: col.key.includes('Date') ? 'var(--font-mono)' : 'inherit',
+                                fontSize: '0.8rem',
+                                color: 'var(--text-primary)'
                               }}>
                                 {displayVal ? (
-                                  isId ? (
-                                    <span 
-                                      onClick={() => setInspectingRecord(record)}
-                                      style={{ cursor: 'pointer', textDecoration: 'underline dotted' }}
-                                      title="Click to inspect full record details"
-                                    >
-                                      {displayVal}
-                                    </span>
-                                  ) : displayVal
+                                  displayVal
                                 ) : (
                                   <span style={{ color: 'var(--text-muted)', fontStyle: 'italic', opacity: 0.4 }}>null</span>
                                 )}
                               </span>
-                              {!isId && !col.key.includes('Date') && (
+                              {!col.key.includes('Date') && (
                                 <Edit3
                                   size={11}
                                   onClick={(e) => {
@@ -1464,126 +1501,265 @@ export const DataGridTable: React.FC<DataGridTableProps> = ({
       )}
 
       {/* Record Details Inspector Modal */}
-      {inspectingRecord && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          background: 'rgba(0, 0, 0, 0.75)',
-          backdropFilter: 'blur(4px)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 9999,
-          padding: '20px'
-        }}>
-          <div className="card" style={{
-            width: '100%',
-            maxWidth: '750px',
-            maxHeight: '85vh',
+      {inspectingRecord && (() => {
+        // Collect all schema fields + record keys
+        const allFieldEntries: { key: string; label: string; type: string; value: any; isPopulated: boolean }[] = [];
+        const seenKeys = new Set<string>();
+
+        // 1. Schema fields (all 105 fields from Bubble blueprint!)
+        if (activeDtObj?.fields && activeDtObj.fields.length > 0) {
+          for (const f of activeDtObj.fields) {
+            const cleanName = f.name.replace(/\s+(text|number|date|boolean|image|file|geo|user|list|custom)$/i, '').trim();
+            const val = resolveRecordValue(inspectingRecord, f.name);
+            const isPop = val !== null && val !== undefined && val !== '';
+            
+            let label = cleanName.replace(/_/g, ' ');
+            label = label.charAt(0).toUpperCase() + label.slice(1);
+
+            allFieldEntries.push({
+              key: f.name,
+              label,
+              type: f.type,
+              value: val,
+              isPopulated: isPop
+            });
+            seenKeys.add(f.name.toLowerCase());
+            seenKeys.add(cleanName.toLowerCase());
+          }
+        }
+
+        // 2. Extra keys in inspectingRecord not in schema
+        for (const [k, v] of Object.entries(inspectingRecord)) {
+          if (k === '_id') continue;
+          const kLower = k.toLowerCase();
+          const cleanK = k.replace(/\s+(text|number|date|boolean|image|file|geo|user|list|custom)$/i, '').trim().toLowerCase();
+          if (!seenKeys.has(kLower) && !seenKeys.has(cleanK)) {
+            let label = k.replace(/_/g, ' ');
+            if (k === 'authentication') label = 'Authentication (Email)';
+            else label = label.charAt(0).toUpperCase() + label.slice(1);
+
+            allFieldEntries.push({
+              key: k,
+              label,
+              type: typeof v === 'number' ? 'number' : typeof v === 'boolean' ? 'boolean' : 'text',
+              value: v,
+              isPopulated: v !== null && v !== undefined && v !== ''
+            });
+            seenKeys.add(kLower);
+            seenKeys.add(cleanK);
+          }
+        }
+
+        const populatedCount = allFieldEntries.filter(f => f.isPopulated).length;
+        const totalCount = allFieldEntries.length;
+
+        // Filter based on modalShowAll and modalSearchTerm
+        const filteredEntries = allFieldEntries.filter(f => {
+          if (!modalShowAll && !f.isPopulated) return false;
+          if (!modalSearchTerm) return true;
+          const searchNorm = modalSearchTerm.toLowerCase();
+          const strVal = formatDisplayValue(f.value).toLowerCase();
+          return f.key.toLowerCase().includes(searchNorm) || f.label.toLowerCase().includes(searchNorm) || strVal.includes(searchNorm);
+        });
+
+        return (
+          <div style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: 'rgba(0, 0, 0, 0.75)',
+            backdropFilter: 'blur(4px)',
             display: 'flex',
-            flexDirection: 'column',
-            gap: '16px',
-            boxShadow: '0 20px 40px rgba(0,0,0,0.5)',
-            border: '1px solid var(--border-subtle)'
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 9999,
+            padding: '20px'
           }}>
-            {/* Modal Header */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-subtle)', paddingBottom: '12px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Eye size={18} color="var(--accent-cyan)" />
-                <div>
-                  <div style={{ fontWeight: 700, fontSize: '0.95rem' }}>Record Details ({selectedType})</div>
-                  <div style={{ fontSize: '0.75rem', fontFamily: 'var(--font-mono)', color: 'var(--accent-cyan)' }}>
-                    {inspectingRecord._id}
+            <div className="card" style={{
+              width: '100%',
+              maxWidth: '850px',
+              maxHeight: '88vh',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '14px',
+              boxShadow: '0 20px 40px rgba(0,0,0,0.5)',
+              border: '1px solid var(--border-subtle)'
+            }}>
+              {/* Modal Header */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-subtle)', paddingBottom: '12px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <Eye size={20} color="var(--accent-cyan)" />
+                  <div>
+                    <div style={{ fontWeight: 700, fontSize: '0.95rem' }}>Record Details ({selectedType})</div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '2px' }}>
+                      <span style={{ fontSize: '0.75rem', fontFamily: 'var(--font-mono)', color: 'var(--accent-cyan)' }}>
+                        {inspectingRecord._id}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          navigator.clipboard.writeText(inspectingRecord._id);
+                          toast.success('ID Copied!');
+                        }}
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}
+                        title="Copy ID"
+                      >
+                        <Copy size={11} />
+                      </button>
+                    </div>
                   </div>
                 </div>
-              </div>
-              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                <button
-                  type="button"
-                  onClick={() => {
-                    navigator.clipboard.writeText(JSON.stringify(inspectingRecord, null, 2));
-                    toast.success('JSON Copied to Clipboard!');
-                  }}
-                  className="btn btn-secondary btn-sm"
-                  title="Copy full JSON"
-                >
-                  <Copy size={12} />
-                  <span>Copy JSON</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setInspectingRecord(null)}
-                  className="btn btn-secondary btn-sm"
-                  style={{ padding: '6px' }}
-                >
-                  <X size={14} />
-                </button>
-              </div>
-            </div>
 
-            {/* Modal Body: Key-Value Table */}
-            <div style={{ overflowY: 'auto', maxHeight: '60vh', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              <div style={{ background: 'var(--bg-input)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)', overflow: 'hidden' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.775rem' }}>
-                  <thead>
-                    <tr style={{ background: 'rgba(255,255,255,0.03)', borderBottom: '1px solid var(--border-subtle)', textAlign: 'left' }}>
-                      <th style={{ padding: '8px 12px', width: '35%', color: 'var(--text-secondary)' }}>Field Name</th>
-                      <th style={{ padding: '8px 12px', color: 'var(--text-secondary)' }}>Value</th>
-                      <th style={{ width: '40px', padding: '8px 12px' }}></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {/* Render ID first */}
-                    <tr style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-                      <td style={{ padding: '8px 12px', fontWeight: 600, color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>
-                        _id (Unique ID)
-                      </td>
-                      <td style={{ padding: '8px 12px', fontFamily: 'var(--font-mono)', color: 'var(--accent-cyan)' }}>
-                        {inspectingRecord._id}
-                      </td>
-                      <td style={{ padding: '8px 12px', textAlign: 'center' }}>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            navigator.clipboard.writeText(inspectingRecord._id);
-                            toast.success('ID Copied!');
-                          }}
-                          style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}
-                          title="Copy ID"
-                        >
-                          <Copy size={12} />
-                        </button>
-                      </td>
-                    </tr>
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      navigator.clipboard.writeText(JSON.stringify(inspectingRecord, null, 2));
+                      toast.success('JSON Copied to Clipboard!');
+                    }}
+                    className="btn btn-secondary btn-sm"
+                    title="Copy full JSON"
+                  >
+                    <Copy size={12} />
+                    <span>Copy JSON</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setInspectingRecord(null); setModalSearchTerm(''); }}
+                    className="btn btn-secondary btn-sm"
+                    style={{ padding: '6px' }}
+                  >
+                    <X size={14} />
+                  </button>
+                </div>
+              </div>
 
-                    {/* Render all other fields */}
-                    {Object.entries(inspectingRecord)
-                      .filter(([k]) => k !== '_id')
-                      .map(([key, val]) => {
-                        const strVal = typeof val === 'object' ? JSON.stringify(val, null, 2) : String(val ?? '');
-                        const isNull = val === null || val === undefined;
+              {/* Search & Filter Toolbar */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px' }}>
+                <div style={{ position: 'relative', flex: 1 }}>
+                  <Search size={13} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                  <input
+                    type="text"
+                    placeholder={`Search among ${totalCount} schema fields...`}
+                    value={modalSearchTerm}
+                    onChange={(e) => setModalSearchTerm(e.target.value)}
+                    className="input"
+                    style={{ paddingLeft: '30px', height: '32px', fontSize: '0.775rem' }}
+                  />
+                  {modalSearchTerm && (
+                    <button
+                      onClick={() => setModalSearchTerm('')}
+                      style={{ position: 'absolute', right: '8px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}
+                    >
+                      <X size={12} />
+                    </button>
+                  )}
+                </div>
+
+                {/* Toggle Show All vs Populated */}
+                <div style={{ display: 'flex', background: 'var(--bg-input)', borderRadius: 'var(--radius-sm)', padding: '2px', border: '1px solid var(--border-subtle)' }}>
+                  <button
+                    type="button"
+                    onClick={() => setModalShowAll(false)}
+                    style={{
+                      padding: '4px 10px',
+                      fontSize: '0.725rem',
+                      border: 'none',
+                      borderRadius: '4px',
+                      cursor: 'pointer',
+                      background: !modalShowAll ? 'var(--primary)' : 'transparent',
+                      color: !modalShowAll ? '#ffffff' : 'var(--text-secondary)',
+                      fontWeight: !modalShowAll ? 700 : 500
+                    }}
+                  >
+                    Populated ({populatedCount})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setModalShowAll(true)}
+                    style={{
+                      padding: '4px 10px',
+                      fontSize: '0.725rem',
+                      border: 'none',
+                      borderRadius: '4px',
+                      cursor: 'pointer',
+                      background: modalShowAll ? 'var(--primary)' : 'transparent',
+                      color: modalShowAll ? '#ffffff' : 'var(--text-secondary)',
+                      fontWeight: modalShowAll ? 700 : 500
+                    }}
+                  >
+                    All Schema ({totalCount})
+                  </button>
+                </div>
+              </div>
+
+              {/* Modal Body: Key-Value Table */}
+              <div style={{ overflowY: 'auto', maxHeight: '55vh', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                <div style={{ background: 'var(--bg-input)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)', overflow: 'hidden' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.775rem' }}>
+                    <thead>
+                      <tr style={{ background: 'rgba(255,255,255,0.03)', borderBottom: '1px solid var(--border-subtle)', textAlign: 'left' }}>
+                        <th style={{ padding: '8px 12px', width: '35%', color: 'var(--text-secondary)' }}>Field Name</th>
+                        <th style={{ padding: '8px 12px', color: 'var(--text-secondary)' }}>Value</th>
+                        <th style={{ width: '40px', padding: '8px 12px' }}></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {/* Render ID first */}
+                      <tr style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+                        <td style={{ padding: '8px 12px', fontWeight: 600, color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>
+                          _id (Unique ID)
+                        </td>
+                        <td style={{ padding: '8px 12px', fontFamily: 'var(--font-mono)', color: 'var(--accent-cyan)' }}>
+                          {inspectingRecord._id}
+                        </td>
+                        <td style={{ padding: '8px 12px', textAlign: 'center' }}>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              navigator.clipboard.writeText(inspectingRecord._id);
+                              toast.success('ID Copied!');
+                            }}
+                            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}
+                            title="Copy ID"
+                          >
+                            <Copy size={12} />
+                          </button>
+                        </td>
+                      </tr>
+
+                      {/* Render all other fields */}
+                      {filteredEntries.map((field) => {
+                        const displayVal = formatDisplayValue(field.value);
+                        const isNull = !field.isPopulated;
 
                         return (
-                          <tr key={key} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+                          <tr key={field.key} style={{ borderBottom: '1px solid var(--border-subtle)', background: isNull ? 'transparent' : 'rgba(99, 102, 241, 0.03)' }}>
                             <td style={{ padding: '8px 12px', fontWeight: 600, color: 'var(--text-primary)' }}>
-                              {key}
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                <span>{field.label}</span>
+                                <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 400 }}>({field.type})</span>
+                              </div>
                             </td>
                             <td style={{ padding: '8px 12px', color: isNull ? 'var(--text-muted)' : 'var(--text-secondary)', fontStyle: isNull ? 'italic' : 'normal', wordBreak: 'break-all' }}>
-                              {isNull ? 'null' : strVal}
+                              {isNull ? (
+                                <span style={{ opacity: 0.4 }}>null</span>
+                              ) : (
+                                displayVal
+                              )}
                             </td>
                             <td style={{ padding: '8px 12px', textAlign: 'center' }}>
                               {!isNull && (
                                 <button
                                   type="button"
                                   onClick={() => {
-                                    navigator.clipboard.writeText(strVal);
-                                    toast.success(`Copied ${key}!`);
+                                    navigator.clipboard.writeText(displayVal);
+                                    toast.success(`Copied ${field.label}!`);
                                   }}
                                   style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}
-                                  title={`Copy ${key}`}
+                                  title={`Copy ${field.label}`}
                                 >
                                   <Copy size={12} />
                                 </button>
@@ -1592,24 +1768,36 @@ export const DataGridTable: React.FC<DataGridTableProps> = ({
                           </tr>
                         );
                       })}
-                  </tbody>
-                </table>
+
+                      {filteredEntries.length === 0 && (
+                        <tr>
+                          <td colSpan={3} style={{ padding: '24px', textAlign: 'center', color: 'var(--text-muted)' }}>
+                            No fields matching '{modalSearchTerm}'
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* Modal Footer */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid var(--border-subtle)', paddingTop: '10px' }}>
+                <div style={{ fontSize: '0.725rem', color: 'var(--text-muted)' }}>
+                  Showing {filteredEntries.length} of {totalCount} fields
+                </div>
+                <button
+                  type="button"
+                  onClick={() => { setInspectingRecord(null); setModalSearchTerm(''); }}
+                  className="btn btn-secondary btn-sm"
+                >
+                  Close
+                </button>
               </div>
             </div>
-
-            {/* Modal Footer */}
-            <div style={{ display: 'flex', justifyContent: 'flex-end', borderTop: '1px solid var(--border-subtle)', paddingTop: '10px' }}>
-              <button
-                type="button"
-                onClick={() => setInspectingRecord(null)}
-                className="btn btn-secondary btn-sm"
-              >
-                Close
-              </button>
-            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
     </div>
   );
 };
