@@ -770,10 +770,10 @@ export const DevOpsView: React.FC<DevOpsViewProps> = ({ activeProject, onLog, on
 
               {/* Instructions Pill Banner */}
               <div style={{ maxWidth: '540px', margin: '0 auto 20px', padding: '12px 16px', background: 'var(--bg-input)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)', textAlign: 'left', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-                <div style={{ fontWeight: 600, color: 'var(--text-primary)', marginBottom: '4px' }}>💡 Cum activezi citirea schemei:</div>
+                <div style={{ fontWeight: 600, color: 'var(--text-primary)', marginBottom: '4px' }}>💡 How to enable schema extraction:</div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                  <span>1. <strong>Opțiunea A (Offline / Instant)</strong>: În Bubble Editor, mergi la <em>Settings ➔ General ➔ Export application</em> și încarcă fișierul <code>.bubble</code> mai jos.</span>
-                  <span>2. <strong>Opțiunea B (Live API)</strong>: În Bubble Editor ➔ <em>Settings ➔ API</em>, bifează <em>"Enable Data API"</em> și bifează tabelele pe care dorești să le expui.</span>
+                  <span>1. <strong>Option A (Offline / Instant)</strong>: In Bubble Editor, go to <em>Settings ➔ General ➔ Export application</em> and import your <code>.bubble</code> file below.</span>
+                  <span>2. <strong>Option B (Live API)</strong>: In Bubble Editor ➔ <em>Settings ➔ API</em>, check <em>"Enable Data API"</em> and select the data types you want to expose.</span>
                 </div>
               </div>
 
