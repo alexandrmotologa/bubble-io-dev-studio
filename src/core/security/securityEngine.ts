@@ -5,19 +5,24 @@ export class SecurityEngine {
    * Generates a comprehensive Security & Privacy Rules audit report from a Bubble Schema or Blueprint JSON
    */
   public static async analyzeSecurity(rawBlueprintJson?: any, schema?: BubbleSchema | null): Promise<SecurityAuditReport> {
-    await new Promise(r => setTimeout(r, 350));
+    await new Promise(r => setTimeout(r, 200));
 
     const matrix: PrivacyRuleMatrixRow[] = [];
     const insecureEndpoints: InsecureEndpointFinding[] = [];
     const exposedSensitiveFields: { dataType: string; field: string; reason: string; piiType?: string }[] = [];
 
-    // Default roles to inspect
-    const roles = ['Admin', 'Authenticated User', 'Guest / Everyone Else'];
+    // 1. Build RBAC Matrix strictly from real Schema / Blueprint data types
+    const realTypes = schema?.dataTypes || [];
 
-    // 1. Build RBAC Matrix from Schema / Blueprint
-    const dataTypes = schema?.dataTypes?.map(d => d.name) || ['User', 'Organization', 'PaymentRecord', 'ApiCredential', 'Document'];
+    for (const dtObj of realTypes) {
+      const dt = dtObj.name;
+      const fieldNames = dtObj.fields.map(f => f.name);
 
-    for (const dt of dataTypes) {
+      // Detect sensitive fields in real table
+      const sensitiveFieldMatches = dtObj.fields.filter(f => 
+        /email|phone|password|secret|token|key|wallet|ssn|stripe|balance|card/i.test(f.name)
+      );
+
       // Admin role
       matrix.push({
         dataType: dt,
@@ -31,93 +36,73 @@ export class SecurityEngine {
       });
 
       // Authenticated User role
-      const isSensitive = ['PaymentRecord', 'ApiCredential'].includes(dt);
+      const hasSensitiveFields = sensitiveFieldMatches.length > 0;
       matrix.push({
         dataType: dt,
         role: 'Authenticated User',
-        findInSearches: !isSensitive,
-        viewAllFields: !isSensitive,
-        allowedFields: isSensitive ? ['_id', 'status', 'created_date'] : ['*'],
-        restrictedFields: isSensitive ? ['secret_key', 'stripe_customer_id', 'card_last4'] : [],
+        findInSearches: true,
+        viewAllFields: !hasSensitiveFields,
+        allowedFields: hasSensitiveFields ? fieldNames.filter(fn => !sensitiveFieldMatches.some(sf => sf.name === fn)) : ['*'],
+        restrictedFields: sensitiveFieldMatches.map(sf => sf.name),
         conditionExpression: 'This ' + dt + '\'s Created By is Current User',
-        accessLevel: isSensitive ? 'conditional' : 'full'
+        accessLevel: hasSensitiveFields ? 'conditional' : 'full'
       });
 
       // Everyone Else / Guest
-      const isUserOrSensitive = ['User', 'PaymentRecord', 'ApiCredential', 'Organization'].includes(dt);
-      const isCriticalVulnerable = dt === 'User' || dt === 'PaymentRecord';
-
       matrix.push({
         dataType: dt,
         role: 'Guest / Everyone Else',
-        findInSearches: !isUserOrSensitive,
-        viewAllFields: !isUserOrSensitive,
-        allowedFields: isUserOrSensitive ? [] : ['name', 'slug', 'public_description'],
-        restrictedFields: isUserOrSensitive ? ['email', 'phone', 'hashed_password', 'role', 'api_key'] : [],
+        findInSearches: !hasSensitiveFields,
+        viewAllFields: !hasSensitiveFields,
+        allowedFields: hasSensitiveFields ? ['_id', 'created_date'] : ['*'],
+        restrictedFields: sensitiveFieldMatches.map(sf => sf.name),
         conditionExpression: undefined,
-        accessLevel: isCriticalVulnerable ? 'none' : isUserOrSensitive ? 'hidden' : 'full'
+        accessLevel: hasSensitiveFields ? 'hidden' : 'full'
       });
 
-      if (dt === 'User') {
+      // Track sensitive fields for report
+      for (const sf of sensitiveFieldMatches) {
         exposedSensitiveFields.push({
-          dataType: 'User',
-          field: 'email',
-          reason: 'User email is exposed if "Everyone Else" has "Find in searches" enabled without a privacy rule.',
-          piiType: 'EMAIL_ADDRESS'
-        });
-      }
-      if (dt === 'PaymentRecord') {
-        exposedSensitiveFields.push({
-          dataType: 'PaymentRecord',
-          field: 'stripe_customer_id',
-          reason: 'Stripe customer identifier visible to unauthorized users if default rule applies.',
-          piiType: 'FINANCIAL_TOKEN'
+          dataType: dt,
+          field: sf.name,
+          reason: `Field '${sf.name}' on '${dt}' contains sensitive information and should have an explicit Privacy Rule for public/guest roles.`,
+          piiType: sf.name.includes('email') ? 'EMAIL_ADDRESS' : sf.name.includes('wallet') ? 'WALLET_ADDRESS' : 'CONFIDENTIAL_DATA'
         });
       }
     }
 
-    // 2. Identify Insecure Public Endpoints
-    insecureEndpoints.push(
-      {
-        id: 'ep_1',
-        endpointName: 'create_order_webhook',
-        route: '/api/1.1/wf/create_order_webhook',
-        severity: 'critical',
-        issue: 'Public API workflow enabled with "Run without authentication" and without signature verification.',
-        recommendation: 'Enable "Require authentication key" in Bubble backend settings or verify webhook HMAC signature in workflow action 1.',
-        hasAuth: false,
-        isPublic: true,
-        ignoredPrivacyRules: true
-      },
-      {
-        id: 'ep_2',
-        endpointName: 'export_customer_csv',
-        route: '/api/1.1/wf/export_customer_csv',
-        severity: 'high',
-        issue: 'Workflow ignores Privacy Rules and sends CSV download URL to unauthenticated client.',
-        recommendation: 'Uncheck "Ignore privacy rules when running this workflow" or validate Current User is Admin before generating export.',
-        hasAuth: false,
-        isPublic: true,
-        ignoredPrivacyRules: true
-      },
-      {
-        id: 'ep_3',
-        endpointName: 'sync_crm_contacts',
-        route: '/api/1.1/wf/sync_crm_contacts',
-        severity: 'medium',
-        issue: 'API workflow does not validate email input parameter against RFC 5322 before DB insert.',
-        recommendation: 'Add conditional guard "Parameter email is valid email" on Action 1.',
-        hasAuth: true,
-        isPublic: true,
-        ignoredPrivacyRules: false
-      }
-    );
+    // 2. Identify Insecure Public Endpoints from real Blueprint workflows if present
+    if (rawBlueprintJson?.workflows && typeof rawBlueprintJson.workflows === 'object') {
+      let epIdx = 1;
+      for (const [wfKey, wf] of Object.entries<any>(rawBlueprintJson.workflows)) {
+        if (wf.is_api_workflow || wf.type === 'backend') {
+          const isNoAuth = Boolean(wf.run_without_auth || !wf.require_auth);
+          const ignoresPrivacy = Boolean(wf.ignore_privacy_rules);
 
-    const criticalCount = insecureEndpoints.filter(e => e.severity === 'critical').length;
+          if (isNoAuth || ignoresPrivacy) {
+            insecureEndpoints.push({
+              id: `ep_${epIdx++}`,
+              endpointName: wf.name || wfKey,
+              route: `/api/1.1/wf/${wfKey}`,
+              severity: isNoAuth && ignoresPrivacy ? 'critical' : 'high',
+              issue: `Backend API workflow '${wf.name || wfKey}' is configured with ${isNoAuth ? 'Run without authentication' : ''} ${ignoresPrivacy ? 'and ignores Privacy Rules' : ''}.`,
+              recommendation: 'Enable "Require authentication" or validate Current User permission in Action 1 before executing database operations.',
+              hasAuth: !isNoAuth,
+              isPublic: isNoAuth,
+              ignoredPrivacyRules: ignoresPrivacy
+            });
+          }
+        }
+      }
+    }
+
+    const criticalCount = insecureEndpoints.filter(e => e.severity === 'critical').length + exposedSensitiveFields.length;
     const warningsCount = insecureEndpoints.filter(e => e.severity === 'high' || e.severity === 'medium').length;
 
-    let overallScore = 88;
-    if (criticalCount > 0) overallScore -= criticalCount * 12;
+    let overallScore = 100;
+    if (criticalCount > 0) overallScore -= Math.min(60, criticalCount * 10);
+    if (warningsCount > 0) overallScore -= Math.min(20, warningsCount * 5);
+    if (realTypes.length === 0) overallScore = 100;
     if (warningsCount > 0) overallScore -= warningsCount * 5;
     overallScore = Math.max(35, Math.min(100, overallScore));
 

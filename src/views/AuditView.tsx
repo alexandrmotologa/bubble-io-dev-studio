@@ -18,7 +18,7 @@ import {
   SlidersHorizontal,
   Check
 } from 'lucide-react';
-import { AppDiffResult, AuditHealthReport, DeadItem } from '../types';
+import { AppDiffResult, AuditHealthReport, DeadItem, ProjectProfile } from '../types';
 import { AuditEngine } from '../core/audit/auditEngine';
 import { AppDiffEngine } from '../core/audit/appDiffEngine';
 import { SafeCleanerEngine } from '../core/audit/safeCleaner';
@@ -26,12 +26,13 @@ import { InteractiveDagGraph } from '../components/InteractiveDagGraph';
 import { SafeCleanupModal } from '../components/SafeCleanupModal';
 
 interface AuditViewProps {
+  activeProject?: ProjectProfile;
   onLog: (module: 'audit', message: string, level?: 'info' | 'success' | 'warn' | 'error') => void;
 }
 
 type AuditSubTab = 'overview' | 'explorer' | 'graph' | 'diff' | 'cleaner' | 'export';
 
-export const AuditView: React.FC<AuditViewProps> = ({ onLog }) => {
+export const AuditView: React.FC<AuditViewProps> = ({ activeProject, onLog }) => {
   const [subTab, setSubTab] = useState<AuditSubTab>('overview');
   const [report, setReport] = useState<AuditHealthReport | null>(null);
   const [filterType, setFilterType] = useState<string>('all');
@@ -44,18 +45,21 @@ export const AuditView: React.FC<AuditViewProps> = ({ onLog }) => {
   const [cleanProgress, setCleanProgress] = useState(0);
   const [isSafeCleanupModalOpen, setIsSafeCleanupModalOpen] = useState(false);
 
-  // Do not auto-run sample audit on mount to avoid hardcoded mock data
   useEffect(() => {
     // Ready for user action
   }, []);
 
   const runAudit = async (rawJson?: any) => {
     setIsScanning(true);
-    onLog('audit', 'Initiating deep AST scan for Bubble app structure & dependencies...');
+    const targetJson = rawJson || activeProject?.blueprintExportJson;
+    onLog('audit', `Initiating deep AST scan for ${activeProject?.name || 'Bubble app'} structure & dependencies...`);
     try {
-      const rep = await AuditEngine.analyzeApp(rawJson);
+      const rep = await AuditEngine.analyzeApp(targetJson);
+      if (activeProject?.name) {
+        rep.appName = activeProject.name;
+      }
       setReport(rep);
-      setDiffResult(AppDiffEngine.getSampleDiff());
+      setDiffResult(null);
       onLog('audit', `Audit completed. Health Score: ${rep.score}% (Grade ${rep.grade}) with ${rep.deadItems.length} issues detected across 7 rules.`, 'success');
     } finally {
       setIsScanning(false);
@@ -78,6 +82,8 @@ export const AuditView: React.FC<AuditViewProps> = ({ onLog }) => {
         setCleanProgress(pct);
         onLog('audit', msg);
       });
+      const realDiff = AppDiffEngine.compare(report, res.updatedReport);
+      setDiffResult(realDiff);
       setReport(res.updatedReport);
       setCleanedIds(new Set());
       onLog('audit', `Safe cleanup complete! Backup saved to ${res.rollbackPath}. Health Score improved to ${res.updatedReport.score}%.`, 'success');

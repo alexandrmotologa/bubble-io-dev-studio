@@ -216,44 +216,33 @@ export class RelationalSeederEngine {
   }
 
   /**
-   * Sample catalog relational dataset for quick demo / testing
+   * Generates dynamic relational seed structure strictly based on active schema data types and fields
    */
-  public static getSampleRelationalData(): Record<string, any[]> {
-    return {
-      Category: [
-        { _ref: '@cat_electronics', Name: 'Electronics', Slug: 'electronics' },
-        { _ref: '@cat_laptops', Name: 'Laptops', Slug: 'laptops', Parent_Category: '@cat_electronics' },
-        { _ref: '@cat_accessories', Name: 'Accessories', Slug: 'accessories', Parent_Category: '@cat_electronics' }
-      ],
-      Product: [
-        {
-          _ref: '@prod_macbook',
-          Title: 'MacBook Pro M3 Max 16"',
-          Price: 3499,
-          Category: '@cat_laptops',
-          SKU: 'MBP-M3-16'
-        },
-        {
-          _ref: '@prod_stand',
-          Title: 'Aluminum Ergonomic Laptop Stand',
-          Price: 69.99,
-          Category: '@cat_accessories',
-          SKU: 'ACC-STAND-01'
+  public static generateSeedTemplateForSchema(schema?: BubbleSchema | null): Record<string, any[]> {
+    if (!schema || schema.dataTypes.length === 0) {
+      return {};
+    }
+
+    const result: Record<string, any[]> = {};
+    for (const dt of schema.dataTypes) {
+      const refKey = `@${dt.name.toLowerCase()}_1`;
+      const record: Record<string, any> = { _ref: refKey };
+      for (const f of dt.fields) {
+        if (f.name === '_id' || f.name === 'created_date' || f.name === 'modified_date') continue;
+        if (f.type === 'number') {
+          record[f.name] = 100;
+        } else if (f.type === 'boolean') {
+          record[f.name] = true;
+        } else if (f.name.includes('email')) {
+          record[f.name] = 'user@example.com';
+        } else if (f.name.includes('date')) {
+          record[f.name] = new Date().toISOString();
+        } else {
+          record[f.name] = `Sample ${f.name.replace(/_/g, ' ')}`;
         }
-      ],
-      User: [
-        { _ref: '@user_buyer', Email: 'alex.motologa@bubbledeveloper.com', First_Name: 'Alex', Role: 'Admin' }
-      ],
-      Order: [
-        {
-          _ref: '@order_1001',
-          Order_Number: 'ORD-98214',
-          Buyer: '@user_buyer',
-          Products: ['@prod_macbook', '@prod_stand'],
-          Total_Amount: 3568.99,
-          Status: 'Processing'
-        }
-      ]
-    };
+      }
+      result[dt.name] = [record];
+    }
+    return result;
   }
 }

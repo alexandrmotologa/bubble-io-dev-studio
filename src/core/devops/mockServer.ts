@@ -1,26 +1,35 @@
-import { MockServerEndpoint } from '../../types';
+import { BubbleSchema, MockServerEndpoint } from '../../types';
 
 export class MockServerEngine {
   private static isRunning: boolean = false;
   private static port: number = 3333;
-  private static store: Record<string, Record<string, any>[]> = {
-    user: [
-      { _id: 'usr_101', email: 'admin@bubble.io', first_name: 'Alex', role: 'Admin', created_date: '2026-08-01T10:00:00Z' },
-      { _id: 'usr_102', email: 'sarah@bubble.io', first_name: 'Sarah', role: 'Manager', created_date: '2026-08-02T11:30:00Z' },
-      { _id: 'usr_103', email: 'john@example.com', first_name: 'John', role: 'Customer', created_date: '2026-08-03T14:15:00Z' }
-    ],
-    product: [
-      { _id: 'prd_201', title: 'MacBook Pro M3 Max', price: 3499, sku: 'MBP-M3-16', inventory_count: 12 },
-      { _id: 'prd_202', title: 'Ergonomic Standing Desk', price: 650, sku: 'DSK-ST-02', inventory_count: 8 },
-      { _id: 'prd_203', title: '4K UltraWide Monitor', price: 899, sku: 'MON-4K-34', inventory_count: 24 }
-    ],
-    order: [
-      { _id: 'ord_301', order_number: 'ORD-98214', total_amount: 4149, status: 'Processing', stripe_charge_id: 'ch_3N18xyz' },
-      { _id: 'ord_302', order_number: 'ORD-98215', total_amount: 899, status: 'Delivered', stripe_charge_id: 'ch_3N19abc' }
-    ]
-  };
+  private static store: Record<string, Record<string, any>[]> = {};
+
+  public static initFromSchema(schema?: BubbleSchema | null) {
+    if (!schema || schema.dataTypes.length === 0) {
+      this.store = {};
+      return;
+    }
+    const newStore: Record<string, Record<string, any>[]> = {};
+    for (const dt of schema.dataTypes) {
+      const key = dt.name.toLowerCase();
+      newStore[key] = [
+        {
+          _id: `${key}_101`,
+          created_date: new Date().toISOString(),
+          ...Object.fromEntries(dt.fields.map(f => [
+            f.name, 
+            f.type === 'number' ? 100 : f.type === 'boolean' ? true : f.name.includes('email') ? 'user@example.com' : `sample_${f.name}`
+          ]))
+        }
+      ];
+    }
+    this.store = newStore;
+  }
 
   public static getEndpoints(): MockServerEndpoint[] {
+    const types = Object.keys(this.store);
+    const sampleType = types[0] || 'record';
     return [
       {
         method: 'GET',
@@ -29,9 +38,9 @@ export class MockServerEngine {
         sampleResponse: {
           response: {
             cursor: 0,
-            results: [{ _id: 'usr_101', email: 'admin@bubble.io', first_name: 'Alex' }],
-            remaining: 2,
-            count: 1
+            results: this.store[sampleType] || [],
+            remaining: 0,
+            count: (this.store[sampleType] || []).length
           }
         }
       },
@@ -40,14 +49,14 @@ export class MockServerEngine {
         path: '/api/1.1/obj/:type/:id',
         description: 'Retrieve a single record by unique Bubble identifier',
         sampleResponse: {
-          response: { _id: 'usr_101', email: 'admin@bubble.io', first_name: 'Alex', role: 'Admin' }
+          response: this.store[sampleType]?.[0] || { _id: `${sampleType}_101`, status: 'active' }
         }
       },
       {
         method: 'POST',
         path: '/api/1.1/obj/:type',
         description: 'Create a new record in in-memory storage',
-        sampleResponse: { status: 'success', id: 'usr_104' }
+        sampleResponse: { status: 'success', id: `${sampleType}_102` }
       },
       {
         method: 'PATCH',
@@ -65,7 +74,7 @@ export class MockServerEngine {
         method: 'GET',
         path: '/health',
         description: 'Mock server operational status and loaded entity types',
-        sampleResponse: { status: 'ok', uptime: 120, loadedTypes: ['user', 'product', 'order'] }
+        sampleResponse: { status: 'ok', uptime: 120, loadedTypes: types }
       }
     ];
   }

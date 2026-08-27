@@ -187,10 +187,13 @@ export const App: React.FC = () => {
     if (isAuditing) return;
     setIsAuditing(true);
     setIsTerminalOpen(true);
-    addLog('audit', `[Quick Audit] Running full AST dead code inspection...`);
+    addLog('audit', `[Quick Audit] Running full AST dead code inspection for ${activeProject?.name || 'Bubble app'}...`);
 
     try {
-      const report = await AuditEngine.analyzeApp();
+      const report = await AuditEngine.analyzeApp(activeProject?.blueprintExportJson);
+      if (activeProject?.name) {
+        report.appName = activeProject.name;
+      }
       setHealthScore(report.score);
       setHealthGrade(report.grade);
       addLog('audit', `[Quick Audit] Completed: Health Score ${report.score}% (Grade ${report.grade}).`, 'success');
@@ -267,6 +270,7 @@ export const App: React.FC = () => {
 
             {currentTab === 'audit' && (
               <AuditView
+                activeProject={activeProject}
                 onLog={addLog}
               />
             )}

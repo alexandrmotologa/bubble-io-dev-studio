@@ -107,7 +107,7 @@ export const DevOpsView: React.FC<DevOpsViewProps> = ({ activeProject, onLog, on
   const [activeConstraints, setActiveConstraints] = useState<QueryConstraint[]>([]);
 
   // Relational Seeder state
-  const [seedDataJson, setSeedDataJson] = useState<string>(JSON.stringify(RelationalSeederEngine.getSampleRelationalData(), null, 2));
+  const [seedDataJson, setSeedDataJson] = useState<string>('{\n  "User": [\n    {\n      "_ref": "@user_1",\n      "email": "user@example.com"\n    }\n  ]\n}');
   const [seedPlan, setSeedPlan] = useState<SeedExecutionPlan | null>(null);
   const [seedValidation, setSeedValidation] = useState<{ valid: boolean; errors: string[]; warnings: string[] } | null>(null);
   const [isSeeding, setIsSeeding] = useState(false);
@@ -120,10 +120,10 @@ export const DevOpsView: React.FC<DevOpsViewProps> = ({ activeProject, onLog, on
   // CI/CD & Scaffolding state
   const [ciProvider, setCiProvider] = useState<'github' | 'gitlab'>('github');
   const [ciCron, setCiCron] = useState('0 3 * * *');
-  const [ciTypes, setCiTypes] = useState('User, Product, Order');
+  const [ciTypes, setCiTypes] = useState('');
   const [generatedCiYaml, setGeneratedCiYaml] = useState('');
   const [scaffoldType, setScaffoldType] = useState<'plugin-action' | 'api-connector' | 'webhook'>('plugin-action');
-  const [scaffoldName, setScaffoldName] = useState('ProcessPayment');
+  const [scaffoldName, setScaffoldName] = useState('ProcessWorkflow');
   const [generatedScaffoldCode, setGeneratedScaffoldCode] = useState('');
 
   // Mock Server state
@@ -133,8 +133,8 @@ export const DevOpsView: React.FC<DevOpsViewProps> = ({ activeProject, onLog, on
   const [mockTestResponse, setMockTestResponse] = useState<any>(null);
 
   // Workflow Trigger state
-  const [wfName, setWfName] = useState('send-welcome-email');
-  const [wfPayload, setWfPayload] = useState('{\n  "email": "user@example.com",\n  "first_name": "Alex"\n}');
+  const [wfName, setWfName] = useState('backend_workflow');
+  const [wfPayload, setWfPayload] = useState('{\n  "key": "value"\n}');
   const [wfResponse, setWfResponse] = useState<any>(null);
   const [isTriggeringWf, setIsTriggeringWf] = useState(false);
 
@@ -148,7 +148,7 @@ export const DevOpsView: React.FC<DevOpsViewProps> = ({ activeProject, onLog, on
   const loadEnvSync = async () => {
     setIsSyncingEnv(true);
     try {
-      const diff = await EnvSyncEngine.compareEnvironments('version-test', 'live');
+      const diff = await EnvSyncEngine.compareEnvironments('version-test', 'live', schema, activeProject);
       setEnvDiff(diff);
       setReleaseTasks(EnvSyncEngine.getReleaseChecklist(diff));
       onLog('devops', 'Completed Cross-Environment Diff (Development vs Live).', 'info');
@@ -170,6 +170,7 @@ export const DevOpsView: React.FC<DevOpsViewProps> = ({ activeProject, onLog, on
     try {
       const s = await DevOpsEngine.fetchSchema(activeProject);
       setSchema(s);
+      MockServerEngine.initFromSchema(s);
       
       // Generate TypeScript
       const ts = s.dataTypes.length > 0 
@@ -183,13 +184,37 @@ export const DevOpsView: React.FC<DevOpsViewProps> = ({ activeProject, onLog, on
         : 'erDiagram\n    %% No data types loaded yet. Fetch live schema to view ERD.';
       setMermaidErd(erd);
 
-      // Baseline lockfile & sample migrations
+      // Baseline lockfile & baseline migrations
       if (s.dataTypes.length > 0) {
         const lf = SchemaMigrationsEngine.createLockfile(s);
         setLockfile(lf);
-        setMigrations(SchemaMigrationsEngine.getSampleMigrations(s.appName));
+        const baselineMigration: SchemaMigration = {
+          version: '001',
+          name: `init_${s.appName.toLowerCase().replace(/[^a-z0-9_]/g, '_')}_baseline`,
+          description: `Initial schema baseline with ${s.dataTypes.length} data types: ${s.dataTypes.map(d => d.name).join(', ')}`,
+          createdAt: new Date().toISOString(),
+          app: s.appName,
+          environment: s.version || activeProject?.environment || 'version-test',
+          changes: s.dataTypes.flatMap(dt => [
+            { action: 'ADD_TABLE' as const, table: dt.name },
+            ...dt.fields.map(f => ({
+              action: 'ADD_FIELD' as const,
+              table: dt.name,
+              field: f.name,
+              type: f.type
+            }))
+          ])
+        };
+        setMigrations([baselineMigration]);
         const pii = PiiScanner.scanSchema(s);
         setPiiReport(pii);
+
+        const typeNames = s.dataTypes.map(t => t.name);
+        setCiTypes(typeNames.join(', '));
+        setQueryType(typeNames[0]);
+        setExportDbType(typeNames[0]);
+        setMockTestType(typeNames[0].toLowerCase());
+        setSeedDataJson(JSON.stringify(RelationalSeederEngine.generateSeedTemplateForSchema(s), null, 2));
       } else {
         setLockfile(null);
         setMigrations([]);
@@ -224,6 +249,7 @@ export const DevOpsView: React.FC<DevOpsViewProps> = ({ activeProject, onLog, on
         const parsed = JSON.parse(text);
         const parsedSchema = DevOpsEngine.parseBubbleSchemaJson(parsed, activeProject);
         setSchema(parsedSchema);
+        MockServerEngine.initFromSchema(parsedSchema);
 
         const ts = DevOpsEngine.generateTypeScriptDefinitions(parsedSchema);
         setTsDefinitions(ts);
@@ -233,10 +259,36 @@ export const DevOpsView: React.FC<DevOpsViewProps> = ({ activeProject, onLog, on
 
         const lf = SchemaMigrationsEngine.createLockfile(parsedSchema);
         setLockfile(lf);
-        setMigrations(SchemaMigrationsEngine.getSampleMigrations(parsedSchema.appName));
+        const baselineMigration: SchemaMigration = {
+          version: '001',
+          name: `init_${parsedSchema.appName.toLowerCase().replace(/[^a-z0-9_]/g, '_')}_baseline`,
+          description: `Initial schema baseline with ${parsedSchema.dataTypes.length} data types: ${parsedSchema.dataTypes.map(d => d.name).join(', ')}`,
+          createdAt: new Date().toISOString(),
+          app: parsedSchema.appName,
+          environment: parsedSchema.version || activeProject?.environment || 'version-test',
+          changes: parsedSchema.dataTypes.flatMap(dt => [
+            { action: 'ADD_TABLE' as const, table: dt.name },
+            ...dt.fields.map(f => ({
+              action: 'ADD_FIELD' as const,
+              table: dt.name,
+              field: f.name,
+              type: f.type
+            }))
+          ])
+        };
+        setMigrations([baselineMigration]);
 
         const pii = PiiScanner.scanSchema(parsedSchema);
         setPiiReport(pii);
+
+        if (parsedSchema.dataTypes.length > 0) {
+          const typeNames = parsedSchema.dataTypes.map(t => t.name);
+          setCiTypes(typeNames.join(', '));
+          setQueryType(typeNames[0]);
+          setExportDbType(typeNames[0]);
+          setMockTestType(typeNames[0].toLowerCase());
+          setSeedDataJson(JSON.stringify(RelationalSeederEngine.generateSeedTemplateForSchema(parsedSchema), null, 2));
+        }
 
         // Persist attached blueprint into project storage
         if (activeProject) {
@@ -262,6 +314,7 @@ export const DevOpsView: React.FC<DevOpsViewProps> = ({ activeProject, onLog, on
     if (!activeProject) return;
     const template = DevOpsEngine.getTemplateSchema(activeProject);
     setSchema(template);
+    MockServerEngine.initFromSchema(template);
 
     const ts = DevOpsEngine.generateTypeScriptDefinitions(template);
     setTsDefinitions(ts);
@@ -271,10 +324,36 @@ export const DevOpsView: React.FC<DevOpsViewProps> = ({ activeProject, onLog, on
 
     const lf = SchemaMigrationsEngine.createLockfile(template);
     setLockfile(lf);
-    setMigrations(SchemaMigrationsEngine.getSampleMigrations(template.appName));
+    const baselineMigration: SchemaMigration = {
+      version: '001',
+      name: `init_${template.appName.toLowerCase().replace(/[^a-z0-9_]/g, '_')}_baseline`,
+      description: `Initial schema baseline with ${template.dataTypes.length} data types: ${template.dataTypes.map(d => d.name).join(', ')}`,
+      createdAt: new Date().toISOString(),
+      app: template.appName,
+      environment: template.version || activeProject.environment || 'version-test',
+      changes: template.dataTypes.flatMap(dt => [
+        { action: 'ADD_TABLE' as const, table: dt.name },
+        ...dt.fields.map(f => ({
+          action: 'ADD_FIELD' as const,
+          table: dt.name,
+          field: f.name,
+          type: f.type
+        }))
+      ])
+    };
+    setMigrations([baselineMigration]);
 
     const pii = PiiScanner.scanSchema(template);
     setPiiReport(pii);
+
+    if (template.dataTypes.length > 0) {
+      const typeNames = template.dataTypes.map(t => t.name);
+      setCiTypes(typeNames.join(', '));
+      setQueryType(typeNames[0]);
+      setExportDbType(typeNames[0]);
+      setMockTestType(typeNames[0].toLowerCase());
+      setSeedDataJson(JSON.stringify(RelationalSeederEngine.generateSeedTemplateForSchema(template), null, 2));
+    }
 
     // Save into project storage
     ProjectStore.getInstance().updateProject(activeProject.id, {
