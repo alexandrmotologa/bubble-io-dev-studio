@@ -1193,9 +1193,10 @@ export const DevOpsView: React.FC<DevOpsViewProps> = ({ activeProject, initialSu
           ) : (
             <div style={{
               display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(420px, 1fr))',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))',
               gap: '16px',
-              alignItems: 'start'
+              alignItems: 'start',
+              paddingBottom: '48px'
             }}>
               {schema.dataTypes
                 .filter(dt => !searchTerm || dt.name.toLowerCase().includes(searchTerm.toLowerCase()) || dt.fields.some(f => f.name.toLowerCase().includes(searchTerm.toLowerCase())))
@@ -1224,31 +1225,45 @@ export const DevOpsView: React.FC<DevOpsViewProps> = ({ activeProject, initialSu
                           userSelect: 'none',
                           paddingBottom: isCollapsed ? '0' : '14px',
                           borderBottom: isCollapsed ? 'none' : '1px solid var(--border-subtle)',
-                          marginBottom: isCollapsed ? '0' : '14px'
+                          marginBottom: isCollapsed ? '0' : '14px',
+                          gap: '12px'
                         }}
                       >
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0, flex: 1, overflow: 'hidden' }}>
                           <div style={{
                             width: '24px',
                             height: '24px',
+                            minWidth: '24px',
                             borderRadius: '6px',
                             background: isCollapsed ? 'rgba(255, 255, 255, 0.05)' : 'rgba(99, 102, 241, 0.15)',
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
-                            color: isCollapsed ? 'var(--text-muted)' : 'var(--primary)'
+                            color: isCollapsed ? 'var(--text-muted)' : 'var(--primary)',
+                            flexShrink: 0
                           }}>
                             {isCollapsed ? <ChevronRight size={15} /> : <ChevronDown size={15} />}
                           </div>
 
-                          <div>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                              <Database size={15} color="var(--primary)" />
-                              <h3 style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
+                          <div style={{ minWidth: 0, flex: 1, overflow: 'hidden' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
+                              <Database size={15} color="var(--primary)" style={{ flexShrink: 0 }} />
+                              <h3
+                                style={{
+                                  fontSize: '0.925rem',
+                                  fontWeight: 700,
+                                  color: 'var(--text-primary)',
+                                  margin: 0,
+                                  overflow: 'hidden',
+                                  textOverflow: 'ellipsis',
+                                  whiteSpace: 'nowrap'
+                                }}
+                                title={dt.name}
+                              >
                                 {dt.name}
                               </h3>
                             </div>
-                            <div style={{ fontSize: '0.725rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                            <div style={{ fontSize: '0.725rem', color: 'var(--text-muted)', marginTop: '2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                               {dt.recordCount && dt.recordCount > 0 ? (
                                 <span style={{ color: 'var(--accent-cyan)' }}>
                                   {dt.recordCount.toLocaleString()} records in database
@@ -1260,8 +1275,8 @@ export const DevOpsView: React.FC<DevOpsViewProps> = ({ activeProject, initialSu
                           </div>
                         </div>
 
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <span className={`badge ${isCollapsed ? 'badge-indigo' : 'badge-cyan'}`} style={{ fontSize: '0.68rem' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+                          <span className={`badge ${isCollapsed ? 'badge-indigo' : 'badge-cyan'}`} style={{ fontSize: '0.68rem', whiteSpace: 'nowrap', flexShrink: 0 }}>
                             {dt.fields.length} Fields
                           </span>
 
@@ -1273,7 +1288,7 @@ export const DevOpsView: React.FC<DevOpsViewProps> = ({ activeProject, initialSu
                               setSubTab('query');
                             }}
                             className="btn btn-secondary btn-sm"
-                            style={{ fontSize: '0.7rem', padding: '3px 8px', display: 'flex', alignItems: 'center', gap: '4px' }}
+                            style={{ fontSize: '0.7rem', padding: '3px 8px', display: 'flex', alignItems: 'center', gap: '4px', whiteSpace: 'nowrap', flexShrink: 0 }}
                             title={`Browse records of ${dt.name}`}
                           >
                             <Search size={11} />
