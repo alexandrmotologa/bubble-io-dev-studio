@@ -1,4 +1,5 @@
 import { BubbleSchema, WuBottleneck, WuProfileReport } from '../../types';
+import { DevOpsEngine } from '../devops/devopsEngine';
 
 export class WuProfilerEngine {
   /**
@@ -11,7 +12,8 @@ export class WuProfilerEngine {
     const topConsumingPages: { pageName: string; wuPercent: number; estimatedWu: number }[] = [];
     const topConsumingWorkflows: { workflowName: string; trigger: string; estimatedWu: number }[] = [];
 
-    const realTypes = schema?.dataTypes || [];
+    const actualSchema = schema || (rawBlueprintJson ? DevOpsEngine.parseBubbleSchemaJson(rawBlueprintJson) : null);
+    const realTypes = actualSchema?.dataTypes || [];
     const rawPages = rawBlueprintJson?.pages ? Object.keys(rawBlueprintJson.pages) : [];
 
     // Extract real pages or generate from app

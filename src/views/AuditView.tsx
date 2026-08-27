@@ -46,8 +46,10 @@ export const AuditView: React.FC<AuditViewProps> = ({ activeProject, onLog }) =>
   const [isSafeCleanupModalOpen, setIsSafeCleanupModalOpen] = useState(false);
 
   useEffect(() => {
-    // Ready for user action
-  }, []);
+    if (activeProject?.blueprintExportJson) {
+      runAudit();
+    }
+  }, [activeProject?.id, activeProject?.blueprintFileName, activeProject?.blueprintExportJson]);
 
   const runAudit = async (rawJson?: any) => {
     setIsScanning(true);

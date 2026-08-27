@@ -1,4 +1,5 @@
 import { BubbleSchema, InsecureEndpointFinding, PrivacyRuleMatrixRow, SecurityAuditReport } from '../../types';
+import { DevOpsEngine } from '../devops/devopsEngine';
 
 export class SecurityEngine {
   /**
@@ -12,7 +13,8 @@ export class SecurityEngine {
     const exposedSensitiveFields: { dataType: string; field: string; reason: string; piiType?: string }[] = [];
 
     // 1. Build RBAC Matrix strictly from real Schema / Blueprint data types
-    const realTypes = schema?.dataTypes || [];
+    const actualSchema = schema || (rawBlueprintJson ? DevOpsEngine.parseBubbleSchemaJson(rawBlueprintJson) : null);
+    const realTypes = actualSchema?.dataTypes || [];
 
     for (const dtObj of realTypes) {
       const dt = dtObj.name;

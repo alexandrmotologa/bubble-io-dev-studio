@@ -212,10 +212,21 @@ export class DevOpsEngine {
     if (rawJson.dataTypes && Array.isArray(rawJson.dataTypes)) {
       dataTypes.push(...rawJson.dataTypes);
     }
-    if (rawJson.option_sets && Array.isArray(rawJson.option_sets)) {
-      optionSets.push(...rawJson.option_sets);
-    } else if (rawJson.optionSets && Array.isArray(rawJson.optionSets)) {
-      optionSets.push(...rawJson.optionSets);
+    
+    // Case 3: Option Sets (Object or Array)
+    const osObj = rawJson.option_sets || rawJson.custom_options || rawJson.optionSets;
+    if (osObj && typeof osObj === 'object') {
+      if (Array.isArray(osObj)) {
+        optionSets.push(...osObj);
+      } else {
+        for (const [osKey, osData] of Object.entries<any>(osObj)) {
+          const opts = osData?.options ? (Array.isArray(osData.options) ? osData.options : Object.values(osData.options)) : [];
+          optionSets.push({
+            name: osData?.name || osKey,
+            options: opts.map((o: any) => typeof o === 'string' ? o : (o.display || o.value || o.name || 'Option'))
+          });
+        }
+      }
     }
 
     return {

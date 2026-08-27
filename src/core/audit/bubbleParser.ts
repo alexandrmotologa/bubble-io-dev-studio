@@ -29,12 +29,33 @@ export class BubbleParser {
         const optionSets: any[] = [];
         const privacyRules: any[] = [];
 
-        // Parse pages & elements
-        if (rawJson.pages) {
+        // Parse pages & recursive elements & workflows
+        if (rawJson.pages && typeof rawJson.pages === 'object') {
           for (const [pageKey, pageData] of Object.entries<any>(rawJson.pages)) {
             const pageName = pageData.name || pageKey;
-            const pageElements = pageData.elements ? Object.values(pageData.elements) : [];
+            const pageElements: any[] = [];
             const pageWorkflows = pageData.workflows ? Object.values(pageData.workflows) : [];
+
+            const collectElements = (elTree: any) => {
+              if (!elTree || typeof elTree !== 'object') return;
+              for (const [elemKey, elem] of Object.entries<any>(elTree)) {
+                if (!elem || typeof elem !== 'object') continue;
+                pageElements.push(elem);
+                elements.push({
+                  id: elemKey,
+                  name: elem.name || elem.properties?.name || elemKey,
+                  type: elem.type || elem.properties?.type || 'Group',
+                  page: pageName,
+                  isHidden: Boolean(elem.is_hidden || elem.default_hidden || elem.properties?.is_hidden),
+                  raw: elem
+                });
+                if (elem.elements || elem.children || elem.sub_elements) {
+                  collectElements(elem.elements || elem.children || elem.sub_elements);
+                }
+              }
+            };
+
+            collectElements(pageData.elements);
 
             pages.push({
               id: pageKey,
@@ -43,17 +64,6 @@ export class BubbleParser {
               workflowsCount: pageWorkflows.length,
               raw: pageData
             });
-
-            for (const [elemKey, elem] of Object.entries<any>(pageData.elements || {})) {
-              elements.push({
-                id: elemKey,
-                name: elem.name || elemKey,
-                type: elem.type || 'Group',
-                page: pageName,
-                isHidden: Boolean(elem.is_hidden || elem.default_hidden),
-                raw: elem
-              });
-            }
 
             for (const [wfKey, wf] of Object.entries<any>(pageData.workflows || {})) {
               if (wf.event_type === 'custom_event') {
@@ -79,8 +89,50 @@ export class BubbleParser {
           }
         }
 
+        // Parse Database Types and Fields
+        const typesObj = rawJson.user_types || rawJson.custom_types || rawJson.types || rawJson.database_types;
+        if (typesObj && typeof typesObj === 'object') {
+          for (const [typeKey, typeData] of Object.entries<any>(typesObj)) {
+            const tableName = typeKey.replace(/^custom\./, '');
+            const rawFields = typeData.fields || typeData.properties || {};
+            for (const [fKey, fData] of Object.entries<any>(rawFields)) {
+              dbFields.push({
+                table: tableName.charAt(0).toUpperCase() + tableName.slice(1),
+                field: fKey,
+                type: typeof fData === 'string' ? fData : (fData.type || 'text')
+              });
+            }
+          }
+        }
+
+        // Parse Option Sets
+        const osObj = rawJson.option_sets || rawJson.custom_options;
+        if (osObj && typeof osObj === 'object') {
+          for (const [osKey, osData] of Object.entries<any>(osObj)) {
+            const opts = osData.options ? (Array.isArray(osData.options) ? osData.options : Object.values(osData.options)) : [];
+            optionSets.push({
+              id: osKey,
+              name: osData.name || osKey,
+              options: opts.map((o: any) => typeof o === 'string' ? o : (o.display || o.value || o.name || 'Option'))
+            });
+          }
+        }
+
+        // Parse Plugins
+        const plugObj = rawJson.plugins || rawJson.installed_plugins;
+        if (plugObj && typeof plugObj === 'object') {
+          for (const [pKey, pData] of Object.entries<any>(plugObj)) {
+            plugins.push({
+              id: pKey,
+              name: pData.name || pKey,
+              actions: pData.actions ? Object.keys(pData.actions) : [],
+              elements: pData.elements ? Object.keys(pData.elements) : []
+            });
+          }
+        }
+
         // Return parsed object if populated
-        if (pages.length > 0 || elements.length > 0) {
+        if (pages.length > 0 || elements.length > 0 || dbFields.length > 0) {
           return {
             appName,
             pages,

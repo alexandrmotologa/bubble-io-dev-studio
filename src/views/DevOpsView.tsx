@@ -185,7 +185,7 @@ export const DevOpsView: React.FC<DevOpsViewProps> = ({ activeProject, onLog, on
     if (activeProject) {
       loadSchema();
     }
-  }, [activeProject]);
+  }, [activeProject?.id, activeProject?.blueprintFileName, activeProject?.blueprintExportJson]);
 
   const loadSchema = async () => {
     if (!activeProject) return;

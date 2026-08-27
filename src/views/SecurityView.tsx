@@ -33,7 +33,7 @@ export const SecurityView: React.FC<SecurityViewProps> = ({ activeProject, onLog
 
   useEffect(() => {
     runSecurityScan();
-  }, [activeProject?.id]);
+  }, [activeProject?.id, activeProject?.blueprintFileName, activeProject?.blueprintExportJson]);
 
   const runSecurityScan = async () => {
     setIsScanning(true);

@@ -30,7 +30,7 @@ export const WuProfilerView: React.FC<WuProfilerViewProps> = ({ activeProject, o
 
   useEffect(() => {
     runProfiler();
-  }, [activeProject?.id]);
+  }, [activeProject?.id, activeProject?.blueprintFileName, activeProject?.blueprintExportJson]);
 
   const runProfiler = async () => {
     setIsProfiling(true);
