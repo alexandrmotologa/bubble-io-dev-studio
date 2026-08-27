@@ -109,6 +109,33 @@ export function resolveRealFieldKey(record: Record<string, any>, fieldKey: strin
   return strippedKey || fieldKey;
 }
 
+/**
+ * Cleanly formats any complex or primitive value for spreadsheet display
+ */
+export function formatDisplayValue(val: any): string {
+  if (val === null || val === undefined || val === '') return '';
+  if (typeof val === 'string') return val;
+  if (typeof val === 'number' || typeof val === 'boolean') return String(val);
+
+  if (typeof val === 'object') {
+    // Bubble User authentication object
+    if (val.email?.email) return val.email.email;
+    if (val.email && typeof val.email === 'string') return val.email;
+    if (val.url && typeof val.url === 'string') return val.url;
+    if (val.filename && typeof val.filename === 'string') return val.filename;
+    if (Array.isArray(val)) {
+      if (val.length === 0) return '[]';
+      if (val.every(item => typeof item === 'string' || typeof item === 'number')) {
+        return val.join(', ');
+      }
+      return `[${val.length} items]`;
+    }
+    return JSON.stringify(val);
+  }
+
+  return String(val);
+}
+
 interface DataGridTableProps {
   project?: ProjectProfile;
   dataTypes: BubbleDataType[];
@@ -174,63 +201,89 @@ export const DataGridTable: React.FC<DataGridTableProps> = ({
 
   const activeDtObj = dataTypes.find(d => d.name === selectedType);
   
-  // Base columns from schema
-  const schemaColumns: DataGridColumn[] = (activeDtObj?.fields || []).map(f => {
-    const cleanLabel = f.name.replace(/\s+(text|number|date|boolean|image|file|geo|user|list|custom)$/i, '').trim();
-    return {
-      key: f.name,
-      label: cleanLabel.charAt(0).toUpperCase() + cleanLabel.slice(1).replace(/_/g, ' '),
-      type: f.type,
-      required: f.required
-    };
-  });
+  // Dynamically build columns prioritizing REAL keys returned by Bubble Data API
+  const columns: DataGridColumn[] = React.useMemo(() => {
+    const colList: DataGridColumn[] = [];
+    const addedKeys = new Set<string>();
 
-  // Dynamic Discovery: also detect any additional columns returned by live Bubble API
-  const extraRecordColumns: DataGridColumn[] = [];
-  if (records.length > 0) {
-    const sampleRecord = records[0];
-    const knownKeys = new Set([
-      '_id', 
-      'created date', 
-      'modified date', 
-      'created by',
-      ...schemaColumns.map(c => c.key.toLowerCase()),
-      ...schemaColumns.map(c => c.label.toLowerCase()),
-      ...schemaColumns.map(c => c.key.toLowerCase().replace(/\s+(text|number|date|boolean|image|file|geo|user|list|custom)$/i, '').trim())
-    ]);
+    // 1. Always start with _id
+    colList.push({ key: '_id', label: 'ID / Key', type: 'id', width: 170 });
+    addedKeys.add('_id');
 
-    for (const [k, v] of Object.entries(sampleRecord)) {
-      const lowerK = k.toLowerCase();
-      const strippedK = lowerK.replace(/\s+(text|number|date|boolean|image|file|geo|user|list|custom)$/i, '').trim();
-      if (!knownKeys.has(lowerK) && !knownKeys.has(strippedK)) {
-        let detectedType: DataGridColumn['type'] = 'text';
-        if (typeof v === 'number') detectedType = 'number';
-        else if (typeof v === 'boolean') detectedType = 'boolean';
-        else if (lowerK.includes('date')) detectedType = 'date';
-        else if (Array.isArray(v)) detectedType = 'list';
+    // 2. Discover all real keys present in live records
+    if (records.length > 0) {
+      const allRecordKeys = new Set<string>();
+      for (const rec of records.slice(0, 10)) {
+        for (const k of Object.keys(rec)) {
+          allRecordKeys.add(k);
+        }
+      }
 
-        const cleanK = k.replace(/\s+(text|number|date|boolean|image|file|geo|user|list|custom)$/i, '').trim();
-        extraRecordColumns.push({
+      for (const k of allRecordKeys) {
+        if (k === '_id' || k.toLowerCase() === 'created date' || k.toLowerCase() === 'modified date') continue;
+        
+        // Find matching schema field for type info if available
+        const matchingField = activeDtObj?.fields.find(f => 
+          f.name.toLowerCase() === k.toLowerCase() ||
+          f.name.toLowerCase().replace(/\s+(text|number|date|boolean|image|file|geo|user|list|custom)$/i, '').trim() === k.toLowerCase()
+        );
+
+        let colType: DataGridColumn['type'] = matchingField?.type || 'text';
+        if (!matchingField) {
+          const sampleVal = records.find(r => r[k] !== undefined && r[k] !== null)?.[k];
+          if (typeof sampleVal === 'number') colType = 'number';
+          else if (typeof sampleVal === 'boolean') colType = 'boolean';
+          else if (k.toLowerCase().includes('date')) colType = 'date';
+          else if (Array.isArray(sampleVal)) colType = 'list';
+        }
+
+        // Clean label
+        let label = k.replace(/_/g, ' ');
+        if (k === 'authentication') label = 'Authentication (Email)';
+        else label = label.charAt(0).toUpperCase() + label.slice(1);
+
+        colList.push({
           key: k,
-          label: cleanK.charAt(0).toUpperCase() + cleanK.slice(1).replace(/_/g, ' '),
-          type: detectedType
+          label,
+          type: colType,
+          required: matchingField?.required
         });
-        knownKeys.add(lowerK);
-        knownKeys.add(strippedK);
+        addedKeys.add(k.toLowerCase());
       }
     }
-  }
 
-  const columns: DataGridColumn[] = [
-    { key: '_id', label: 'ID / Key', type: 'id', width: 160 },
-    ...(schemaColumns.length > 0 ? schemaColumns : [
-      { key: 'name', label: 'Name', type: 'text' },
-      { key: 'status', label: 'Status', type: 'text' }
-    ]),
-    ...extraRecordColumns,
-    { key: 'Created Date', label: 'Created Date', type: 'date', width: 160 },
-    { key: 'Modified Date', label: 'Modified Date', type: 'date', width: 160 }
-  ];
+    // 3. Add any remaining schema fields not yet present in the records
+    if (activeDtObj?.fields) {
+      for (const f of activeDtObj.fields) {
+        const cleanName = f.name.replace(/\s+(text|number|date|boolean|image|file|geo|user|list|custom)$/i, '').trim();
+        if (!addedKeys.has(f.name.toLowerCase()) && !addedKeys.has(cleanName.toLowerCase())) {
+          colList.push({
+            key: f.name,
+            label: cleanName.charAt(0).toUpperCase() + cleanName.slice(1).replace(/_/g, ' '),
+            type: f.type,
+            required: f.required
+          });
+          addedKeys.add(f.name.toLowerCase());
+          addedKeys.add(cleanName.toLowerCase());
+        }
+      }
+    }
+
+    // Fallback if no schema and no records
+    if (colList.length === 1) {
+      colList.push({ key: 'name', label: 'Name', type: 'text' });
+      colList.push({ key: 'status', label: 'Status', type: 'text' });
+    }
+
+    // 4. Always end with Created Date and Modified Date
+    const hasCreated = records.some(r => r['Created Date'] !== undefined || r['created_date'] !== undefined);
+    const hasModified = records.some(r => r['Modified Date'] !== undefined || r['modified_date'] !== undefined);
+
+    colList.push({ key: hasCreated && records[0]?.['created_date'] !== undefined ? 'created_date' : 'Created Date', label: 'Created Date', type: 'date', width: 160 });
+    colList.push({ key: hasModified && records[0]?.['modified_date'] !== undefined ? 'modified_date' : 'Modified Date', label: 'Modified Date', type: 'date', width: 160 });
+
+    return colList;
+  }, [records, activeDtObj, selectedType]);
 
   const loadRecords = async () => {
     if (!project) return;
@@ -814,8 +867,8 @@ export const DataGridTable: React.FC<DataGridTableProps> = ({
                     {columns.map(col => {
                       const isId = col.key === '_id';
                       const isEditing = editingCell?.recordId === record._id && editingCell?.field === col.key;
-                      const rawVal = isId ? record._id : resolveRecordValue(record, col.key);
-                      const displayVal = typeof rawVal === 'object' ? JSON.stringify(rawVal) : String(rawVal ?? '');
+                      const rawVal = isId ? record._id : (record[col.key] !== undefined ? record[col.key] : resolveRecordValue(record, col.key));
+                      const displayVal = formatDisplayValue(rawVal);
 
                       return (
                         <td

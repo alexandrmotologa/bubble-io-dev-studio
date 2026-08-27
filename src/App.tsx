@@ -320,7 +320,7 @@ export const App: React.FC = () => {
           />
 
           {/* View Switcher */}
-          <div style={{ flex: 1, overflowY: 'auto' }}>
+          <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', minWidth: 0, width: '100%', maxWidth: '100%' }}>
             {currentTab === 'dashboard' && (
               <DashboardView
                 activeProject={activeProject}
