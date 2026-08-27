@@ -17,6 +17,7 @@ import {
 import { ApiConnectorCallConfig, OpenApiImportResult, ProjectProfile, WebhookLogEntry } from '../types';
 import { ApiStudioEngine } from '../core/api-studio/apiStudioEngine';
 import { PluginSdkGenerator } from '../components/PluginSdkGenerator';
+import { toast } from '../core/toast/toastManager';
 
 interface ApiStudioViewProps {
   activeProject?: ProjectProfile;
@@ -78,6 +79,7 @@ export const ApiStudioView: React.FC<ApiStudioViewProps> = ({ activeProject, onL
   const handleCopy = (text: string) => {
     navigator.clipboard.writeText(text);
     setCopied(true);
+    toast.success('Copied to clipboard!');
     setTimeout(() => setCopied(false), 2000);
   };
 

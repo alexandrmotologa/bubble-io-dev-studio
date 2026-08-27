@@ -18,6 +18,7 @@ import {
   Search
 } from 'lucide-react';
 import { BubbleSchema, DocBookProject, ProjectProfile } from '../types';
+import { toast } from '../core/toast/toastManager';
 import { DocGenEngine } from '../core/doc-gen/docGenEngine';
 import { DevOpsEngine } from '../core/devops/devopsEngine';
 import { AuditEngine } from '../core/audit/auditEngine';
@@ -89,6 +90,7 @@ export const DocGenView: React.FC<DocGenViewProps> = ({ activeProject, onLog }) 
   const handleCopySection = (text: string) => {
     navigator.clipboard.writeText(text);
     setCopied(true);
+    toast.success('Section copied to clipboard!');
     setTimeout(() => setCopied(false), 2000);
   };
 

@@ -60,6 +60,8 @@ import { IndexedDbStore } from '../core/storage/indexedDbStore';
 import { DataGridTable } from '../components/DataGridTable';
 import { WorkflowFlowchart } from '../components/WorkflowFlowchart';
 import { DatabaseSnapshotManager } from '../components/DatabaseSnapshotManager';
+import { MermaidViewer } from '../components/MermaidViewer';
+import { toast } from '../core/toast/toastManager';
 
 interface DevOpsViewProps {
   activeProject?: ProjectProfile;
@@ -474,6 +476,7 @@ export const DevOpsView: React.FC<DevOpsViewProps> = ({ activeProject, initialSu
   const handleCopy = (text: string, label: string) => {
     navigator.clipboard.writeText(text);
     setCopied(true);
+    toast.success(`${label} copied to clipboard!`);
     setTimeout(() => setCopied(false), 2000);
     onLog('devops', `Copied ${label} to clipboard.`, 'info');
   };
@@ -1356,34 +1359,10 @@ export const DevOpsView: React.FC<DevOpsViewProps> = ({ activeProject, initialSu
 
       {/* SUBTAB 2: ERD GRAPH */}
       {subTab === 'erd' && (
-        <div className="card">
-          <div className="card-header">
-            <div>
-              <div className="card-title">
-                <Layers size={18} color="var(--accent-cyan)" />
-                <span>Entity Relationship Diagram (Mermaid ERD)</span>
-              </div>
-              <div className="card-subtitle">Auto-generated foreign key relationship mapping across Bubble data types</div>
-            </div>
-            <button onClick={() => handleCopy(mermaidErd, 'Mermaid ERD')} className="btn btn-secondary btn-sm">
-              <Copy size={13} />
-              <span>Copy Code</span>
-            </button>
-          </div>
-          <pre style={{
-            background: 'var(--bg-input)',
-            padding: '16px',
-            borderRadius: 'var(--radius-md)',
-            border: '1px solid var(--border-subtle)',
-            fontFamily: 'var(--font-mono)',
-            fontSize: '0.85rem',
-            color: '#a5b4fc',
-            overflowX: 'auto',
-            lineHeight: 1.5
-          }}>
-            {mermaidErd}
-          </pre>
-        </div>
+        <MermaidViewer 
+          chart={mermaidErd} 
+          title="Entity Relationship Diagram (ERD Graph)"
+        />
       )}
 
       {/* SUBTAB 3: TYPESCRIPT DEFINITIONS */}

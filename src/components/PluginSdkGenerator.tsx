@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { PluginGeneratedSdk, PluginParameterDef, PluginSdkActionConfig } from '../types';
 import { PluginSdkEngine } from '../core/plugin-studio/pluginSdkEngine';
+import { toast } from '../core/toast/toastManager';
 
 interface PluginSdkGeneratorProps {
   onLog: (module: 'api-studio', message: string, level?: 'info' | 'success' | 'warn' | 'error') => void;
@@ -70,6 +71,7 @@ export const PluginSdkGenerator: React.FC<PluginSdkGeneratorProps> = ({ onLog })
   const handleCopyCode = (text: string) => {
     navigator.clipboard.writeText(text);
     setCopied(true);
+    toast.success('Bubble Plugin SDK code copied to clipboard!');
     setTimeout(() => setCopied(false), 2000);
     onLog('api-studio', 'Copied Bubble Plugin SDK code to clipboard.', 'success');
   };

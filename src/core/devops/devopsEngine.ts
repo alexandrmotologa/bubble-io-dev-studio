@@ -489,20 +489,113 @@ export class DevOpsEngine {
    * Generates Mermaid ERD Diagram code
    */
   public static generateMermaidERD(schema: BubbleSchema): string {
+    if (!schema || !schema.dataTypes || schema.dataTypes.length === 0) {
+      return 'erDiagram\n    App {\n        string id\n    }\n';
+    }
+
+    const cleanIdentifier = (name: string): string => {
+      let cleaned = (name || 'Unknown').replace(/[^a-zA-Z0-9_]/g, '_');
+      if (/^[0-9]/.test(cleaned)) {
+        cleaned = `f_${cleaned}`;
+      }
+      return cleaned || 'Table';
+    };
+
+    const cleanFieldType = (type: string, isList?: boolean): string => {
+      const tLower = (type || 'string').toLowerCase();
+      let base = 'string';
+      if (tLower.includes('number') || tLower.includes('int') || tLower.includes('float') || tLower.includes('currency')) base = 'number';
+      else if (tLower.includes('date') || tLower.includes('time')) base = 'date';
+      else if (tLower.includes('bool')) base = 'boolean';
+      else if (tLower.includes('image') || tLower.includes('photo')) base = 'image';
+      else if (tLower.includes('file') || tLower.includes('doc')) base = 'file';
+      else if (tLower.includes('geo') || tLower.includes('address')) base = 'location';
+      else if (tLower.includes('option')) base = 'enum';
+      
+      return isList ? `${base}_list` : base;
+    };
+
     let mermaid = 'erDiagram\n';
+    const tableNameMap = new Map<string, string>(); // lower original name -> clean Mermaid name
+    const allTableNamesClean = new Set<string>();
+
     for (const dt of schema.dataTypes) {
-      const tableName = dt.name.replace(/[^a-zA-Z0-9_]/g, '');
+      const cleanName = cleanIdentifier(dt.name);
+      tableNameMap.set(dt.name.toLowerCase(), cleanName);
+      tableNameMap.set(cleanName.toLowerCase(), cleanName);
+      allTableNamesClean.add(cleanName);
+    }
+
+    // 1. Entities Definition
+    for (const dt of schema.dataTypes) {
+      const tableName = tableNameMap.get(dt.name.toLowerCase()) || cleanIdentifier(dt.name);
       mermaid += `    ${tableName} {\n`;
+      const seenFields = new Set<string>();
+
       for (const field of dt.fields) {
-        mermaid += `        ${field.type} ${field.name}\n`;
+        let fName = cleanIdentifier(field.name);
+        if (seenFields.has(fName)) {
+          fName = `${fName}_2`;
+        }
+        seenFields.add(fName);
+        const fType = cleanFieldType(field.type, field.isList);
+        mermaid += `        ${fType} ${fName}\n`;
+      }
+
+      if (dt.fields.length === 0) {
+        mermaid += `        string id\n`;
       }
       mermaid += `    }\n`;
     }
 
-    // Relationships
-    mermaid += `    User ||--o{ Order : "places"\n`;
-    mermaid += `    Order }o--|{ Product : "contains"\n`;
-    mermaid += `    Product }o--|| Category : "belongs_to"\n`;
+    // 2. Dynamic Relationships Detection
+    const relations: string[] = [];
+    const relKeySet = new Set<string>();
+
+    for (const dt of schema.dataTypes) {
+      const sourceTable = tableNameMap.get(dt.name.toLowerCase()) || cleanIdentifier(dt.name);
+
+      for (const field of dt.fields) {
+        const rawTypeLower = (field.type || '').toLowerCase();
+        const rawNameLower = (field.name || '').toLowerCase();
+
+        // Search if field references any other table
+        for (const targetDt of schema.dataTypes) {
+          const targetClean = tableNameMap.get(targetDt.name.toLowerCase()) || cleanIdentifier(targetDt.name);
+          if (targetClean === sourceTable) continue;
+
+          const targetLower = targetDt.name.toLowerCase().replace(/[^a-zA-Z0-9]/g, '');
+          const isReferenced = 
+            rawTypeLower.includes(`custom.${targetLower}`) ||
+            rawTypeLower.includes(`custom_${targetLower}`) ||
+            rawTypeLower === targetLower ||
+            (rawTypeLower.includes('user') && targetLower === 'user') ||
+            rawNameLower.endsWith(`_${targetLower}`) ||
+            rawNameLower.startsWith(`${targetLower}_`) ||
+            rawNameLower.includes(`custom_${targetLower}`);
+
+          if (isReferenced) {
+            const relKey = `${sourceTable}_${targetClean}_${field.name}`;
+            if (!relKeySet.has(relKey)) {
+              relKeySet.add(relKey);
+              const label = cleanIdentifier(field.name).slice(0, 24);
+              const isList = field.isList || rawTypeLower.includes('list');
+              if (isList) {
+                relations.push(`    ${sourceTable} }o--o{ ${targetClean} : "${label}"`);
+              } else {
+                relations.push(`    ${sourceTable} }o--|| ${targetClean} : "${label}"`);
+              }
+            }
+            break;
+          }
+        }
+      }
+    }
+
+    // Append auto-discovered relationships
+    if (relations.length > 0) {
+      mermaid += `\n${relations.join('\n')}\n`;
+    }
 
     return mermaid;
   }

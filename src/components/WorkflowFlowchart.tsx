@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { WorkflowGraphData, WorkflowNode } from '../types';
 import { WorkflowGraphEngine } from '../core/workflows/workflowGraphEngine';
+import { toast } from '../core/toast/toastManager';
 
 interface WorkflowFlowchartProps {
   blueprintExportJson?: any;
@@ -62,6 +63,7 @@ export const WorkflowFlowchart: React.FC<WorkflowFlowchartProps> = ({
     const mm = WorkflowGraphEngine.generateMermaidFlowchart(activeGraph);
     navigator.clipboard.writeText(mm);
     setCopied(true);
+    toast.success('Mermaid flowchart code copied to clipboard!');
     setTimeout(() => setCopied(false), 2000);
     onLog('devops', 'Copied Mermaid flowchart diagram to clipboard.', 'success');
   };
