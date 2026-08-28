@@ -67,7 +67,7 @@ import { PiiScanner } from '../core/devops/piiScanner';
 import { SchemaMigrationsEngine } from '../core/devops/schemaMigrations';
 import { RelationalSeederEngine } from '../core/devops/relationalSeeder';
 import { DbExporterEngine } from '../core/devops/dbExporter';
-import { CiGeneratorsEngine } from '../core/devops/ciGenerators';
+import { CiGeneratorsEngine, CiPipelinePreset } from '../core/devops/ciGenerators';
 import { TemplateScaffolderEngine } from '../core/devops/templateScaffolder';
 import { MockServerEngine } from '../core/devops/mockServer';
 import { EnvSyncEngine } from '../core/env-sync/envSyncEngine';
@@ -305,10 +305,11 @@ export const DevOpsView: React.FC<DevOpsViewProps> = ({ activeProject, initialSu
 
   // CI/CD & Scaffolding state
   const [ciProvider, setCiProvider] = useState<'github' | 'gitlab'>('github');
+  const [ciPreset, setCiPreset] = useState<CiPipelinePreset>('backup');
   const [ciCron, setCiCron] = useState('0 3 * * *');
   const [ciTypes, setCiTypes] = useState('');
   const [generatedCiYaml, setGeneratedCiYaml] = useState('');
-  const [scaffoldType, setScaffoldType] = useState<'plugin-action' | 'api-connector' | 'webhook'>('plugin-action');
+  const [scaffoldType, setScaffoldType] = useState<'plugin-action' | 'api-connector' | 'webhook' | 'sdk-quickstart'>('plugin-action');
   const [scaffoldName, setScaffoldName] = useState('ProcessWorkflow');
   const [generatedScaffoldCode, setGeneratedScaffoldCode] = useState('');
 
@@ -967,6 +968,7 @@ export const DevOpsView: React.FC<DevOpsViewProps> = ({ activeProject, initialSu
     const typesArr = ciTypes.split(',').map(s => s.trim()).filter(Boolean);
     const options = {
       provider: ciProvider,
+      preset: ciPreset,
       dataTypes: typesArr,
       environment: (activeProject?.environment as any) || 'version-test',
       cronSchedule: ciCron,
@@ -982,15 +984,49 @@ export const DevOpsView: React.FC<DevOpsViewProps> = ({ activeProject, initialSu
     }
   };
 
+  const handleDownloadCiYaml = () => {
+    const filename = ciProvider === 'github' ? 'bubble_ci_workflow.yml' : '.gitlab-ci.yml';
+    const blob = new Blob([generatedCiYaml], { type: 'text/yaml' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast.success(`Downloaded ${filename}`);
+    onLog('devops', `Downloaded CI/CD workflow configuration: ${filename}`, 'success');
+  };
+
   const updateScaffoldCode = () => {
     if (scaffoldType === 'plugin-action') {
       setGeneratedScaffoldCode(TemplateScaffolderEngine.scaffoldPluginAction(scaffoldName));
     } else if (scaffoldType === 'api-connector') {
       setGeneratedScaffoldCode(TemplateScaffolderEngine.scaffoldApiConnector(scaffoldName));
-    } else {
+    } else if (scaffoldType === 'webhook') {
       setGeneratedScaffoldCode(TemplateScaffolderEngine.scaffoldWebhookReceiver(scaffoldName));
+    } else {
+      setGeneratedScaffoldCode(TemplateScaffolderEngine.scaffoldSdkQuickstart(activeProject?.appId || 'bubble-app'));
     }
   };
+
+  const handleDownloadScaffoldCode = () => {
+    const filename = `${scaffoldName.toLowerCase()}_${scaffoldType.replace('-', '_')}.ts`;
+    handleDownloadCode(generatedScaffoldCode, filename);
+  };
+
+  useEffect(() => {
+    updateCiWorkflow();
+  }, [ciProvider, ciPreset, ciCron, ciTypes, backupFormat, activeProject?.environment]);
+
+  useEffect(() => {
+    updateScaffoldCode();
+  }, [scaffoldType, scaffoldName, activeProject?.appId]);
+
+  useEffect(() => {
+    updateDbExportScript();
+  }, [exportDbTarget, exportDbType, schema, queryResults]);
 
   const handleToggleMockServer = () => {
     if (mockStatus.isRunning) {
@@ -4445,96 +4481,204 @@ jobs:
 
       {/* SUBTAB 10: CI/CD & TEMPLATES */}
       {subTab === 'cicd' && (
-        <div className="grid-2">
-          {/* Left: CI/CD Workflow Generator */}
-          <div className="card">
-            <div className="card-header">
-              <div>
-                <div className="card-title">
-                  <FileCode size={18} color="var(--primary)" />
-                  <span>CI/CD Pipeline Generator</span>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          {/* Architecture & Concept Guide Banner */}
+          <div className="card" style={{ background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.08) 0%, rgba(6, 182, 212, 0.05) 100%)', border: '1px solid rgba(99, 102, 241, 0.25)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px', marginBottom: '12px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div style={{
+                  width: '32px',
+                  height: '32px',
+                  borderRadius: '8px',
+                  background: 'rgba(99, 102, 241, 0.2)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: 'var(--primary)'
+                }}>
+                  <Sparkles size={16} />
                 </div>
-                <div className="card-subtitle">Automate scheduled nightly backups in GitHub Actions or GitLab CI</div>
+                <div>
+                  <h3 style={{ fontSize: '0.95rem', fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>
+                    Enterprise CI/CD Pipelines & DevOps for Bubble.io
+                  </h3>
+                  <p style={{ fontSize: '0.725rem', color: 'var(--text-secondary)', margin: 0, marginTop: '2px' }}>
+                    Standardize automated backup jobs, Pull Request schema gates, and SDK scaffolding
+                  </p>
+                </div>
               </div>
-              <button onClick={() => handleCopy(generatedCiYaml, 'CI YAML')} className="btn btn-secondary btn-sm">
-                <Copy size={13} />
-                <span>Copy YAML</span>
-              </button>
-            </div>
 
-            <div style={{ display: 'flex', gap: '10px', marginBottom: '10px' }}>
-              <div style={{ flex: 1 }}>
-                <label className="input-label">Provider</label>
-                <select value={ciProvider} onChange={e => { setCiProvider(e.target.value as any); setTimeout(updateCiWorkflow, 50); }} className="select">
-                  <option value="github">GitHub Actions (.github/workflows)</option>
-                  <option value="gitlab">GitLab CI (.gitlab-ci.yml)</option>
-                </select>
-              </div>
-              <div style={{ flex: 1 }}>
-                <label className="input-label">Cron Schedule (UTC)</label>
-                <input type="text" value={ciCron} onChange={e => { setCiCron(e.target.value); setTimeout(updateCiWorkflow, 50); }} className="input" />
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.725rem' }}>
+                <span className="badge badge-indigo">Zero-Config Automation</span>
+                <span className="badge badge-emerald">GitHub Actions & GitLab CI</span>
               </div>
             </div>
 
-            <pre style={{
-              background: 'var(--bg-input)',
-              padding: '14px',
-              borderRadius: 'var(--radius-md)',
-              border: '1px solid var(--border-subtle)',
-              fontFamily: 'var(--font-mono)',
-              fontSize: '0.775rem',
-              color: '#c4b5fd',
-              overflowX: 'auto',
-              maxHeight: '380px'
-            }}>
-              {generatedCiYaml}
-            </pre>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '10px', fontSize: '0.75rem', color: 'var(--text-secondary)', lineHeight: 1.45 }}>
+              <div style={{ background: 'var(--bg-input)', padding: '10px 12px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)' }}>
+                <strong style={{ color: 'var(--accent-cyan)', display: 'block', marginBottom: '3px' }}>1. Set Secrets in Repository</strong>
+                Add <code>BUBBLE_APP_NAME</code> and <code>BUBBLE_API_KEY</code> into GitHub <em>Settings &gt; Secrets and variables &gt; Actions</em>.
+              </div>
+              <div style={{ background: 'var(--bg-input)', padding: '10px 12px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)' }}>
+                <strong style={{ color: 'var(--accent-emerald)', display: 'block', marginBottom: '3px' }}>2. Pick Pipeline Preset</strong>
+                Choose between automated nightly backups, PR schema drift verification, or continuous Supabase replication.
+              </div>
+              <div style={{ background: 'var(--bg-input)', padding: '10px 12px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)' }}>
+                <strong style={{ color: 'var(--primary)', display: 'block', marginBottom: '3px' }}>3. Commit & Run in Cloud</strong>
+                Download the <code>.yml</code> file and commit into <code>.github/workflows/</code> to run on GitHub's global cloud runners.
+              </div>
+            </div>
           </div>
 
-          {/* Right: Integration Template Scaffolder */}
-          <div className="card">
-            <div className="card-header">
-              <div>
-                <div className="card-title">
-                  <Code size={18} color="var(--accent-cyan)" />
-                  <span>Integration Template Scaffolding</span>
+          {/* Main 2-Column Grid */}
+          <div className="grid-2">
+            {/* Left: CI/CD Workflow Generator */}
+            <div className="card">
+              <div className="card-header" style={{ flexWrap: 'wrap', gap: '8px' }}>
+                <div>
+                  <div className="card-title">
+                    <FileCode size={18} color="var(--primary)" />
+                    <span>CI/CD Pipeline Generator</span>
+                  </div>
+                  <div className="card-subtitle">Generate YAML workflows for GitHub Actions and GitLab CI</div>
                 </div>
-                <div className="card-subtitle">Generate boilerplate for plugin actions, CRUD connectors, and webhook receivers</div>
+                <div style={{ display: 'flex', gap: '6px' }}>
+                  <button
+                    type="button"
+                    onClick={handleDownloadCiYaml}
+                    className="btn btn-secondary btn-sm"
+                    title="Download Workflow File"
+                  >
+                    <Download size={12} color="var(--accent-emerald)" />
+                    <span>Download YAML</span>
+                  </button>
+                  <button onClick={() => handleCopy(generatedCiYaml, 'CI YAML')} className="btn btn-secondary btn-sm">
+                    <Copy size={12} />
+                    <span>Copy</span>
+                  </button>
+                </div>
               </div>
-              <button onClick={() => handleCopy(generatedScaffoldCode, 'Scaffold Code')} className="btn btn-secondary btn-sm">
-                <Copy size={13} />
-                <span>Copy Code</span>
-              </button>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '12px' }}>
+                <div>
+                  <label className="input-label">Pipeline Preset & Goal</label>
+                  <select
+                    value={ciPreset}
+                    onChange={e => setCiPreset(e.target.value as any)}
+                    className="select"
+                  >
+                    <option value="backup">📦 Scheduled Nightly Automated Database Backup</option>
+                    <option value="schema_drift">🛡️ PR Schema Drift & Lockfile Verification Gate</option>
+                    <option value="security_gate">🔐 PII Privacy Rules & Security Vulnerability Gate</option>
+                    <option value="supabase_sync">⚡ Continuous Data Sync to Supabase / PostgreSQL</option>
+                  </select>
+                </div>
+
+                <div style={{ display: 'flex', gap: '10px' }}>
+                  <div style={{ flex: 1 }}>
+                    <label className="input-label">CI Provider</label>
+                    <select
+                      value={ciProvider}
+                      onChange={e => setCiProvider(e.target.value as any)}
+                      className="select"
+                    >
+                      <option value="github">GitHub Actions (.github/workflows)</option>
+                      <option value="gitlab">GitLab CI (.gitlab-ci.yml)</option>
+                    </select>
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <label className="input-label">Cron Schedule (UTC)</label>
+                    <input
+                      type="text"
+                      value={ciCron}
+                      onChange={e => setCiCron(e.target.value)}
+                      className="input"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <pre style={{
+                background: 'var(--bg-input)',
+                padding: '14px',
+                borderRadius: 'var(--radius-md)',
+                border: '1px solid var(--border-subtle)',
+                fontFamily: 'var(--font-mono)',
+                fontSize: '0.75rem',
+                color: '#c4b5fd',
+                overflowX: 'auto',
+                maxHeight: '380px'
+              }}>
+                {generatedCiYaml}
+              </pre>
             </div>
 
-            <div style={{ display: 'flex', gap: '10px', marginBottom: '10px' }}>
-              <div style={{ flex: 1 }}>
-                <label className="input-label">Template Type</label>
-                <select value={scaffoldType} onChange={e => { setScaffoldType(e.target.value as any); setTimeout(updateScaffoldCode, 50); }} className="select">
-                  <option value="plugin-action">Plugin Server-Side Action</option>
-                  <option value="api-connector">CRUD API Connector</option>
-                  <option value="webhook">Data Change Webhook Receiver</option>
-                </select>
+            {/* Right: Integration Template Scaffolder */}
+            <div className="card">
+              <div className="card-header" style={{ flexWrap: 'wrap', gap: '8px' }}>
+                <div>
+                  <div className="card-title">
+                    <Code size={18} color="var(--accent-cyan)" />
+                    <span>Integration Template Scaffolding</span>
+                  </div>
+                  <div className="card-subtitle">Generate production-ready boilerplate for plugins, APIs, and SDKs</div>
+                </div>
+                <div style={{ display: 'flex', gap: '6px' }}>
+                  <button
+                    type="button"
+                    onClick={handleDownloadScaffoldCode}
+                    className="btn btn-secondary btn-sm"
+                    title="Download Boilerplate Script"
+                  >
+                    <Download size={12} color="var(--accent-cyan)" />
+                    <span>Download Code</span>
+                  </button>
+                  <button onClick={() => handleCopy(generatedScaffoldCode, 'Scaffold Code')} className="btn btn-secondary btn-sm">
+                    <Copy size={12} />
+                    <span>Copy</span>
+                  </button>
+                </div>
               </div>
-              <div style={{ flex: 1 }}>
-                <label className="input-label">Component Name</label>
-                <input type="text" value={scaffoldName} onChange={e => { setScaffoldName(e.target.value); setTimeout(updateScaffoldCode, 50); }} className="input" />
-              </div>
-            </div>
 
-            <pre style={{
-              background: 'var(--bg-input)',
-              padding: '14px',
-              borderRadius: 'var(--radius-md)',
-              border: '1px solid var(--border-subtle)',
-              fontFamily: 'var(--font-mono)',
-              fontSize: '0.775rem',
-              color: '#7dd3fc',
-              overflowX: 'auto',
-              maxHeight: '380px'
-            }}>
-              {generatedScaffoldCode}
-            </pre>
+              <div style={{ display: 'flex', gap: '10px', marginBottom: '12px' }}>
+                <div style={{ flex: 1 }}>
+                  <label className="input-label">Template Pattern</label>
+                  <select
+                    value={scaffoldType}
+                    onChange={e => setScaffoldType(e.target.value as any)}
+                    className="select"
+                  >
+                    <option value="plugin-action">Plugin Server-Side Action (Node.js)</option>
+                    <option value="api-connector">CRUD API Connector (TypeScript)</option>
+                    <option value="webhook">Data Change Webhook Receiver (Express)</option>
+                    <option value="sdk-quickstart">Type-Safe SDK Client Quickstart</option>
+                  </select>
+                </div>
+                <div style={{ flex: 1 }}>
+                  <label className="input-label">Component / Type Name</label>
+                  <input
+                    type="text"
+                    value={scaffoldName}
+                    onChange={e => setScaffoldName(e.target.value)}
+                    className="input"
+                  />
+                </div>
+              </div>
+
+              <pre style={{
+                background: 'var(--bg-input)',
+                padding: '14px',
+                borderRadius: 'var(--radius-md)',
+                border: '1px solid var(--border-subtle)',
+                fontFamily: 'var(--font-mono)',
+                fontSize: '0.75rem',
+                color: '#7dd3fc',
+                overflowX: 'auto',
+                maxHeight: '380px'
+              }}>
+                {generatedScaffoldCode}
+              </pre>
+            </div>
           </div>
         </div>
       )}
