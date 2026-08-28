@@ -12,7 +12,9 @@ import {
   Database, 
   ArrowRight,
   Plus,
-  Play
+  Play,
+  X,
+  ShieldAlert
 } from 'lucide-react';
 import { BubbleDataType, DatabaseSnapshot, DataGridRecord, ProjectProfile, RollbackExecutionResult, SnapshotComparisonReport } from '../types';
 import { SnapshotEngine } from '../core/snapshots/snapshotEngine';
@@ -42,6 +44,10 @@ export const DatabaseSnapshotManager: React.FC<DatabaseSnapshotManagerProps> = (
   // Rollback State
   const [isRollingBack, setIsRollingBack] = useState(false);
   const [rollbackResult, setRollbackResult] = useState<RollbackExecutionResult | null>(null);
+
+  // Modal Confirmation States
+  const [snapshotToDelete, setSnapshotToDelete] = useState<DatabaseSnapshot | null>(null);
+  const [showRollbackModal, setShowRollbackModal] = useState<boolean>(false);
 
   useEffect(() => {
     loadSnapshots();
@@ -103,10 +109,7 @@ export const DatabaseSnapshotManager: React.FC<DatabaseSnapshotManagerProps> = (
     const base = snapshots.find(s => s.id === baselineId);
     if (!base) return;
 
-    if (!window.confirm(`Are you sure you want to execute 1-Click Rollback to restore table '${base.dataType}' to '${base.name}'?`)) {
-      return;
-    }
-
+    setShowRollbackModal(false);
     setIsRollingBack(true);
     onLog('devops', `Executing 1-Click Rollback to restore '${base.name}'...`);
     try {
@@ -216,8 +219,8 @@ export const DatabaseSnapshotManager: React.FC<DatabaseSnapshotManagerProps> = (
                       Compare
                     </button>
                     <button
-                      onClick={() => handleDeleteSnapshot(snap.id)}
-                      style={{ background: 'none', border: 'none', color: '#f43f5e', cursor: 'pointer', opacity: 0.6 }}
+                      onClick={() => setSnapshotToDelete(snap)}
+                      style={{ background: 'none', border: 'none', color: '#f43f5e', cursor: 'pointer', opacity: 0.7, padding: '2px 4px' }}
                       title="Delete Snapshot"
                     >
                       <Trash2 size={13} />
@@ -329,7 +332,8 @@ export const DatabaseSnapshotManager: React.FC<DatabaseSnapshotManagerProps> = (
                 </div>
 
                 <button
-                  onClick={handleExecuteRollback}
+                  type="button"
+                  onClick={() => setShowRollbackModal(true)}
                   disabled={isRollingBack}
                   className="btn btn-primary btn-sm"
                   style={{ background: 'linear-gradient(135deg, #f43f5e 0%, #6366f1 100%)' }}
@@ -363,6 +367,268 @@ export const DatabaseSnapshotManager: React.FC<DatabaseSnapshotManagerProps> = (
           )}
         </div>
       </div>
+
+      {/* Delete Snapshot Confirmation Modal */}
+      {snapshotToDelete && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.8)',
+          backdropFilter: 'blur(8px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 10000,
+          padding: '20px'
+        }}>
+          <div style={{
+            width: '100%',
+            maxWidth: '460px',
+            backgroundColor: 'var(--bg-surface-elevated, #121826)',
+            border: '1px solid rgba(244, 63, 94, 0.35)',
+            borderRadius: 'var(--radius-lg, 12px)',
+            boxShadow: '0 25px 60px rgba(0, 0, 0, 0.7), 0 0 30px rgba(244, 63, 94, 0.15)',
+            overflow: 'hidden',
+            animation: 'modalSlideIn 0.2s ease-out'
+          }}>
+            {/* Header */}
+            <div style={{
+              padding: '18px 22px',
+              borderBottom: '1px solid var(--border-subtle)',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              background: 'linear-gradient(135deg, rgba(244, 63, 94, 0.15) 0%, rgba(18, 24, 38, 0.9) 100%)'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div style={{
+                  width: '36px',
+                  height: '36px',
+                  borderRadius: '10px',
+                  background: 'rgba(244, 63, 94, 0.2)',
+                  border: '1px solid rgba(244, 63, 94, 0.4)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: 'var(--accent-rose, #f43f5e)'
+                }}>
+                  <AlertTriangle size={18} />
+                </div>
+                <div>
+                  <h2 style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>
+                    Delete Snapshot
+                  </h2>
+                  <p style={{ fontSize: '0.725rem', color: 'var(--text-secondary)', margin: 0, marginTop: '2px' }}>
+                    Permanent deletion confirmation
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setSnapshotToDelete(null)}
+                style={{
+                  background: 'transparent',
+                  border: 'none',
+                  color: 'var(--text-muted)',
+                  cursor: 'pointer',
+                  padding: '6px',
+                  borderRadius: '6px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Body */}
+            <div style={{ padding: '22px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', lineHeight: 1.5, margin: 0 }}>
+                Are you sure you want to delete snapshot <strong style={{ color: 'var(--text-primary)' }}>{snapshotToDelete.name}</strong>?
+              </p>
+
+              <div style={{
+                padding: '12px 14px',
+                borderRadius: 'var(--radius-md)',
+                background: 'var(--bg-input)',
+                border: '1px solid var(--border-subtle)',
+                fontSize: '0.775rem',
+                color: 'var(--text-secondary)',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '4px'
+              }}>
+                <div>• <strong>Table:</strong> {snapshotToDelete.dataType}</div>
+                <div>• <strong>Records:</strong> {snapshotToDelete.recordCount} rows</div>
+                <div>• <strong>Created:</strong> {new Date(snapshotToDelete.createdAt).toLocaleString()}</div>
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '6px' }}>
+                <button
+                  type="button"
+                  onClick={() => setSnapshotToDelete(null)}
+                  className="btn btn-secondary btn-sm"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const id = snapshotToDelete.id;
+                    setSnapshotToDelete(null);
+                    await handleDeleteSnapshot(id);
+                  }}
+                  className="btn btn-primary btn-sm"
+                  style={{
+                    backgroundColor: 'var(--accent-rose, #f43f5e)',
+                    borderColor: 'rgba(244, 63, 94, 0.4)'
+                  }}
+                >
+                  <Trash2 size={13} />
+                  <span>Yes, Delete Snapshot</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 1-Click Rollback Confirmation Modal */}
+      {showRollbackModal && (() => {
+        const base = snapshots.find(s => s.id === baselineId);
+        return (
+          <div style={{
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.8)',
+            backdropFilter: 'blur(8px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 10000,
+            padding: '20px'
+          }}>
+            <div style={{
+              width: '100%',
+              maxWidth: '480px',
+              backgroundColor: 'var(--bg-surface-elevated, #121826)',
+              border: '1px solid rgba(99, 102, 241, 0.4)',
+              borderRadius: 'var(--radius-lg, 12px)',
+              boxShadow: '0 25px 60px rgba(0, 0, 0, 0.7), 0 0 30px rgba(99, 102, 241, 0.2)',
+              overflow: 'hidden',
+              animation: 'modalSlideIn 0.2s ease-out'
+            }}>
+              <div style={{
+                padding: '18px 22px',
+                borderBottom: '1px solid var(--border-subtle)',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.18) 0%, rgba(18, 24, 38, 0.9) 100%)'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <div style={{
+                    width: '36px',
+                    height: '36px',
+                    borderRadius: '10px',
+                    background: 'rgba(99, 102, 241, 0.25)',
+                    border: '1px solid rgba(99, 102, 241, 0.4)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: 'var(--primary, #6366f1)'
+                  }}>
+                    <RotateCcw size={18} />
+                  </div>
+                  <div>
+                    <h2 style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>
+                      Execute 1-Click Rollback
+                    </h2>
+                    <p style={{ fontSize: '0.725rem', color: 'var(--text-secondary)', margin: 0, marginTop: '2px' }}>
+                      Restore live database to baseline point
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setShowRollbackModal(false)}
+                  style={{
+                    background: 'transparent',
+                    border: 'none',
+                    color: 'var(--text-muted)',
+                    cursor: 'pointer',
+                    padding: '6px',
+                    borderRadius: '6px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              <div style={{ padding: '22px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', lineHeight: 1.5, margin: 0 }}>
+                  Are you sure you want to execute compensations to restore table <strong style={{ color: 'var(--accent-cyan)' }}>{base?.dataType || selectedType}</strong> back to baseline <strong style={{ color: 'var(--text-primary)' }}>{base?.name || 'Snapshot'}</strong>?
+                </p>
+
+                {diffReport && (
+                  <div style={{
+                    padding: '12px 14px',
+                    borderRadius: 'var(--radius-md)',
+                    background: 'var(--bg-input)',
+                    border: '1px solid var(--border-subtle)',
+                    fontSize: '0.775rem',
+                    color: 'var(--text-secondary)',
+                    display: 'grid',
+                    gridTemplateColumns: '1fr 1fr',
+                    gap: '6px'
+                  }}>
+                    <div>• Modified: <strong>{diffReport.modifiedCount}</strong></div>
+                    <div>• Deleted: <strong>{diffReport.deletedCount}</strong></div>
+                    <div>• Added: <strong>{diffReport.addedCount}</strong></div>
+                    <div>• Unchanged: <strong>{diffReport.unchangedCount}</strong></div>
+                  </div>
+                )}
+
+                <div style={{
+                  padding: '8px 12px',
+                  borderRadius: 'var(--radius-sm)',
+                  background: 'rgba(245, 158, 11, 0.1)',
+                  border: '1px solid rgba(245, 158, 11, 0.25)',
+                  fontSize: '0.75rem',
+                  color: 'var(--accent-amber)'
+                }}>
+                  ⚠️ This will patch modified fields, re-create missing records, and clean up un-baseline records in your active database.
+                </div>
+
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '6px' }}>
+                  <button
+                    type="button"
+                    onClick={() => setShowRollbackModal(false)}
+                    className="btn btn-secondary btn-sm"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleExecuteRollback}
+                    className="btn btn-primary btn-sm"
+                    style={{ background: 'linear-gradient(135deg, #f43f5e 0%, #6366f1 100%)' }}
+                  >
+                    <RotateCcw size={13} />
+                    <span>Confirm & Execute Rollback</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 };

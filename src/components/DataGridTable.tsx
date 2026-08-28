@@ -145,6 +145,7 @@ export const DataGridTable: React.FC<DataGridTableProps> = ({
   const [sort, setSort] = useState<DataGridSort | null>(null);
   const [filters, setFilters] = useState<DataGridFilter[]>([]);
   const [selectedRowIds, setSelectedRowIds] = useState<Set<string>>(new Set());
+  const [columnSearchTerm, setColumnSearchTerm] = useState<string>('');
 
   // Inline Cell Editing State
   const [editingCell, setEditingCell] = useState<{ recordId: string; field: string; value: any } | null>(null);
@@ -327,6 +328,15 @@ export const DataGridTable: React.FC<DataGridTableProps> = ({
 
     return colList;
   }, [records, activeDtObj, selectedType]);
+
+  const visibleColumns: DataGridColumn[] = React.useMemo(() => {
+    if (!columnSearchTerm.trim()) return columns;
+    const q = columnSearchTerm.toLowerCase().trim();
+    return columns.filter(col => {
+      if (col.key === '_id') return true;
+      return col.key.toLowerCase().includes(q) || col.label.toLowerCase().includes(q);
+    });
+  }, [columns, columnSearchTerm]);
 
   const loadRecords = async () => {
     if (!project) return;
@@ -965,14 +975,56 @@ export const DataGridTable: React.FC<DataGridTableProps> = ({
         </div>
       )}
 
-      {/* Scroll Hint & Column Count Indicator */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.725rem', color: 'var(--text-muted)', padding: '0 4px' }}>
-        <span>Showing <strong>{columns.length}</strong> fields • Double-click any cell to edit</span>
-        <span style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--accent-cyan)' }}>
-          <span style={{ background: 'rgba(6, 182, 212, 0.08)', padding: '2px 10px', borderRadius: '4px', border: '1px solid rgba(6, 182, 212, 0.2)' }}>
-            ↔️ Scroll or Click & Drag to Pan across all {columns.length} columns
+      {/* Scroll Hint, Column Count & Instant Column Search Bar */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.725rem', color: 'var(--text-muted)', padding: '0 4px', flexWrap: 'wrap', gap: '8px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <span>
+            Showing <strong>{visibleColumns.length}</strong> of <strong>{columns.length}</strong> fields • Double-click cell to edit
           </span>
-        </span>
+          {columnSearchTerm && (
+            <span className="badge badge-indigo" style={{ fontSize: '0.65rem', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+              <span>Filtered by: "{columnSearchTerm}"</span>
+              <button
+                type="button"
+                onClick={() => setColumnSearchTerm('')}
+                style={{ background: 'none', border: 'none', color: '#fff', cursor: 'pointer', padding: 0, display: 'flex' }}
+                title="Clear column filter"
+              >
+                <X size={10} />
+              </button>
+            </span>
+          )}
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          {/* Quick Jump / Filter Columns Input */}
+          <div style={{ position: 'relative', width: '220px' }}>
+            <Search size={12} style={{ position: 'absolute', left: '8px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+            <input
+              type="text"
+              placeholder={`Filter ${columns.length} columns...`}
+              value={columnSearchTerm}
+              onChange={(e) => setColumnSearchTerm(e.target.value)}
+              className="input"
+              style={{ paddingLeft: '26px', fontSize: '0.75rem', padding: '3px 8px 3px 26px', height: '26px' }}
+            />
+            {columnSearchTerm && (
+              <button
+                type="button"
+                onClick={() => setColumnSearchTerm('')}
+                style={{ position: 'absolute', right: '6px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: 0 }}
+              >
+                <X size={12} />
+              </button>
+            )}
+          </div>
+
+          <span style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--accent-cyan)' }}>
+            <span style={{ background: 'rgba(6, 182, 212, 0.08)', padding: '2px 10px', borderRadius: '4px', border: '1px solid rgba(6, 182, 212, 0.2)' }}>
+              ↔️ Drag to Pan columns
+            </span>
+          </span>
+        </div>
       </div>
 
       {/* Main Interactive Table Grid with Smooth Horizontal Scroll & Drag-to-Pan */}
@@ -999,7 +1051,7 @@ export const DataGridTable: React.FC<DataGridTableProps> = ({
           userSelect: isDraggingScroll ? 'none' : 'auto'
         }}
       >
-        <table style={{ minWidth: `${Math.max(1200, columns.length * 180)}px`, width: '100%', borderCollapse: 'separate', borderSpacing: 0, fontSize: '0.8rem', textAlign: 'left' }}>
+        <table style={{ minWidth: `${Math.max(1200, visibleColumns.length * 180)}px`, width: '100%', borderCollapse: 'separate', borderSpacing: 0, fontSize: '0.8rem', textAlign: 'left' }}>
           <thead>
             <tr style={{ background: 'var(--bg-input)' }}>
               <th style={{
@@ -1021,7 +1073,7 @@ export const DataGridTable: React.FC<DataGridTableProps> = ({
                   style={{ cursor: 'pointer' }}
                 />
               </th>
-              {columns.map(col => {
+              {visibleColumns.map(col => {
                 const isId = col.key === '_id';
                 return (
                   <th
@@ -1078,14 +1130,14 @@ export const DataGridTable: React.FC<DataGridTableProps> = ({
           <tbody>
             {isLoading ? (
               <tr>
-                <td colSpan={columns.length + 2} style={{ textAlign: 'center', padding: '36px', color: 'var(--text-muted)' }}>
+                <td colSpan={visibleColumns.length + 2} style={{ textAlign: 'center', padding: '36px', color: 'var(--text-muted)' }}>
                   <RefreshCw size={20} className="spin" style={{ margin: '0 auto 8px' }} />
                   <div>Loading live records from Bubble Data API...</div>
                 </td>
               </tr>
             ) : records.length === 0 ? (
               <tr>
-                <td colSpan={columns.length + 2} style={{ textAlign: 'center', padding: '36px', color: 'var(--text-muted)' }}>
+                <td colSpan={visibleColumns.length + 2} style={{ textAlign: 'center', padding: '36px', color: 'var(--text-muted)' }}>
                   <Database size={24} style={{ margin: '0 auto 8px', opacity: 0.5 }} />
                   <div style={{ fontWeight: 600, color: 'var(--text-secondary)' }}>No records found in table '{selectedType}'</div>
                   <div style={{ fontSize: '0.75rem', marginTop: '4px' }}>Click "New Record" to insert your first entry.</div>
@@ -1120,7 +1172,7 @@ export const DataGridTable: React.FC<DataGridTableProps> = ({
                       />
                     </td>
 
-                    {columns.map(col => {
+                    {visibleColumns.map(col => {
                       const isId = col.key === '_id';
                       const isEditing = editingCell?.recordId === record._id && editingCell?.field === col.key;
                       const rawVal = isId ? record._id : (record[col.key] !== undefined ? record[col.key] : resolveRecordValue(record, col.key));
@@ -2170,6 +2222,189 @@ export const DataGridTable: React.FC<DataGridTableProps> = ({
                   <span>Done</span>
                 </button>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Record Inspector Drawer / Modal */}
+      {inspectingRecord && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.75)',
+          backdropFilter: 'blur(6px)',
+          zIndex: 10000,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '20px'
+        }}>
+          <div className="card" style={{
+            width: '100%',
+            maxWidth: '780px',
+            maxHeight: '88vh',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '14px',
+            boxShadow: '0 25px 50px rgba(0, 0, 0, 0.6)',
+            border: '1px solid var(--border-subtle)',
+            padding: '20px'
+          }}>
+            {/* Header */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-subtle)', paddingBottom: '12px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <Eye size={20} color="var(--accent-cyan)" />
+                <div>
+                  <div style={{ fontWeight: 700, fontSize: '1rem', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span>Record Details: {selectedType}</span>
+                    <span className="badge badge-indigo" style={{ fontFamily: 'var(--font-mono)', fontSize: '0.7rem' }}>
+                      {inspectingRecord._id}
+                    </span>
+                  </div>
+                  <div style={{ fontSize: '0.725rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                    Vertical inspector across all fields for quick auditing & copying
+                  </div>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    navigator.clipboard.writeText(JSON.stringify(inspectingRecord, null, 2));
+                    toast.success('Record JSON copied to clipboard!');
+                  }}
+                  className="btn btn-secondary btn-sm"
+                  style={{ fontSize: '0.75rem', padding: '4px 10px', display: 'flex', alignItems: 'center', gap: '5px' }}
+                >
+                  <Copy size={12} />
+                  <span>Copy JSON</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setInspectingRecord(null)}
+                  style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '4px' }}
+                >
+                  <X size={18} />
+                </button>
+              </div>
+            </div>
+
+            {/* Search within Record Fields */}
+            <div style={{ position: 'relative' }}>
+              <Search size={13} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+              <input
+                type="text"
+                placeholder="Search within this record's fields and values..."
+                value={modalSearchTerm}
+                onChange={(e) => setModalSearchTerm(e.target.value)}
+                className="input"
+                style={{ paddingLeft: '30px', fontSize: '0.75rem', padding: '6px 10px 6px 30px' }}
+              />
+            </div>
+
+            {/* Fields List */}
+            <div style={{
+              flex: 1,
+              overflowY: 'auto',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '8px',
+              paddingRight: '4px',
+              maxHeight: '480px'
+            }}>
+              {columns
+                .filter(col => {
+                  if (!modalSearchTerm.trim()) return true;
+                  const q = modalSearchTerm.toLowerCase();
+                  const rawVal = col.key === '_id' ? inspectingRecord._id : resolveRecordValue(inspectingRecord, col.key);
+                  const strVal = String(rawVal ?? '').toLowerCase();
+                  return col.key.toLowerCase().includes(q) || col.label.toLowerCase().includes(q) || strVal.includes(q);
+                })
+                .map(col => {
+                  const isId = col.key === '_id';
+                  const rawVal = isId ? inspectingRecord._id : resolveRecordValue(inspectingRecord, col.key);
+                  const displayVal = formatDisplayValue(rawVal);
+                  const isEmpty = rawVal === null || rawVal === undefined || rawVal === '';
+
+                  return (
+                    <div
+                      key={col.key}
+                      style={{
+                        padding: '10px 14px',
+                        background: 'var(--bg-input)',
+                        borderRadius: 'var(--radius-sm)',
+                        border: '1px solid var(--border-subtle)',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'flex-start',
+                        gap: '12px'
+                      }}
+                    >
+                      <div style={{ flex: '0 0 200px', minWidth: '160px' }}>
+                        <div style={{ fontWeight: 600, fontSize: '0.8rem', color: 'var(--text-primary)' }}>
+                          {col.label}
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '2px' }}>
+                          <span style={{ fontSize: '0.675rem', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
+                            {col.key}
+                          </span>
+                          <span className="badge badge-indigo" style={{ fontSize: '0.6rem', padding: '1px 5px' }}>
+                            {col.type}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div style={{ flex: 1, minWidth: 0, wordBreak: 'break-word', fontSize: '0.8rem' }}>
+                        {isEmpty ? (
+                          <span style={{ color: 'var(--text-muted)', fontStyle: 'italic', fontSize: '0.75rem' }}>null / empty</span>
+                        ) : typeof rawVal === 'boolean' ? (
+                          <span className={`badge ${rawVal ? 'badge-emerald' : 'badge-rose'}`} style={{ fontSize: '0.7rem' }}>
+                            {rawVal ? 'TRUE' : 'FALSE'}
+                          </span>
+                        ) : Array.isArray(rawVal) ? (
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                            {rawVal.map((item, idx) => (
+                              <span key={idx} className="badge badge-indigo" style={{ fontSize: '0.675rem' }}>
+                                {String(item)}
+                              </span>
+                            ))}
+                          </div>
+                        ) : (
+                          <span style={{ fontFamily: isId || col.key.includes('Date') ? 'var(--font-mono)' : 'inherit', color: isId ? 'var(--accent-cyan)' : 'var(--text-primary)' }}>
+                            {displayVal}
+                          </span>
+                        )}
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          navigator.clipboard.writeText(typeof rawVal === 'object' ? JSON.stringify(rawVal) : String(rawVal ?? ''));
+                          toast.success(`Copied '${col.label}' value!`);
+                        }}
+                        className="btn btn-secondary btn-sm"
+                        style={{ padding: '3px 6px', fontSize: '0.675rem' }}
+                        title={`Copy ${col.label} value`}
+                      >
+                        <Copy size={11} />
+                      </button>
+                    </div>
+                  );
+                })}
+            </div>
+
+            {/* Modal Footer */}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', borderTop: '1px solid var(--border-subtle)', paddingTop: '10px' }}>
+              <button
+                type="button"
+                onClick={() => setInspectingRecord(null)}
+                className="btn btn-primary btn-sm"
+                style={{ padding: '6px 16px' }}
+              >
+                Close
+              </button>
             </div>
           </div>
         </div>

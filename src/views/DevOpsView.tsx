@@ -30,7 +30,18 @@ import {
   History,
   Wrench,
   Trash2,
-  FileSpreadsheet
+  FileSpreadsheet,
+  Tag,
+  Bookmark,
+  ListFilter,
+  Focus,
+  AlertTriangle,
+  CheckCircle2,
+  Key,
+  ShieldCheck,
+  Info,
+  FileText,
+  X
 } from 'lucide-react';
 import { 
   BackupResult, 
@@ -146,7 +157,50 @@ export const DevOpsView: React.FC<DevOpsViewProps> = ({ activeProject, initialSu
   const [mermaidErd, setMermaidErd] = useState<string>('');
   const [copied, setCopied] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [schemaFilterType, setSchemaFilterType] = useState<'all' | 'tables' | 'option_sets'>('all');
   const [collapsedTables, setCollapsedTables] = useState<Set<string>>(new Set());
+  const [collapsedOptionSets, setCollapsedOptionSets] = useState<Set<string>>(new Set());
+
+  // ERD Subgraph Focus state
+  const [erdFocusedTable, setErdFocusedTable] = useState<string>('ALL');
+
+  // Schema Explorer state
+  const [schemaSortMode, setSchemaSortMode] = useState<'name' | 'fields_desc' | 'fields_asc'>('name');
+
+  // TypeScript Studio Options State
+  const [tsMode, setTsMode] = useState<'interfaces' | 'zod' | 'client'>('interfaces');
+  const [tsIncludeJsDoc, setTsIncludeJsDoc] = useState(true);
+  const [tsIncludeCrudDtos, setTsIncludeCrudDtos] = useState(true);
+  const [tsIncludeEnvelopes, setTsIncludeEnvelopes] = useState(true);
+  const [tsGeneratedCode, setTsGeneratedCode] = useState<string>('');
+
+  useEffect(() => {
+    if (!schema) {
+      setTsGeneratedCode('');
+      return;
+    }
+    if (tsMode === 'interfaces') {
+      setTsGeneratedCode(DevOpsEngine.generateTypeScriptDefinitions(schema, {
+        includeJsDoc: tsIncludeJsDoc,
+        includeCrudDtos: tsIncludeCrudDtos,
+        includeEnvelopes: tsIncludeEnvelopes,
+        includeSchemaMap: true
+      }));
+    } else if (tsMode === 'zod') {
+      setTsGeneratedCode(DevOpsEngine.generateZodValidationSchemas(schema));
+    } else if (tsMode === 'client') {
+      setTsGeneratedCode(DevOpsEngine.generateTypedApiClient(schema));
+    }
+  }, [schema, tsMode, tsIncludeJsDoc, tsIncludeCrudDtos, tsIncludeEnvelopes]);
+
+  useEffect(() => {
+    if (!schema) {
+      setMermaidErd('');
+      return;
+    }
+    const erd = DevOpsEngine.generateMermaidERD(schema, erdFocusedTable);
+    setMermaidErd(erd);
+  }, [schema, erdFocusedTable]);
 
   const toggleCollapseTable = (id: string) => {
     setCollapsedTables(prev => {
@@ -160,13 +214,27 @@ export const DevOpsView: React.FC<DevOpsViewProps> = ({ activeProject, initialSu
     });
   };
 
+  const toggleCollapseOptionSet = (name: string) => {
+    setCollapsedOptionSets(prev => {
+      const next = new Set(prev);
+      if (next.has(name)) {
+        next.delete(name);
+      } else {
+        next.add(name);
+      }
+      return next;
+    });
+  };
+
   const expandAllTables = () => {
     setCollapsedTables(new Set());
+    setCollapsedOptionSets(new Set());
   };
 
   const collapseAllTables = () => {
     if (!schema) return;
     setCollapsedTables(new Set(schema.dataTypes.map(d => d.id || d.name)));
+    setCollapsedOptionSets(new Set(schema.optionSets.map(os => os.name)));
   };
 
   // Active Data Grid Table Selection
@@ -181,6 +249,7 @@ export const DevOpsView: React.FC<DevOpsViewProps> = ({ activeProject, initialSu
   const [backupEncryptPass, setBackupEncryptPass] = useState('');
   const [backupCloudDest, setBackupCloudDest] = useState('');
   const [backupSinceDate, setBackupSinceDate] = useState('');
+  const [backupToDelete, setBackupToDelete] = useState<BackupResult | null>(null);
 
   // Migrations state
   const [lockfile, setLockfile] = useState<SchemaLockfile | null>(null);
@@ -190,6 +259,13 @@ export const DevOpsView: React.FC<DevOpsViewProps> = ({ activeProject, initialSu
 
   // PII state
   const [piiReport, setPiiReport] = useState<PiiAuditReport | null>(null);
+  const [piiSeverityFilter, setPiiSeverityFilter] = useState<'ALL' | 'CRITICAL' | 'HIGH' | 'MEDIUM'>('ALL');
+  const [piiCategoryFilter, setPiiCategoryFilter] = useState<string>('ALL');
+  const [piiSearchQuery, setPiiSearchQuery] = useState<string>('');
+
+  // Data Studio Column & Row Inspector state
+  const [dataGridColumnSearch, setDataGridColumnSearch] = useState<string>('');
+  const [dataGridSelectedRow, setDataGridSelectedRow] = useState<Record<string, any> | null>(null);
 
   // REPL Query state
   const [queryType, setQueryType] = useState('User');
@@ -226,6 +302,11 @@ export const DevOpsView: React.FC<DevOpsViewProps> = ({ activeProject, initialSu
   const [mockTestType, setMockTestType] = useState('user');
   const [mockTestId, setMockTestId] = useState('');
   const [mockTestResponse, setMockTestResponse] = useState<any>(null);
+
+  // Environment Diff Details Inspector States
+  const [selectedEnvField, setSelectedEnvField] = useState<{ dataType: string; fieldName: string; fieldType: string } | null>(null);
+  const [selectedSecretKey, setSelectedSecretKey] = useState<{ keyName: string; inSource: boolean; inTarget: boolean } | null>(null);
+  const [selectedNewTable, setSelectedNewTable] = useState<string | null>(null);
 
   // Workflow Trigger state
   const [wfName, setWfName] = useState('backend_workflow');
@@ -273,6 +354,7 @@ export const DevOpsView: React.FC<DevOpsViewProps> = ({ activeProject, initialSu
       const s = await DevOpsEngine.fetchSchema(activeProject);
       setSchema(s);
       setCollapsedTables(new Set(s.dataTypes.map(d => d.id || d.name)));
+      setCollapsedOptionSets(new Set(s.optionSets.map(os => os.name)));
       MockServerEngine.initFromSchema(s);
       
       // Generate TypeScript
@@ -353,6 +435,7 @@ export const DevOpsView: React.FC<DevOpsViewProps> = ({ activeProject, initialSu
         const parsedSchema = DevOpsEngine.parseBubbleSchemaJson(parsed, activeProject);
         setSchema(parsedSchema);
         setCollapsedTables(new Set(parsedSchema.dataTypes.map(d => d.id || d.name)));
+        setCollapsedOptionSets(new Set(parsedSchema.optionSets.map(os => os.name)));
         MockServerEngine.initFromSchema(parsedSchema);
 
         const ts = DevOpsEngine.generateTypeScriptDefinitions(parsedSchema);
@@ -419,6 +502,7 @@ export const DevOpsView: React.FC<DevOpsViewProps> = ({ activeProject, initialSu
     const template = DevOpsEngine.getTemplateSchema(activeProject);
     setSchema(template);
     setCollapsedTables(new Set(template.dataTypes.map(d => d.id || d.name)));
+    setCollapsedOptionSets(new Set(template.optionSets.map(os => os.name)));
     MockServerEngine.initFromSchema(template);
 
     const ts = DevOpsEngine.generateTypeScriptDefinitions(template);
@@ -481,6 +565,20 @@ export const DevOpsView: React.FC<DevOpsViewProps> = ({ activeProject, initialSu
     onLog('devops', `Copied ${label} to clipboard.`, 'info');
   };
 
+  const handleDownloadCode = (code: string, defaultFilename: string) => {
+    const blob = new Blob([code], { type: 'text/typescript;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = defaultFilename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    toast.success(`Downloaded ${defaultFilename}!`);
+    onLog('devops', `Downloaded ${defaultFilename} to disk.`, 'success');
+  };
+
   const loadBackups = async () => {
     try {
       const rawBackups = await IndexedDbStore.getAllBackups();
@@ -505,17 +603,20 @@ export const DevOpsView: React.FC<DevOpsViewProps> = ({ activeProject, initialSu
 
   const handleDownloadBackup = (backup: BackupResult) => {
     try {
+      const ext = `${backup.format || 'json'}${backup.encrypted ? '.enc' : ''}`;
       const payload = JSON.stringify(backup, null, 2);
-      const blob = new Blob([payload], { type: 'application/json' });
+      const mime = backup.format === 'csv' ? 'text/csv' : 'application/json';
+      const blob = new Blob([payload], { type: mime });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `${backup.backupId}.${backup.format || 'json'}`;
+      a.download = `${backup.backupId}.${ext}`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
-      onLog('devops', `Downloaded backup archive ${backup.backupId}.`, 'success');
+      toast.success(`Downloaded ${backup.backupId}.${ext}`);
+      onLog('devops', `Downloaded backup archive ${backup.backupId}.${ext}.`, 'success');
     } catch (e: any) {
       onLog('devops', `Failed to download backup: ${e.message}`, 'error');
     }
@@ -563,7 +664,54 @@ export const DevOpsView: React.FC<DevOpsViewProps> = ({ activeProject, initialSu
     setMigrations([mig, ...migrations]);
     setNewMigrationName('');
     setNewMigrationDesc('');
+    toast.success(`Generated migration ${mig.version}_${mig.name}.json`);
     onLog('devops', `Generated migration '${mig.version}_${mig.name}.json' with ${mig.changes.length} declarative operation(s).`, 'success');
+  };
+
+  const handleDownloadMigrationJson = (migration: SchemaMigration) => {
+    const payload = JSON.stringify(migration, null, 2);
+    const blob = new Blob([payload], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${migration.version}_${migration.name}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast.success(`Downloaded ${migration.version}_${migration.name}.json`);
+    onLog('devops', `Downloaded declarative migration JSON.`, 'success');
+  };
+
+  const handleDownloadMigrationSql = (migration: SchemaMigration) => {
+    const sql = SchemaMigrationsEngine.generateSqlDdl(migration, 'postgres');
+    const blob = new Blob([sql], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${migration.version}_${migration.name}.sql`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast.success(`Downloaded ${migration.version}_${migration.name}.sql`);
+    onLog('devops', `Downloaded PostgreSQL migration SQL.`, 'success');
+  };
+
+  const handleDownloadLockfile = () => {
+    if (!lockfile) return;
+    const payload = JSON.stringify(lockfile, null, 2);
+    const blob = new Blob([payload], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `schema.lock.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast.success(`Downloaded schema.lock.json`);
+    onLog('devops', `Downloaded schema lockfile.`, 'success');
   };
 
   const handleRunQuery = async () => {
@@ -1071,13 +1219,14 @@ export const DevOpsView: React.FC<DevOpsViewProps> = ({ activeProject, initialSu
       {/* SUBTAB 1: SCHEMA EXPLORER */}
       {subTab === 'schema' && (
         <div>
+          {/* Header & Controls Bar */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '12px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
               <div style={{ position: 'relative', width: '280px' }}>
                 <Search size={14} style={{ position: 'absolute', left: '12px', top: '11px', color: 'var(--text-muted)' }} />
                 <input
                   type="text"
-                  placeholder="Search tables or fields..."
+                  placeholder="Search tables, fields or option values..."
                   value={searchTerm}
                   onChange={e => setSearchTerm(e.target.value)}
                   className="input"
@@ -1086,37 +1235,85 @@ export const DevOpsView: React.FC<DevOpsViewProps> = ({ activeProject, initialSu
               </div>
 
               {schema && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <span className="badge badge-indigo" style={{ fontSize: '0.75rem' }}>
-                    {schema.dataTypes.length} Tables • {schema.optionSets.length} Option Sets
-                  </span>
-
-                  {/* Expand All / Collapse All Controls */}
-                  <div style={{ display: 'flex', gap: '4px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                  {/* Category Filter Pills: All | Tables | Option Sets */}
+                  <div style={{
+                    display: 'flex',
+                    background: 'var(--bg-input)',
+                    padding: '2px',
+                    borderRadius: 'var(--radius-sm)',
+                    border: '1px solid var(--border-subtle)',
+                    gap: '2px'
+                  }}>
                     <button
                       type="button"
-                      onClick={expandAllTables}
-                      className="btn btn-secondary btn-sm"
-                      style={{ fontSize: '0.7rem', padding: '3px 8px' }}
-                      title="Expand all table field lists"
+                      onClick={() => setSchemaFilterType('all')}
+                      className={`btn btn-sm ${schemaFilterType === 'all' ? 'btn-primary' : 'btn-secondary'}`}
+                      style={{ fontSize: '0.725rem', padding: '4px 10px', border: 'none', borderRadius: '4px' }}
                     >
-                      <ChevronsUpDown size={12} />
-                      <span>Expand All</span>
+                      <span>All ({schema.dataTypes.length + schema.optionSets.length})</span>
                     </button>
                     <button
                       type="button"
-                      onClick={collapseAllTables}
-                      className="btn btn-secondary btn-sm"
-                      style={{ fontSize: '0.7rem', padding: '3px 8px' }}
-                      title="Collapse all table field lists"
+                      onClick={() => setSchemaFilterType('tables')}
+                      className={`btn btn-sm ${schemaFilterType === 'tables' ? 'btn-primary' : 'btn-secondary'}`}
+                      style={{ fontSize: '0.725rem', padding: '4px 10px', border: 'none', borderRadius: '4px', display: 'flex', alignItems: 'center', gap: '4px' }}
                     >
-                      <ChevronsDownUp size={12} />
-                      <span>Collapse All</span>
+                      <Database size={11} />
+                      <span>Data Tables ({schema.dataTypes.length})</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSchemaFilterType('option_sets')}
+                      className={`btn btn-sm ${schemaFilterType === 'option_sets' ? 'btn-primary' : 'btn-secondary'}`}
+                      style={{ fontSize: '0.725rem', padding: '4px 10px', border: 'none', borderRadius: '4px', display: 'flex', alignItems: 'center', gap: '4px' }}
+                    >
+                      <Tag size={11} />
+                      <span>Option Sets ({schema.optionSets.length})</span>
                     </button>
                   </div>
-                </div>
-              )}
-            </div>
+
+                    {/* Sort Mode Dropdown */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Sort:</span>
+                      <select
+                        value={schemaSortMode}
+                        onChange={(e) => setSchemaSortMode(e.target.value as any)}
+                        className="select"
+                        style={{ fontSize: '0.7rem', padding: '3px 6px', width: 'auto' }}
+                      >
+                        <option value="name">Name (A-Z)</option>
+                        <option value="fields_desc">Most Fields First</option>
+                        <option value="fields_asc">Fewest Fields First</option>
+                      </select>
+                    </div>
+
+                    {/* Expand All / Collapse All Controls */}
+                    <div style={{ display: 'flex', gap: '4px' }}>
+                      <button
+                        type="button"
+                        onClick={expandAllTables}
+                        className="btn btn-secondary btn-sm"
+                        style={{ fontSize: '0.7rem', padding: '3px 8px' }}
+                        title="Expand all table and option set lists"
+                      >
+                        <ChevronsUpDown size={12} />
+                        <span>Expand All</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={collapseAllTables}
+                        className="btn btn-secondary btn-sm"
+                        style={{ fontSize: '0.7rem', padding: '3px 8px' }}
+                        title="Collapse all table and option set lists"
+                      >
+                        <ChevronsDownUp size={12} />
+                        <span>Collapse All</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <button
@@ -1143,7 +1340,7 @@ export const DevOpsView: React.FC<DevOpsViewProps> = ({ activeProject, initialSu
             </div>
           </div>
 
-          {!schema || schema.dataTypes.length === 0 ? (
+          {!schema || (schema.dataTypes.length === 0 && schema.optionSets.length === 0) ? (
             <div className="card" style={{ textAlign: 'center', padding: '40px 24px', background: 'var(--bg-card)' }}>
               <div style={{
                 width: '48px',
@@ -1198,160 +1395,475 @@ export const DevOpsView: React.FC<DevOpsViewProps> = ({ activeProject, initialSu
               </div>
             </div>
           ) : (
-            <div style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))',
-              gap: '16px',
-              alignItems: 'start',
-              paddingBottom: '48px'
-            }}>
-              {schema.dataTypes
-                .filter(dt => !searchTerm || dt.name.toLowerCase().includes(searchTerm.toLowerCase()) || dt.fields.some(f => f.name.toLowerCase().includes(searchTerm.toLowerCase())))
-                .map((dt) => {
-                  const tableKey = dt.id || dt.name;
-                  const isCollapsed = collapsedTables.has(tableKey);
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', paddingBottom: '48px' }}>
+              {/* SECTION 1: DATA TABLES */}
+              {(schemaFilterType === 'all' || schemaFilterType === 'tables') && (() => {
+                const filteredTables = schema.dataTypes.filter(dt => 
+                  !searchTerm || 
+                  dt.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                  dt.fields.some(f => f.name.toLowerCase().includes(searchTerm.toLowerCase()) || f.type.toLowerCase().includes(searchTerm.toLowerCase()))
+                );
 
-                  return (
-                    <div
-                      key={dt.id}
-                      className="card"
-                      style={{
-                        padding: '16px 18px',
-                        transition: 'all 0.15s ease',
-                        border: isCollapsed ? '1px solid var(--border-subtle)' : '1px solid var(--border-active)'
-                      }}
-                    >
-                      {/* Clickable Header with Expand/Collapse toggle */}
-                      <div
-                        onClick={() => toggleCollapseTable(tableKey)}
-                        style={{
-                          display: 'flex',
-                          justifyContent: 'space-between',
-                          alignItems: 'center',
-                          cursor: 'pointer',
-                          userSelect: 'none',
-                          paddingBottom: isCollapsed ? '0' : '14px',
-                          borderBottom: isCollapsed ? 'none' : '1px solid var(--border-subtle)',
-                          marginBottom: isCollapsed ? '0' : '14px',
-                          gap: '12px'
-                        }}
-                      >
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0, flex: 1, overflow: 'hidden' }}>
+                    const sortedTables = [...filteredTables].sort((a, b) => {
+                      if (schemaSortMode === 'fields_desc') return b.fields.length - a.fields.length;
+                      if (schemaSortMode === 'fields_asc') return a.fields.length - b.fields.length;
+                      return a.name.localeCompare(b.name);
+                    });
+
+                    return (
+                      <div>
+                        {schemaFilterType === 'all' && (
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              <Database size={16} color="var(--primary)" />
+                              <h4 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                                Data Tables ({sortedTables.length} of {schema.dataTypes.length})
+                              </h4>
+                            </div>
+                            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                              Dynamic database tables and field definitions
+                            </span>
+                          </div>
+                        )}
+
+                        {sortedTables.length === 0 ? (
+                          <div style={{ padding: '20px', textAlign: 'center', background: 'var(--bg-input)', borderRadius: 'var(--radius-sm)', color: 'var(--text-muted)', fontSize: '0.825rem' }}>
+                            No Data Tables matching "{searchTerm}"
+                          </div>
+                        ) : (
                           <div style={{
-                            width: '24px',
-                            height: '24px',
-                            minWidth: '24px',
-                            borderRadius: '6px',
-                            background: isCollapsed ? 'rgba(255, 255, 255, 0.05)' : 'rgba(99, 102, 241, 0.15)',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            color: isCollapsed ? 'var(--text-muted)' : 'var(--primary)',
-                            flexShrink: 0
+                            display: 'grid',
+                            gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 340px), 1fr))',
+                            gap: '16px',
+                            alignItems: 'start'
                           }}>
-                            {isCollapsed ? <ChevronRight size={15} /> : <ChevronDown size={15} />}
-                          </div>
+                            {sortedTables.map((dt) => {
+                          const tableKey = dt.id || dt.name;
+                          const isCollapsed = collapsedTables.has(tableKey);
 
-                          <div style={{ minWidth: 0, flex: 1, overflow: 'hidden' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
-                              <Database size={15} color="var(--primary)" style={{ flexShrink: 0 }} />
-                              <h3
-                                style={{
-                                  fontSize: '0.925rem',
-                                  fontWeight: 700,
-                                  color: 'var(--text-primary)',
-                                  margin: 0,
-                                  overflow: 'hidden',
-                                  textOverflow: 'ellipsis',
-                                  whiteSpace: 'nowrap'
-                                }}
-                                title={dt.name}
-                              >
-                                {dt.name}
-                              </h3>
-                            </div>
-                            <div style={{ fontSize: '0.725rem', color: 'var(--text-muted)', marginTop: '2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                              {dt.recordCount && dt.recordCount > 0 ? (
-                                <span style={{ color: 'var(--accent-cyan)' }}>
-                                  {dt.recordCount.toLocaleString()} records in database
-                                </span>
-                              ) : (
-                                <span>Schema Defined • Live query via Data API</span>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
-                          <span className={`badge ${isCollapsed ? 'badge-indigo' : 'badge-cyan'}`} style={{ fontSize: '0.68rem', whiteSpace: 'nowrap', flexShrink: 0 }}>
-                            {dt.fields.length} Fields
-                          </span>
-
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setDataGridActiveType(dt.name);
-                              setSubTab('data_grid');
-                            }}
-                            className="btn btn-secondary btn-sm"
-                            style={{ fontSize: '0.7rem', padding: '3px 8px', display: 'flex', alignItems: 'center', gap: '4px', whiteSpace: 'nowrap', flexShrink: 0 }}
-                            title={`Browse and edit records of ${dt.name} in Interactive Data Studio`}
-                          >
-                            <Search size={11} />
-                            <span>Browse Data</span>
-                          </button>
-                        </div>
-                      </div>
-
-                      {/* Collapsible Fields Section */}
-                      {!isCollapsed && (
-                        <div>
-                          <div
-                            style={{
-                              display: 'flex',
-                              flexDirection: 'column',
-                              gap: '6px',
-                              maxHeight: dt.fields.length > 8 ? '360px' : 'none',
-                              overflowY: dt.fields.length > 8 ? 'auto' : 'visible',
-                              paddingRight: dt.fields.length > 8 ? '4px' : '0'
-                            }}
-                          >
-                            {dt.fields.map((f, i) => (
+                          return (
+                            <div
+                              key={dt.id}
+                              className="card"
+                              style={{
+                                padding: isCollapsed ? '12px 16px' : '16px 18px',
+                                transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                                border: isCollapsed ? '1px solid var(--border-subtle)' : '1px solid rgba(99, 102, 241, 0.45)',
+                                background: isCollapsed ? 'var(--bg-card)' : 'rgba(99, 102, 241, 0.02)',
+                                borderRadius: 'var(--radius-md)'
+                              }}
+                            >
+                              {/* Header (Single-row, perfectly centered) */}
                               <div
-                                key={i}
+                                onClick={() => toggleCollapseTable(tableKey)}
                                 style={{
                                   display: 'flex',
                                   justifyContent: 'space-between',
                                   alignItems: 'center',
-                                  padding: '7px 10px',
-                                  borderRadius: 'var(--radius-sm)',
-                                  background: 'var(--bg-input)',
-                                  border: '1px solid var(--border-subtle)',
-                                  fontSize: '0.8rem'
+                                  cursor: 'pointer',
+                                  userSelect: 'none',
+                                  paddingBottom: isCollapsed ? '0' : '12px',
+                                  borderBottom: isCollapsed ? 'none' : '1px solid var(--border-subtle)',
+                                  marginBottom: isCollapsed ? '0' : '12px',
+                                  gap: '12px'
                                 }}
                               >
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                  <code style={{ color: 'var(--text-primary)', fontWeight: 600 }}>{f.name}</code>
-                                  {f.required && <span className="badge badge-rose" style={{ fontSize: '0.625rem' }}>Required</span>}
-                                </div>
-                                <span style={{ color: 'var(--accent-cyan)', fontFamily: 'var(--font-mono)', fontSize: '0.725rem' }}>
-                                  {f.type}{f.isList ? '[]' : ''}
-                                </span>
-                              </div>
-                            ))}
-                          </div>
+                                {/* Left: Chevron + Icon + Title + Badges */}
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0, flex: 1 }}>
+                                  <div
+                                    style={{
+                                      width: '22px',
+                                      height: '22px',
+                                      minWidth: '22px',
+                                      borderRadius: '5px',
+                                      background: isCollapsed ? 'rgba(255, 255, 255, 0.05)' : 'rgba(99, 102, 241, 0.2)',
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      justifyContent: 'center',
+                                      color: isCollapsed ? 'var(--text-muted)' : 'var(--primary)',
+                                      transform: isCollapsed ? 'rotate(0deg)' : 'rotate(90deg)',
+                                      transition: 'transform 0.2s ease, background 0.2s ease',
+                                      flexShrink: 0
+                                    }}
+                                  >
+                                    <ChevronRight size={13} />
+                                  </div>
 
-                          {dt.fields.length > 8 && (
-                            <div style={{ textAlign: 'center', fontSize: '0.7rem', color: 'var(--text-muted)', paddingTop: '8px' }}>
-                              Showing all {dt.fields.length} fields (scrollable list)
+                                  <div
+                                    style={{
+                                      width: '26px',
+                                      height: '26px',
+                                      minWidth: '26px',
+                                      borderRadius: '6px',
+                                      background: 'rgba(99, 102, 241, 0.15)',
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      justifyContent: 'center',
+                                      flexShrink: 0
+                                    }}
+                                  >
+                                    <Database size={13} color="var(--primary)" />
+                                  </div>
+
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, overflow: 'hidden' }}>
+                                    <h3
+                                      style={{
+                                        fontSize: '0.925rem',
+                                        fontWeight: 700,
+                                        color: 'var(--text-primary)',
+                                        margin: 0,
+                                        overflow: 'hidden',
+                                        textOverflow: 'ellipsis',
+                                        whiteSpace: 'nowrap'
+                                      }}
+                                      title={dt.name}
+                                    >
+                                      {dt.name}
+                                    </h3>
+
+                                    <span className="badge badge-indigo" style={{ fontSize: '0.625rem', padding: '1px 6px', textTransform: 'uppercase', letterSpacing: '0.3px', flexShrink: 0 }}>
+                                      Table
+                                    </span>
+
+                                    {dt.recordCount && dt.recordCount > 0 ? (
+                                      <span className="badge badge-cyan" style={{ fontSize: '0.625rem', padding: '1px 6px', flexShrink: 0 }}>
+                                        {dt.recordCount.toLocaleString()} rows
+                                      </span>
+                                    ) : null}
+                                  </div>
+                                </div>
+
+                                {/* Right: Field Count Badge + Action Button */}
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+                                  <span className="badge badge-indigo" style={{ fontSize: '0.68rem', whiteSpace: 'nowrap' }}>
+                                    {dt.fields.length} Fields
+                                  </span>
+
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setDataGridActiveType(dt.name);
+                                      setSubTab('data_grid');
+                                    }}
+                                    className="btn btn-secondary btn-sm"
+                                    style={{ fontSize: '0.7rem', padding: '3px 9px', display: 'flex', alignItems: 'center', gap: '4px', whiteSpace: 'nowrap' }}
+                                    title={`Browse and edit records of ${dt.name} in Interactive Data Studio`}
+                                  >
+                                    <Search size={11} />
+                                    <span>Browse</span>
+                                  </button>
+                                </div>
+                              </div>
+
+                              {/* Expanded Content Area */}
+                              {!isCollapsed && (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                  {/* Metadata Subheader */}
+                                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.725rem', color: 'var(--text-muted)', padding: '0 2px' }}>
+                                    <span>Schema Fields ({dt.fields.length})</span>
+                                    <span style={{ color: 'var(--accent-cyan)' }}>Live Data API Enabled</span>
+                                  </div>
+
+                                  <div
+                                    style={{
+                                      display: 'flex',
+                                      flexDirection: 'column',
+                                      gap: '6px',
+                                      maxHeight: dt.fields.length > 8 ? '320px' : 'none',
+                                      overflowY: dt.fields.length > 8 ? 'auto' : 'visible',
+                                      paddingRight: dt.fields.length > 8 ? '4px' : '0'
+                                    }}
+                                  >
+                                    {dt.fields.map((f, i) => {
+                                      const isFieldMatch = searchTerm && (f.name.toLowerCase().includes(searchTerm.toLowerCase()) || f.type.toLowerCase().includes(searchTerm.toLowerCase()));
+                                      return (
+                                        <div
+                                          key={i}
+                                          style={{
+                                            display: 'flex',
+                                            justifyContent: 'space-between',
+                                            alignItems: 'center',
+                                            padding: '6px 10px',
+                                            borderRadius: 'var(--radius-sm)',
+                                            background: isFieldMatch ? 'rgba(99, 102, 241, 0.18)' : 'var(--bg-input)',
+                                            border: isFieldMatch ? '1px solid var(--primary)' : '1px solid var(--border-subtle)',
+                                            fontSize: '0.775rem'
+                                          }}
+                                        >
+                                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                            <code style={{ color: isFieldMatch ? '#fff' : 'var(--text-primary)', fontWeight: 600 }}>{f.name}</code>
+                                            {f.required && <span className="badge badge-rose" style={{ fontSize: '0.6rem', padding: '0 4px' }}>Required</span>}
+                                          </div>
+                                          <span style={{ color: 'var(--accent-cyan)', fontFamily: 'var(--font-mono)', fontSize: '0.725rem' }}>
+                                            {f.type}{f.isList ? '[]' : ''}
+                                          </span>
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+
+                                  {/* Quick Footer Action */}
+                                  <div style={{ display: 'flex', justifyContent: 'flex-end', paddingTop: '6px' }}>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setDataGridActiveType(dt.name);
+                                        setSubTab('data_grid');
+                                      }}
+                                      className="btn btn-secondary btn-sm"
+                                      style={{ fontSize: '0.725rem', padding: '4px 10px', display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--accent-cyan)' }}
+                                    >
+                                      <Search size={12} />
+                                      <span>Open in Data Studio Table ➔</span>
+                                    </button>
+                                  </div>
+                                </div>
+                              )}
                             </div>
-                          )}
-                        </div>
-                      )}
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+
+              {/* SECTION 2: OPTION SETS */}
+              {(schemaFilterType === 'all' || schemaFilterType === 'option_sets') && (() => {
+                const filteredOptionSets = (schema.optionSets || []).filter(os => 
+                  !searchTerm || 
+                  os.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                  os.options.some(opt => opt.toLowerCase().includes(searchTerm.toLowerCase()))
+                );
+
+                return (
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <Tag size={16} color="var(--accent-amber)" />
+                        <h4 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                          Option Sets & Global Enums ({filteredOptionSets.length} of {schema.optionSets.length})
+                        </h4>
+                      </div>
+                      <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                        Predefined static choice lists and system enumerations
+                      </span>
                     </div>
-                  );
-                })}
+
+                    {filteredOptionSets.length === 0 ? (
+                      <div style={{ padding: '20px', textAlign: 'center', background: 'var(--bg-input)', borderRadius: 'var(--radius-sm)', color: 'var(--text-muted)', fontSize: '0.825rem' }}>
+                        {schema.optionSets.length === 0 ? 'No Option Sets defined in this blueprint or schema export.' : `No Option Sets matching "${searchTerm}"`}
+                      </div>
+                    ) : (
+                      <div style={{
+                        display: 'grid',
+                        gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 340px), 1fr))',
+                        gap: '16px',
+                        alignItems: 'start'
+                      }}>
+                        {filteredOptionSets.map((os) => {
+                          const isCollapsed = collapsedOptionSets.has(os.name);
+
+                          return (
+                            <div
+                              key={os.name}
+                              className="card"
+                              style={{
+                                padding: isCollapsed ? '12px 16px' : '16px 18px',
+                                transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                                border: isCollapsed ? '1px solid var(--border-subtle)' : '1px solid rgba(245, 158, 11, 0.45)',
+                                background: isCollapsed ? 'var(--bg-card)' : 'rgba(245, 158, 11, 0.02)',
+                                borderRadius: 'var(--radius-md)'
+                              }}
+                            >
+                              {/* Header (Single-row, perfectly centered) */}
+                              <div
+                                onClick={() => toggleCollapseOptionSet(os.name)}
+                                style={{
+                                  display: 'flex',
+                                  justifyContent: 'space-between',
+                                  alignItems: 'center',
+                                  cursor: 'pointer',
+                                  userSelect: 'none',
+                                  paddingBottom: isCollapsed ? '0' : '12px',
+                                  borderBottom: isCollapsed ? 'none' : '1px solid var(--border-subtle)',
+                                  marginBottom: isCollapsed ? '0' : '12px',
+                                  gap: '12px'
+                                }}
+                              >
+                                {/* Left: Chevron + Icon + Title + Badge */}
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0, flex: 1 }}>
+                                  <div
+                                    style={{
+                                      width: '22px',
+                                      height: '22px',
+                                      minWidth: '22px',
+                                      borderRadius: '5px',
+                                      background: isCollapsed ? 'rgba(255, 255, 255, 0.05)' : 'rgba(245, 158, 11, 0.2)',
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      justifyContent: 'center',
+                                      color: isCollapsed ? 'var(--text-muted)' : 'var(--accent-amber)',
+                                      transform: isCollapsed ? 'rotate(0deg)' : 'rotate(90deg)',
+                                      transition: 'transform 0.2s ease, background 0.2s ease',
+                                      flexShrink: 0
+                                    }}
+                                  >
+                                    <ChevronRight size={13} />
+                                  </div>
+
+                                  <div
+                                    style={{
+                                      width: '26px',
+                                      height: '26px',
+                                      minWidth: '26px',
+                                      borderRadius: '6px',
+                                      background: 'rgba(245, 158, 11, 0.15)',
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      justifyContent: 'center',
+                                      flexShrink: 0
+                                    }}
+                                  >
+                                    <Tag size={13} color="var(--accent-amber)" />
+                                  </div>
+
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, overflow: 'hidden' }}>
+                                    <h3
+                                      style={{
+                                        fontSize: '0.925rem',
+                                        fontWeight: 700,
+                                        color: 'var(--text-primary)',
+                                        margin: 0,
+                                        overflow: 'hidden',
+                                        textOverflow: 'ellipsis',
+                                        whiteSpace: 'nowrap'
+                                      }}
+                                      title={os.name}
+                                    >
+                                      {os.name}
+                                    </h3>
+
+                                    <span className="badge badge-amber" style={{ fontSize: '0.625rem', padding: '1px 6px', textTransform: 'uppercase', letterSpacing: '0.3px', flexShrink: 0 }}>
+                                      Option Set
+                                    </span>
+                                  </div>
+                                </div>
+
+                                {/* Right: Values Count Badge + Action Button */}
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+                                  <span className="badge badge-amber" style={{ fontSize: '0.68rem', whiteSpace: 'nowrap' }}>
+                                    {os.options.length} Values
+                                  </span>
+
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleCopy(JSON.stringify(os.options, null, 2), `${os.name} values`);
+                                    }}
+                                    className="btn btn-secondary btn-sm"
+                                    style={{ fontSize: '0.7rem', padding: '3px 9px', display: 'flex', alignItems: 'center', gap: '4px', whiteSpace: 'nowrap' }}
+                                    title={`Copy all ${os.options.length} option values as JSON`}
+                                  >
+                                    <Copy size={11} />
+                                    <span>Copy JSON</span>
+                                  </button>
+                                </div>
+                              </div>
+
+                              {/* Expanded Content Area */}
+                              {!isCollapsed && (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                  {/* Metadata Subheader */}
+                                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.725rem', color: 'var(--text-muted)', padding: '0 2px' }}>
+                                    <span>Defined Choices ({os.options.length})</span>
+                                    <span>Click any pill to copy value</span>
+                                  </div>
+
+                                  {/* Option Set Values Pills Grid */}
+                                  <div
+                                    style={{
+                                      display: 'flex',
+                                      flexWrap: 'wrap',
+                                      gap: '6px',
+                                      maxHeight: os.options.length > 15 ? '260px' : 'none',
+                                      overflowY: os.options.length > 15 ? 'auto' : 'visible',
+                                      padding: '2px 0'
+                                    }}
+                                  >
+                                    {os.options.map((opt, oIdx) => {
+                                      const isOptMatch = searchTerm && opt.toLowerCase().includes(searchTerm.toLowerCase());
+                                      return (
+                                        <span
+                                          key={oIdx}
+                                          onClick={() => handleCopy(opt, `value '${opt}'`)}
+                                          style={{
+                                            padding: '4px 10px',
+                                            borderRadius: 'var(--radius-sm)',
+                                            background: isOptMatch ? 'rgba(245, 158, 11, 0.25)' : 'var(--bg-input)',
+                                            border: isOptMatch ? '1px solid var(--accent-amber)' : '1px solid var(--border-subtle)',
+                                            fontSize: '0.775rem',
+                                            color: isOptMatch ? '#fff' : 'var(--text-primary)',
+                                            fontWeight: 500,
+                                            display: 'inline-flex',
+                                            alignItems: 'center',
+                                            gap: '6px',
+                                            cursor: 'pointer',
+                                            transition: 'all 0.15s ease'
+                                          }}
+                                          title={`Click to copy "${opt}"`}
+                                        >
+                                          <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: 'var(--accent-amber)', display: 'inline-block' }} />
+                                          <code>{opt}</code>
+                                        </span>
+                                      );
+                                    })}
+                                  </div>
+
+                                  {os.options.length === 0 && (
+                                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontStyle: 'italic', padding: '6px 0' }}>
+                                      No options defined in this Option Set.
+                                    </div>
+                                  )}
+
+                                  {/* Quick Export Footer Toolbar */}
+                                  {os.options.length > 0 && (
+                                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', paddingTop: '6px', borderTop: '1px dashed var(--border-subtle)' }}>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleCopy(os.options.map(o => `'${o}'`).join(' | '), `${os.name} TypeScript union`)}
+                                        className="btn btn-secondary btn-sm"
+                                        style={{ fontSize: '0.7rem', padding: '3px 8px', display: 'flex', alignItems: 'center', gap: '4px' }}
+                                        title="Copy as TypeScript Union Type"
+                                      >
+                                        <Code size={11} />
+                                        <span>Copy as TS Union</span>
+                                      </button>
+
+                                      <button
+                                        type="button"
+                                        onClick={() => handleCopy(os.options.join(', '), `${os.name} CSV`)}
+                                        className="btn btn-secondary btn-sm"
+                                        style={{ fontSize: '0.7rem', padding: '3px 8px', display: 'flex', alignItems: 'center', gap: '4px' }}
+                                        title="Copy as Comma-Separated Values"
+                                      >
+                                        <Copy size={11} />
+                                        <span>Copy CSV</span>
+                                      </button>
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
             </div>
           )}
         </div>
@@ -1359,41 +1871,234 @@ export const DevOpsView: React.FC<DevOpsViewProps> = ({ activeProject, initialSu
 
       {/* SUBTAB 2: ERD GRAPH */}
       {subTab === 'erd' && (
-        <MermaidViewer 
-          chart={mermaidErd} 
-          title="Entity Relationship Diagram (ERD Graph)"
-        />
-      )}
-
-      {/* SUBTAB 3: TYPESCRIPT DEFINITIONS */}
-      {subTab === 'types' && (
-        <div className="card">
-          <div className="card-header">
-            <div>
-              <div className="card-title">
-                <Code size={18} color="var(--accent-emerald)" />
-                <span>Auto-Generated TypeScript Interfaces (.d.ts)</span>
-              </div>
-              <div className="card-subtitle">Strongly typed interfaces with Option Set enums for Node.js backends and Bubble plugins</div>
-            </div>
-            <button onClick={() => handleCopy(tsDefinitions, 'TypeScript definitions')} className="btn btn-secondary btn-sm">
-              {copied ? <Check size={13} color="var(--accent-emerald)" /> : <Copy size={13} />}
-              <span>{copied ? 'Copied!' : 'Copy Code'}</span>
-            </button>
-          </div>
-          <pre style={{
-            background: 'var(--bg-input)',
-            padding: '16px',
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+          {/* Subgraph Focus Toolbar */}
+          <div style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            background: 'var(--bg-card)',
+            padding: '10px 16px',
             borderRadius: 'var(--radius-md)',
             border: '1px solid var(--border-subtle)',
-            fontFamily: 'var(--font-mono)',
-            fontSize: '0.85rem',
-            color: '#86efac',
-            overflowX: 'auto',
-            maxHeight: '480px'
+            flexWrap: 'wrap',
+            gap: '12px'
           }}>
-            {tsDefinitions}
-          </pre>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <Focus size={15} color="var(--primary)" />
+                <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-primary)' }}>
+                  Subgraph Focus:
+                </span>
+              </div>
+              <select
+                value={erdFocusedTable}
+                onChange={(e) => setErdFocusedTable(e.target.value)}
+                className="select"
+                style={{ fontSize: '0.775rem', padding: '4px 10px', width: 'auto', minWidth: '220px' }}
+              >
+                <option value="ALL">🌐 All Tables ({schema?.dataTypes.length || 0} Models)</option>
+                {schema?.dataTypes.map(dt => (
+                  <option key={dt.name} value={dt.name}>
+                    🎯 Focus: {dt.name} + Relations ({dt.fields.length} fields)
+                  </option>
+                ))}
+              </select>
+
+              {erdFocusedTable !== 'ALL' && (
+                <button
+                  type="button"
+                  onClick={() => setErdFocusedTable('ALL')}
+                  className="btn btn-secondary btn-sm"
+                  style={{ fontSize: '0.7rem', padding: '3px 8px' }}
+                >
+                  Reset Focus
+                </button>
+              )}
+            </div>
+
+            <div style={{ fontSize: '0.725rem', color: 'var(--text-muted)' }}>
+              {erdFocusedTable === 'ALL' 
+                ? `Showing complete enterprise database schema with all dynamic relations`
+                : `Focused on '${erdFocusedTable}' and all connected parent & child tables`}
+            </div>
+          </div>
+
+          <MermaidViewer 
+            chart={mermaidErd} 
+            title={`Entity Relationship Diagram ${erdFocusedTable !== 'ALL' ? `(Focus: ${erdFocusedTable})` : '(Full Schema)'}`}
+          />
+        </div>
+      )}
+
+      {/* SUBTAB 3: TYPESCRIPT DEFINITIONS & ENTERPRISE SDK */}
+      {subTab === 'types' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          <div className="card" style={{ padding: '20px' }}>
+            {/* Header with Title and Mode Switcher */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '16px', marginBottom: '16px', borderBottom: '1px solid var(--border-subtle)', paddingBottom: '16px' }}>
+              <div>
+                <div className="card-title" style={{ fontSize: '1.1rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <Code size={20} color="var(--accent-emerald)" />
+                  <span>TypeScript Studio & Type-Safe CodeGen</span>
+                </div>
+                <div className="card-subtitle" style={{ fontSize: '0.775rem', marginTop: '4px' }}>
+                  Generate enterprise-grade TypeScript interfaces, runtime Zod validation schemas, and a zero-dependency Bubble API client
+                </div>
+              </div>
+
+              {/* Mode Selector Segmented Tabs */}
+              <div style={{ display: 'flex', background: 'var(--bg-input)', padding: '3px', borderRadius: 'var(--radius-md)', gap: '4px' }}>
+                <button
+                  type="button"
+                  onClick={() => setTsMode('interfaces')}
+                  className={`btn btn-sm ${tsMode === 'interfaces' ? 'btn-primary' : 'btn-secondary'}`}
+                  style={{ border: 'none', padding: '5px 12px', fontSize: '0.75rem', fontWeight: 600 }}
+                >
+                  TypeScript (.d.ts)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTsMode('zod')}
+                  className={`btn btn-sm ${tsMode === 'zod' ? 'btn-primary' : 'btn-secondary'}`}
+                  style={{ border: 'none', padding: '5px 12px', fontSize: '0.75rem', fontWeight: 600 }}
+                >
+                  Zod Validation (.ts)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTsMode('client')}
+                  className={`btn btn-sm ${tsMode === 'client' ? 'btn-primary' : 'btn-secondary'}`}
+                  style={{ border: 'none', padding: '5px 12px', fontSize: '0.75rem', fontWeight: 600 }}
+                >
+                  Type-Safe API Client SDK
+                </button>
+              </div>
+            </div>
+
+            {/* Options Toolbar & Export Actions */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '14px', marginBottom: '14px' }}>
+              {/* Options Toggles */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
+                {tsMode === 'interfaces' && (
+                  <>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.775rem', color: 'var(--text-secondary)', cursor: 'pointer' }}>
+                      <input
+                        type="checkbox"
+                        checked={tsIncludeJsDoc}
+                        onChange={(e) => setTsIncludeJsDoc(e.target.checked)}
+                        style={{ accentColor: 'var(--primary)' }}
+                      />
+                      <span>JSDoc Annotations</span>
+                    </label>
+
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.775rem', color: 'var(--text-secondary)', cursor: 'pointer' }}>
+                      <input
+                        type="checkbox"
+                        checked={tsIncludeCrudDtos}
+                        onChange={(e) => setTsIncludeCrudDtos(e.target.checked)}
+                        style={{ accentColor: 'var(--primary)' }}
+                      />
+                      <span>CRUD DTOs (Create / Update)</span>
+                    </label>
+
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.775rem', color: 'var(--text-secondary)', cursor: 'pointer' }}>
+                      <input
+                        type="checkbox"
+                        checked={tsIncludeEnvelopes}
+                        onChange={(e) => setTsIncludeEnvelopes(e.target.checked)}
+                        style={{ accentColor: 'var(--primary)' }}
+                      />
+                      <span>API Pagination Envelopes</span>
+                    </label>
+                  </>
+                )}
+
+                {tsMode === 'zod' && (
+                  <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                    Generates runtime validation schemas for Webhooks, Serverless endpoints, and API payload safety (requires <code>zod</code>).
+                  </span>
+                )}
+
+                {tsMode === 'client' && (
+                  <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                    Zero-dependency client library using native <code>fetch</code> with full autocompletion and error handling.
+                  </span>
+                )}
+              </div>
+
+              {/* Action Buttons: Copy & Download */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const filename = tsMode === 'interfaces' 
+                      ? `${schema?.appName || 'bubble'}-schema.d.ts` 
+                      : tsMode === 'zod' 
+                        ? `${schema?.appName || 'bubble'}-schemas.zod.ts` 
+                        : `${schema?.appName || 'bubble'}-client.ts`;
+                    handleDownloadCode(tsGeneratedCode, filename);
+                  }}
+                  className="btn btn-secondary btn-sm"
+                  style={{ fontSize: '0.75rem', padding: '5px 12px', display: 'flex', alignItems: 'center', gap: '6px' }}
+                >
+                  <Download size={13} color="var(--primary)" />
+                  <span>
+                    Download {tsMode === 'interfaces' ? '.d.ts' : tsMode === 'zod' ? 'Zod (.ts)' : 'Client (.ts)'}
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleCopy(tsGeneratedCode, `${tsMode} code`)}
+                  className="btn btn-primary btn-sm"
+                  style={{ fontSize: '0.75rem', padding: '5px 14px', display: 'flex', alignItems: 'center', gap: '6px' }}
+                >
+                  {copied ? <Check size={13} /> : <Copy size={13} />}
+                  <span>{copied ? 'Copied!' : 'Copy Code'}</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Code Output Viewer */}
+            <div style={{ position: 'relative' }}>
+              <div style={{
+                position: 'absolute',
+                top: '10px',
+                right: '16px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                fontSize: '0.675rem',
+                color: 'var(--text-muted)',
+                background: 'rgba(0, 0, 0, 0.4)',
+                padding: '3px 8px',
+                borderRadius: '4px',
+                backdropFilter: 'blur(4px)',
+                zIndex: 2
+              }}>
+                <span>{schema ? `${schema.dataTypes.length} Models • ${schema.optionSets.length} Option Sets` : 'No schema loaded'}</span>
+                <span>•</span>
+                <span>{tsGeneratedCode.split('\n').length} lines</span>
+              </div>
+
+              <pre style={{
+                background: 'var(--bg-input)',
+                padding: '18px',
+                borderRadius: 'var(--radius-md)',
+                border: '1px solid var(--border-subtle)',
+                fontFamily: 'var(--font-mono)',
+                fontSize: '0.8rem',
+                color: '#86efac',
+                overflowX: 'auto',
+                maxHeight: '520px',
+                lineHeight: 1.5,
+                margin: 0
+              }}>
+                {tsGeneratedCode || '// No schema available to generate TypeScript definitions.'}
+              </pre>
+            </div>
+          </div>
         </div>
       )}
 
@@ -1440,22 +2145,69 @@ export const DevOpsView: React.FC<DevOpsViewProps> = ({ activeProject, initialSu
           </div>
 
           <div className="card">
-            <div className="card-title" style={{ marginBottom: '14px' }}>
-              <span>Recorded Migration History ({migrations.length})</span>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', flexWrap: 'wrap', gap: '10px' }}>
+              <div className="card-title" style={{ margin: 0 }}>
+                <History size={16} color="var(--primary)" />
+                <span>Recorded Migration History ({migrations.length})</span>
+              </div>
+              {lockfile && (
+                <button
+                  type="button"
+                  onClick={handleDownloadLockfile}
+                  className="btn btn-secondary btn-sm"
+                  title="Download schema.lock.json lockfile snapshot"
+                >
+                  <Download size={13} />
+                  <span>Download schema.lock.json</span>
+                </button>
+              )}
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
               {migrations.map(m => (
-                <div key={m.version} style={{ padding: '14px', borderRadius: 'var(--radius-md)', background: 'var(--bg-input)', border: '1px solid var(--border-subtle)' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <span className="badge badge-indigo">{m.version}</span>
-                      <strong>{m.name}</strong>
+                <div key={m.version} style={{ padding: '16px', borderRadius: 'var(--radius-md)', background: 'var(--bg-input)', border: '1px solid var(--border-subtle)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', flexWrap: 'wrap', gap: '10px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                      <span className="badge badge-indigo" style={{ fontFamily: 'var(--font-mono)' }}>{m.version}</span>
+                      <strong style={{ fontSize: '0.9rem', color: 'var(--text-primary)' }}>{m.name}</strong>
                       <span className="badge badge-cyan">{m.environment}</span>
                     </div>
-                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{new Date(m.createdAt).toLocaleString()}</span>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <button
+                        type="button"
+                        onClick={() => handleDownloadMigrationJson(m)}
+                        className="btn btn-secondary btn-sm"
+                        style={{ fontSize: '0.725rem', padding: '3px 8px' }}
+                        title="Download declarative migration JSON"
+                      >
+                        <Download size={12} />
+                        <span>JSON</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => handleDownloadMigrationSql(m)}
+                        className="btn btn-secondary btn-sm"
+                        style={{ fontSize: '0.725rem', padding: '3px 8px', color: 'var(--accent-emerald)' }}
+                        title="Download SQL DDL migration (PostgreSQL / Supabase / RDS)"
+                      >
+                        <Code size={12} />
+                        <span>SQL DDL</span>
+                      </button>
+
+                      <span style={{ fontSize: '0.725rem', color: 'var(--text-muted)', marginLeft: '6px' }}>
+                        {new Date(m.createdAt).toLocaleString()}
+                      </span>
+                    </div>
                   </div>
-                  {m.description && <div style={{ fontSize: '0.825rem', color: 'var(--text-secondary)', marginBottom: '8px' }}>{m.description}</div>}
+
+                  {m.description && (
+                    <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '10px' }}>
+                      {m.description}
+                    </div>
+                  )}
+
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
                     {m.changes.map((c, idx) => (
                       <span key={idx} className="badge badge-amber" style={{ fontSize: '0.7rem' }}>
@@ -1491,40 +2243,164 @@ export const DevOpsView: React.FC<DevOpsViewProps> = ({ activeProject, initialSu
             </div>
 
             {envDiff && (
-              <div className="grid-3" style={{ marginTop: '14px' }}>
-                <div className="card" style={{ background: 'var(--bg-input)' }}>
-                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>NEW TABLES PENDING DEPLOY</div>
-                  <div style={{ fontSize: '1.6rem', fontWeight: 800, color: envDiff.missingDataTypesInTarget.length > 0 ? 'var(--accent-amber)' : 'var(--accent-emerald)' }}>
-                    {envDiff.missingDataTypesInTarget.length}
+              <>
+                <div className="grid-3" style={{ marginTop: '14px' }}>
+                  <div
+                    className="card"
+                    style={{ background: 'var(--bg-input)', cursor: envDiff.missingDataTypesInTarget.length > 0 ? 'pointer' : 'default', transition: 'all 0.15s ease' }}
+                    onClick={() => envDiff.missingDataTypesInTarget.length > 0 && setSelectedNewTable(envDiff.missingDataTypesInTarget[0])}
+                    title={envDiff.missingDataTypesInTarget.length > 0 ? 'Click to inspect pending new table' : undefined}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>NEW TABLES PENDING DEPLOY</div>
+                      {envDiff.missingDataTypesInTarget.length > 0 && <Info size={13} color="var(--accent-amber)" />}
+                    </div>
+                    <div style={{ fontSize: '1.6rem', fontWeight: 800, color: envDiff.missingDataTypesInTarget.length > 0 ? 'var(--accent-amber)' : 'var(--accent-emerald)' }}>
+                      {envDiff.missingDataTypesInTarget.length}
+                    </div>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', wordBreak: 'break-word', lineHeight: 1.3 }}>
+                      {envDiff.missingDataTypesInTarget.join(', ') || 'All tables synced in Live'}
+                    </div>
                   </div>
-                  <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>{envDiff.missingDataTypesInTarget.join(', ') || 'All tables synced'}</div>
+
+                  <div className="card" style={{ background: 'var(--bg-input)' }}>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>NEW FIELDS PENDING DEPLOY</div>
+                    <div style={{ fontSize: '1.6rem', fontWeight: 800, color: envDiff.missingFieldsInTarget.length > 0 ? 'var(--accent-amber)' : 'var(--accent-emerald)' }}>
+                      {envDiff.missingFieldsInTarget.length}
+                    </div>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', wordBreak: 'break-word', lineHeight: 1.3 }}>
+                      Across {Array.from(new Set(envDiff.missingFieldsInTarget.map(f => f.dataType))).join(', ') || 'all models'}
+                    </div>
+                  </div>
+
+                  <div className="card" style={{ background: 'var(--bg-input)' }}>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>SECRET KEYS & API STATUS</div>
+                    <div style={{ fontSize: '1.6rem', fontWeight: 800, color: envDiff.secretKeyMismatches.some(k => k.inSource && !k.inTarget) ? 'var(--accent-rose)' : 'var(--accent-emerald)' }}>
+                      {envDiff.secretKeyMismatches.filter(k => k.inSource && k.inTarget).length} / {envDiff.secretKeyMismatches.length} Verified
+                    </div>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>In Live environment settings</div>
+                  </div>
                 </div>
 
-                <div className="card" style={{ background: 'var(--bg-input)' }}>
-                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>NEW FIELDS PENDING DEPLOY</div>
-                  <div style={{ fontSize: '1.6rem', fontWeight: 800, color: envDiff.missingFieldsInTarget.length > 0 ? 'var(--accent-amber)' : 'var(--accent-emerald)' }}>
-                    {envDiff.missingFieldsInTarget.length}
-                  </div>
-                  <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Across User, Order, Product</div>
-                </div>
+                {/* Pending Fields Table */}
+                {envDiff.missingFieldsInTarget.length > 0 && (
+                  <div style={{ marginTop: '14px', background: 'var(--bg-input)', borderRadius: 'var(--radius-md)', padding: '16px', border: '1px solid var(--border-subtle)' }}>
+                    <div style={{ fontSize: '0.85rem', fontWeight: 700, marginBottom: '12px', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <AlertTriangle size={15} color="var(--accent-amber)" />
+                        <span>Pending Fields in Development (Click to inspect field definition)</span>
+                      </div>
+                      <span style={{ fontSize: '0.725rem', color: 'var(--text-muted)' }}>{envDiff.missingFieldsInTarget.length} fields</span>
+                    </div>
 
-                <div className="card" style={{ background: 'var(--bg-input)' }}>
-                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>SECRET KEYS VALIDATION</div>
-                  <div style={{ fontSize: '1.6rem', fontWeight: 800, color: envDiff.secretKeyMismatches.some(k => k.inSource && !k.inTarget) ? 'var(--accent-rose)' : 'var(--accent-emerald)' }}>
-                    {envDiff.secretKeyMismatches.filter(k => k.inSource && !k.inTarget).length} Missing
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(360px, 1fr))', gap: '12px' }}>
+                      {envDiff.missingFieldsInTarget.map((f, idx) => (
+                        <div
+                          key={idx}
+                          onClick={() => setSelectedEnvField(f)}
+                          style={{
+                            padding: '12px 14px',
+                            background: 'rgba(245, 158, 11, 0.07)',
+                            borderRadius: 'var(--radius-sm)',
+                            border: '1px solid rgba(245, 158, 11, 0.25)',
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'flex-start',
+                            gap: '12px',
+                            cursor: 'pointer',
+                            transition: 'all 0.15s ease'
+                          }}
+                          title="Click to view full field details and deployment safety info"
+                        >
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <strong style={{ fontSize: '0.825rem', color: 'var(--text-primary)', wordBreak: 'break-word', lineHeight: 1.3, display: 'block' }}>
+                              {f.dataType}.{f.fieldName}
+                            </strong>
+                            <div style={{ fontSize: '0.725rem', color: 'var(--text-muted)', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              <span>Type: <code style={{ color: 'var(--accent-cyan)', background: 'rgba(6, 182, 212, 0.1)', padding: '1px 5px', borderRadius: '4px' }}>{f.fieldType}</code></span>
+                              <span style={{ color: 'var(--text-muted)' }}>• Click for details</span>
+                            </div>
+                          </div>
+                          <span className="badge badge-amber" style={{ fontSize: '0.65rem', flexShrink: 0, marginTop: '2px' }}>PENDING</span>
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                  <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>In Live environment settings</div>
+                )}
+
+                {/* Secret Keys Checklist Grid */}
+                <div style={{ marginTop: '14px', background: 'var(--bg-input)', borderRadius: 'var(--radius-md)', padding: '16px', border: '1px solid var(--border-subtle)' }}>
+                  <div style={{ fontSize: '0.85rem', fontWeight: 700, marginBottom: '12px', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <CheckCircle2 size={15} color="var(--accent-emerald)" />
+                      <span>Live Environment Configuration & Permissions (Click to view guide)</span>
+                    </div>
+                    <span style={{ fontSize: '0.725rem', color: 'var(--text-muted)' }}>4 Security Checks</span>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '12px' }}>
+                    {envDiff.secretKeyMismatches.map((k, idx) => (
+                      <div
+                        key={idx}
+                        onClick={() => setSelectedSecretKey(k)}
+                        style={{
+                          padding: '12px 14px',
+                          background: 'rgba(255,255,255,0.02)',
+                          borderRadius: 'var(--radius-sm)',
+                          border: '1px solid var(--border-subtle)',
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                          gap: '12px',
+                          cursor: 'pointer',
+                          transition: 'all 0.15s ease'
+                        }}
+                        title="Click to view security and setup documentation"
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0, flex: 1 }}>
+                          <div style={{ width: '28px', height: '28px', borderRadius: '6px', background: 'rgba(99, 102, 241, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                            <Key size={14} color="var(--primary)" />
+                          </div>
+                          <span style={{ fontSize: '0.775rem', fontFamily: 'var(--font-mono)', color: 'var(--text-primary)', wordBreak: 'break-all', fontWeight: 600 }}>
+                            {k.keyName}
+                          </span>
+                        </div>
+                        <span className={`badge ${k.inTarget ? 'badge-emerald' : 'badge-rose'}`} style={{ fontSize: '0.65rem', flexShrink: 0 }}>
+                          {k.inTarget ? 'LIVE SYNCED' : 'MISSING IN LIVE'}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
-              </div>
+              </>
             )}
           </div>
 
           {/* Release Tasks Checklist */}
           {releaseTasks.length > 0 && (
             <div className="card">
-              <div className="card-title" style={{ marginBottom: '12px' }}>
-                <span>Pre-Release Checklist ({releaseTasks.filter(t => t.completed).length} / {releaseTasks.length} Ready)</span>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap', gap: '10px' }}>
+                <div className="card-title" style={{ margin: 0 }}>
+                  <CheckCircle2 size={16} color="var(--accent-emerald)" />
+                  <span>Pre-Release Checklist ({releaseTasks.filter(t => t.completed).length} / {releaseTasks.length} Ready)</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <div style={{ width: '120px', height: '6px', background: 'rgba(255,255,255,0.1)', borderRadius: '4px', overflow: 'hidden' }}>
+                    <div
+                      style={{
+                        width: `${(releaseTasks.filter(t => t.completed).length / releaseTasks.length) * 100}%`,
+                        height: '100%',
+                        background: releaseTasks.filter(t => t.completed).length === releaseTasks.length ? 'var(--accent-emerald)' : 'var(--primary)',
+                        transition: 'width 0.3s ease'
+                      }}
+                    />
+                  </div>
+                  <span className={`badge ${releaseTasks.filter(t => t.completed).length === releaseTasks.length ? 'badge-emerald' : 'badge-amber'}`}>
+                    {releaseTasks.filter(t => t.completed).length === releaseTasks.length ? 'READY TO DEPLOY' : 'IN PROGRESS'}
+                  </span>
+                </div>
               </div>
+
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                 {releaseTasks.map(task => (
                   <div
@@ -1538,7 +2414,8 @@ export const DevOpsView: React.FC<DevOpsViewProps> = ({ activeProject, initialSu
                       background: 'var(--bg-input)',
                       borderRadius: 'var(--radius-sm)',
                       border: task.completed ? '1px solid rgba(16, 185, 129, 0.3)' : '1px solid var(--border-subtle)',
-                      cursor: 'pointer'
+                      cursor: 'pointer',
+                      transition: 'all 0.15s ease'
                     }}
                   >
                     <input
@@ -1555,6 +2432,390 @@ export const DevOpsView: React.FC<DevOpsViewProps> = ({ activeProject, initialSu
                     </span>
                   </div>
                 ))}
+              </div>
+            </div>
+          )}
+
+          {/* Modal 1: Pending Field Detailed Inspector */}
+          {selectedEnvField && (
+            <div style={{
+              position: 'fixed',
+              inset: 0,
+              backgroundColor: 'rgba(0, 0, 0, 0.8)',
+              backdropFilter: 'blur(8px)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              zIndex: 10000,
+              padding: '20px'
+            }}>
+              <div style={{
+                width: '100%',
+                maxWidth: '520px',
+                backgroundColor: 'var(--bg-surface-elevated, #121826)',
+                border: '1px solid rgba(245, 158, 11, 0.35)',
+                borderRadius: 'var(--radius-lg, 12px)',
+                boxShadow: '0 25px 60px rgba(0, 0, 0, 0.7), 0 0 30px rgba(245, 158, 11, 0.15)',
+                overflow: 'hidden',
+                animation: 'modalSlideIn 0.2s ease-out'
+              }}>
+                <div style={{
+                  padding: '18px 22px',
+                  borderBottom: '1px solid var(--border-subtle)',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.15) 0%, rgba(18, 24, 38, 0.9) 100%)'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <div style={{
+                      width: '36px',
+                      height: '36px',
+                      borderRadius: '10px',
+                      background: 'rgba(245, 158, 11, 0.2)',
+                      border: '1px solid rgba(245, 158, 11, 0.4)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      color: 'var(--accent-amber)'
+                    }}>
+                      <Info size={18} />
+                    </div>
+                    <div>
+                      <h2 style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>
+                        Field Deployment Inspector
+                      </h2>
+                      <p style={{ fontSize: '0.725rem', color: 'var(--text-secondary)', margin: 0, marginTop: '2px' }}>
+                        Pending field in Development (version-test)
+                      </p>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setSelectedEnvField(null)}
+                    style={{
+                      background: 'transparent',
+                      border: 'none',
+                      color: 'var(--text-muted)',
+                      cursor: 'pointer',
+                      padding: '6px',
+                      borderRadius: '6px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center'
+                    }}
+                  >
+                    <X size={18} />
+                  </button>
+                </div>
+
+                <div style={{ padding: '22px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                  <div style={{
+                    padding: '14px',
+                    borderRadius: 'var(--radius-md)',
+                    background: 'var(--bg-input)',
+                    border: '1px solid var(--border-subtle)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '8px',
+                    fontSize: '0.8rem'
+                  }}>
+                    <div>• <strong>Data Model (Table):</strong> <span style={{ color: 'var(--accent-cyan)' }}>{selectedEnvField.dataType}</span></div>
+                    <div>• <strong>Field Name:</strong> <code style={{ color: 'var(--text-primary)', wordBreak: 'break-all' }}>{selectedEnvField.fieldName}</code></div>
+                    <div>• <strong>Bubble Field Type:</strong> <span className="badge badge-indigo">{selectedEnvField.fieldType}</span></div>
+                    <div>• <strong>Status:</strong> <span className="badge badge-amber">PENDING LIVE DEPLOY</span></div>
+                  </div>
+
+                  <div style={{
+                    padding: '12px 14px',
+                    borderRadius: 'var(--radius-sm)',
+                    background: 'rgba(16, 185, 129, 0.08)',
+                    border: '1px solid rgba(16, 185, 129, 0.25)',
+                    fontSize: '0.75rem',
+                    color: 'var(--accent-emerald)',
+                    lineHeight: 1.4
+                  }}>
+                    🛡️ <strong>Safety Analysis:</strong> Adding this field will not cause data loss in Live. Existing records in production will simply hold a <code>null</code> value for this field until written.
+                  </div>
+
+                  <div style={{ background: 'var(--bg-card)', padding: '12px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)' }}>
+                    <div style={{ fontSize: '0.725rem', color: 'var(--text-muted)', marginBottom: '4px' }}>TypeScript Interface Representation:</div>
+                    <code style={{ fontSize: '0.775rem', color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>
+                      {selectedEnvField.fieldName}?: {selectedEnvField.fieldType === 'number' ? 'number' : selectedEnvField.fieldType === 'boolean' ? 'boolean' : selectedEnvField.fieldType === 'date' ? 'string' : 'string'};
+                    </code>
+                  </div>
+
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '6px' }}>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedEnvField(null)}
+                      className="btn btn-secondary btn-sm"
+                    >
+                      Close
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        navigator.clipboard.writeText(`${selectedEnvField.dataType}.${selectedEnvField.fieldName} (${selectedEnvField.fieldType})`);
+                        toast.success('Field reference copied!');
+                      }}
+                      className="btn btn-primary btn-sm"
+                    >
+                      <Copy size={13} />
+                      <span>Copy Field Reference</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Modal 2: Secret Key & Configuration Guide Modal */}
+          {selectedSecretKey && (
+            <div style={{
+              position: 'fixed',
+              inset: 0,
+              backgroundColor: 'rgba(0, 0, 0, 0.8)',
+              backdropFilter: 'blur(8px)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              zIndex: 10000,
+              padding: '20px'
+            }}>
+              <div style={{
+                width: '100%',
+                maxWidth: '520px',
+                backgroundColor: 'var(--bg-surface-elevated, #121826)',
+                border: '1px solid rgba(99, 102, 241, 0.4)',
+                borderRadius: 'var(--radius-lg, 12px)',
+                boxShadow: '0 25px 60px rgba(0, 0, 0, 0.7), 0 0 30px rgba(99, 102, 241, 0.2)',
+                overflow: 'hidden',
+                animation: 'modalSlideIn 0.2s ease-out'
+              }}>
+                <div style={{
+                  padding: '18px 22px',
+                  borderBottom: '1px solid var(--border-subtle)',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.18) 0%, rgba(18, 24, 38, 0.9) 100%)'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <div style={{
+                      width: '36px',
+                      height: '36px',
+                      borderRadius: '10px',
+                      background: 'rgba(99, 102, 241, 0.25)',
+                      border: '1px solid rgba(99, 102, 241, 0.4)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      color: 'var(--primary)'
+                    }}>
+                      <Key size={18} />
+                    </div>
+                    <div>
+                      <h2 style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>
+                        Security Key Configuration
+                      </h2>
+                      <p style={{ fontSize: '0.725rem', color: 'var(--text-secondary)', margin: 0, marginTop: '2px' }}>
+                        Environment credentials & endpoint verification
+                      </p>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setSelectedSecretKey(null)}
+                    style={{
+                      background: 'transparent',
+                      border: 'none',
+                      color: 'var(--text-muted)',
+                      cursor: 'pointer',
+                      padding: '6px',
+                      borderRadius: '6px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center'
+                    }}
+                  >
+                    <X size={18} />
+                  </button>
+                </div>
+
+                <div style={{ padding: '22px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                  <div style={{
+                    padding: '14px',
+                    borderRadius: 'var(--radius-md)',
+                    background: 'var(--bg-input)',
+                    border: '1px solid var(--border-subtle)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '8px',
+                    fontSize: '0.8rem'
+                  }}>
+                    <div>• <strong>Configuration Key:</strong> <code style={{ color: 'var(--accent-cyan)' }}>{selectedSecretKey.keyName}</code></div>
+                    <div>• <strong>Development Status:</strong> <span className="badge badge-emerald">CONFIGURED & ACTIVE</span></div>
+                    <div>• <strong>Live Production Status:</strong> <span className={`badge ${selectedSecretKey.inTarget ? 'badge-emerald' : 'badge-rose'}`}>{selectedSecretKey.inTarget ? 'LIVE SYNCED' : 'ACTION REQUIRED'}</span></div>
+                  </div>
+
+                  <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+                    {selectedSecretKey.keyName === 'BUBBLE_API_TOKEN' && 'This bearer token authenticates API calls made to your Live Bubble Data and Workflow endpoints.'}
+                    {selectedSecretKey.keyName === 'DATA_API_ACCESS' && 'Ensures the Bubble Data API is enabled for client reading/writing across active models in Live.'}
+                    {selectedSecretKey.keyName === 'META_API_ACCESS' && 'Allows introspection of Swagger/OpenAPI schema endpoints for automated documentation generation.'}
+                    {selectedSecretKey.keyName === 'WEBHOOK_SIGNING_SECRET' && 'Cryptographically validates incoming HTTP webhook payloads to prevent unauthorized request forgery.'}
+                  </div>
+
+                  <div style={{
+                    padding: '12px 14px',
+                    borderRadius: 'var(--radius-sm)',
+                    background: 'rgba(99, 102, 241, 0.08)',
+                    border: '1px solid rgba(99, 102, 241, 0.25)',
+                    fontSize: '0.75rem',
+                    color: 'var(--text-primary)',
+                    lineHeight: 1.4
+                  }}>
+                    📍 <strong>Bubble Settings Location:</strong> In your Bubble Editor, navigate to <strong>Settings ➔ API</strong> to verify token permissions and privacy rule defaults.
+                  </div>
+
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '6px' }}>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedSecretKey(null)}
+                      className="btn btn-primary btn-sm"
+                    >
+                      Understood
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Modal 3: New Table Detailed Inspector */}
+          {selectedNewTable && (
+            <div style={{
+              position: 'fixed',
+              inset: 0,
+              backgroundColor: 'rgba(0, 0, 0, 0.8)',
+              backdropFilter: 'blur(8px)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              zIndex: 10000,
+              padding: '20px'
+            }}>
+              <div style={{
+                width: '100%',
+                maxWidth: '500px',
+                backgroundColor: 'var(--bg-surface-elevated, #121826)',
+                border: '1px solid rgba(245, 158, 11, 0.35)',
+                borderRadius: 'var(--radius-lg, 12px)',
+                boxShadow: '0 25px 60px rgba(0, 0, 0, 0.7), 0 0 30px rgba(245, 158, 11, 0.15)',
+                overflow: 'hidden',
+                animation: 'modalSlideIn 0.2s ease-out'
+              }}>
+                <div style={{
+                  padding: '18px 22px',
+                  borderBottom: '1px solid var(--border-subtle)',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.15) 0%, rgba(18, 24, 38, 0.9) 100%)'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <div style={{
+                      width: '36px',
+                      height: '36px',
+                      borderRadius: '10px',
+                      background: 'rgba(245, 158, 11, 0.2)',
+                      border: '1px solid rgba(245, 158, 11, 0.4)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      color: 'var(--accent-amber)'
+                    }}>
+                      <Table size={18} />
+                    </div>
+                    <div>
+                      <h2 style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>
+                        New Table Pending Deploy
+                      </h2>
+                      <p style={{ fontSize: '0.725rem', color: 'var(--text-secondary)', margin: 0, marginTop: '2px' }}>
+                        Data type created in Development
+                      </p>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setSelectedNewTable(null)}
+                    style={{
+                      background: 'transparent',
+                      border: 'none',
+                      color: 'var(--text-muted)',
+                      cursor: 'pointer',
+                      padding: '6px',
+                      borderRadius: '6px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center'
+                    }}
+                  >
+                    <X size={18} />
+                  </button>
+                </div>
+
+                <div style={{ padding: '22px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                  <div style={{
+                    padding: '14px',
+                    borderRadius: 'var(--radius-md)',
+                    background: 'var(--bg-input)',
+                    border: '1px solid var(--border-subtle)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '8px',
+                    fontSize: '0.8rem'
+                  }}>
+                    <div>• <strong>Table Name:</strong> <code style={{ color: 'var(--accent-cyan)', wordBreak: 'break-all' }}>{selectedNewTable}</code></div>
+                    <div>• <strong>Environment Status:</strong> <span className="badge badge-amber">EXISTS IN DEV ONLY</span></div>
+                    <div>• <strong>Deployment Action:</strong> Will be created in Live upon publishing.</div>
+                  </div>
+
+                  <div style={{
+                    padding: '12px 14px',
+                    borderRadius: 'var(--radius-sm)',
+                    background: 'rgba(244, 63, 94, 0.08)',
+                    border: '1px solid rgba(244, 63, 94, 0.25)',
+                    fontSize: '0.75rem',
+                    color: 'var(--accent-rose)',
+                    lineHeight: 1.4
+                  }}>
+                    ⚠️ <strong>Privacy Rules Check:</strong> Ensure you define Privacy Rules for <code>{selectedNewTable}</code> before publishing to Live to avoid unintended public Data API exposure.
+                  </div>
+
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '6px' }}>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedNewTable(null)}
+                      className="btn btn-secondary btn-sm"
+                    >
+                      Close
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedNewTable(null);
+                        setSubTab('schema');
+                      }}
+                      className="btn btn-primary btn-sm"
+                    >
+                      <span>View in Schema Explorer</span>
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
           )}
@@ -1696,7 +2957,7 @@ export const DevOpsView: React.FC<DevOpsViewProps> = ({ activeProject, initialSu
                       </button>
 
                       <button
-                        onClick={() => handleDeleteBackup(b.backupId)}
+                        onClick={() => setBackupToDelete(b)}
                         className="btn btn-secondary btn-sm"
                         style={{ fontSize: '0.75rem', padding: '5px 8px', color: 'var(--accent-rose)' }}
                         title="Delete Backup"
@@ -1709,6 +2970,149 @@ export const DevOpsView: React.FC<DevOpsViewProps> = ({ activeProject, initialSu
               </div>
             )}
           </div>
+
+          {/* Delete Backup Confirmation Modal */}
+          {backupToDelete && (
+            <div style={{
+              position: 'fixed',
+              inset: 0,
+              backgroundColor: 'rgba(0, 0, 0, 0.8)',
+              backdropFilter: 'blur(8px)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              zIndex: 10000,
+              padding: '20px'
+            }}>
+              <div style={{
+                width: '100%',
+                maxWidth: '460px',
+                backgroundColor: 'var(--bg-surface-elevated, #121826)',
+                border: '1px solid rgba(244, 63, 94, 0.35)',
+                borderRadius: 'var(--radius-lg, 12px)',
+                boxShadow: '0 25px 60px rgba(0, 0, 0, 0.7), 0 0 30px rgba(244, 63, 94, 0.15)',
+                overflow: 'hidden',
+                animation: 'modalSlideIn 0.2s ease-out'
+              }}>
+                {/* Modal Header */}
+                <div style={{
+                  padding: '18px 22px',
+                  borderBottom: '1px solid var(--border-subtle)',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  background: 'linear-gradient(135deg, rgba(244, 63, 94, 0.15) 0%, rgba(18, 24, 38, 0.9) 100%)'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <div style={{
+                      width: '36px',
+                      height: '36px',
+                      borderRadius: '10px',
+                      background: 'rgba(244, 63, 94, 0.2)',
+                      border: '1px solid rgba(244, 63, 94, 0.4)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      color: 'var(--accent-rose, #f43f5e)'
+                    }}>
+                      <AlertTriangle size={18} />
+                    </div>
+                    <div>
+                      <h2 style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>
+                        Delete Database Backup
+                      </h2>
+                      <p style={{ fontSize: '0.725rem', color: 'var(--text-secondary)', margin: 0, marginTop: '2px' }}>
+                        Permanent deletion confirmation
+                      </p>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setBackupToDelete(null)}
+                    style={{
+                      background: 'transparent',
+                      border: 'none',
+                      color: 'var(--text-muted)',
+                      cursor: 'pointer',
+                      padding: '6px',
+                      borderRadius: '6px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center'
+                    }}
+                  >
+                    <X size={18} />
+                  </button>
+                </div>
+
+                {/* Modal Body */}
+                <div style={{ padding: '22px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                  <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', lineHeight: 1.5, margin: 0 }}>
+                    Are you sure you want to permanently delete backup <strong style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>{backupToDelete.backupId}</strong>?
+                  </p>
+
+                  <div style={{
+                    padding: '12px 14px',
+                    borderRadius: 'var(--radius-md)',
+                    background: 'var(--bg-input)',
+                    border: '1px solid var(--border-subtle)',
+                    fontSize: '0.775rem',
+                    color: 'var(--text-secondary)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '4px'
+                  }}>
+                    <div>• <strong>Format:</strong> {(backupToDelete.format || 'json').toUpperCase()}{backupToDelete.encrypted ? ' (AES-256 Encrypted)' : ''}</div>
+                    <div>• <strong>Records:</strong> {backupToDelete.recordCount.toLocaleString()} rows</div>
+                    <div>• <strong>File Size:</strong> {backupToDelete.fileSizeKb} KB</div>
+                    <div>• <strong>Created:</strong> {new Date(backupToDelete.timestamp).toLocaleString()}</div>
+                    {backupToDelete.tables && backupToDelete.tables.length > 0 && (
+                      <div>• <strong>Tables:</strong> {backupToDelete.tables.join(', ')}</div>
+                    )}
+                  </div>
+
+                  <div style={{
+                    padding: '8px 12px',
+                    borderRadius: 'var(--radius-sm)',
+                    background: 'rgba(244, 63, 94, 0.1)',
+                    border: '1px solid rgba(244, 63, 94, 0.25)',
+                    fontSize: '0.75rem',
+                    color: 'var(--accent-rose)'
+                  }}>
+                    ⚠️ This action is irreversible. The backup archive stored in local IndexedDB will be permanently erased.
+                  </div>
+
+                  {/* Action Buttons */}
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '6px' }}>
+                    <button
+                      type="button"
+                      onClick={() => setBackupToDelete(null)}
+                      className="btn btn-secondary btn-sm"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        const id = backupToDelete.backupId;
+                        setBackupToDelete(null);
+                        await handleDeleteBackup(id);
+                      }}
+                      className="btn btn-primary btn-sm"
+                      style={{
+                        backgroundColor: 'var(--accent-rose, #f43f5e)',
+                        borderColor: 'rgba(244, 63, 94, 0.4)'
+                      }}
+                    >
+                      <Trash2 size={13} />
+                      <span>Yes, Delete Backup</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -2099,57 +3503,269 @@ export const DevOpsView: React.FC<DevOpsViewProps> = ({ activeProject, initialSu
       {subTab === 'pii_audit' && piiReport && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           <div className="card">
-            <div className="card-header">
+            <div className="card-header" style={{ flexWrap: 'wrap', gap: '12px' }}>
               <div>
-                <div className="card-title">
+                <div className="card-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <ShieldAlert size={18} color="var(--accent-rose)" />
                   <span>Personally Identifiable Information (PII) & Privacy Audit</span>
                 </div>
                 <div className="card-subtitle">Scans schema field names across 8 vulnerability categories with Bubble Privacy Rule remediations</div>
               </div>
+
+              {/* Quick Export Actions */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const md = PiiScanner.generateMarkdownReport(piiReport);
+                    handleDownloadCode(md, `${piiReport.appName || 'bubble'}-pii-audit-report.md`);
+                  }}
+                  className="btn btn-secondary btn-sm"
+                  style={{ fontSize: '0.75rem', padding: '5px 10px', display: 'flex', alignItems: 'center', gap: '5px' }}
+                >
+                  <Download size={13} color="var(--primary)" />
+                  <span>Report (.md)</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    const json = JSON.stringify(piiReport, null, 2);
+                    handleDownloadCode(json, `${piiReport.appName || 'bubble'}-pii-audit.json`);
+                  }}
+                  className="btn btn-secondary btn-sm"
+                  style={{ fontSize: '0.75rem', padding: '5px 10px', display: 'flex', alignItems: 'center', gap: '5px' }}
+                >
+                  <Download size={13} color="var(--accent-cyan)" />
+                  <span>Report (.json)</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    const matrix = PiiScanner.generatePrivacyRulesMatrix(piiReport);
+                    handleCopy(matrix, 'Privacy Rules Matrix');
+                  }}
+                  className="btn btn-primary btn-sm"
+                  style={{ fontSize: '0.75rem', padding: '5px 12px', display: 'flex', alignItems: 'center', gap: '5px' }}
+                >
+                  {copied ? <Check size={13} /> : <Copy size={13} />}
+                  <span>Copy Privacy Matrix</span>
+                </button>
+              </div>
             </div>
 
-            <div className="grid-3">
-              <div className="card" style={{ padding: '12px 16px', background: 'rgba(244, 63, 94, 0.1)', border: '1px solid rgba(244, 63, 94, 0.3)' }}>
-                <div style={{ fontSize: '0.75rem', color: '#f43f5e', fontWeight: 700 }}>CRITICAL RISK FINDINGS</div>
+            {/* Metric Risk Cards with Click-to-Filter */}
+            <div className="grid-3" style={{ marginBottom: '16px' }}>
+              <div 
+                onClick={() => setPiiSeverityFilter(prev => prev === 'CRITICAL' ? 'ALL' : 'CRITICAL')}
+                className="card" 
+                style={{ 
+                  padding: '12px 16px', 
+                  background: piiSeverityFilter === 'CRITICAL' ? 'rgba(244, 63, 94, 0.22)' : 'rgba(244, 63, 94, 0.1)', 
+                  border: piiSeverityFilter === 'CRITICAL' ? '2px solid #f43f5e' : '1px solid rgba(244, 63, 94, 0.3)',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease'
+                }}
+                title="Click to filter Critical findings"
+              >
+                <div style={{ fontSize: '0.75rem', color: '#f43f5e', fontWeight: 700, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span>CRITICAL RISK FINDINGS</span>
+                  {piiSeverityFilter === 'CRITICAL' && <span className="badge badge-rose" style={{ fontSize: '0.65rem' }}>FILTER ACTIVE</span>}
+                </div>
                 <div style={{ fontSize: '1.5rem', fontWeight: 800, color: '#f43f5e', marginTop: '2px' }}>{piiReport.criticalCount}</div>
               </div>
-              <div className="card" style={{ padding: '12px 16px', background: 'rgba(245, 158, 11, 0.1)', border: '1px solid rgba(245, 158, 11, 0.3)' }}>
-                <div style={{ fontSize: '0.75rem', color: '#f59e0b', fontWeight: 700 }}>HIGH RISK FINDINGS</div>
+
+              <div 
+                onClick={() => setPiiSeverityFilter(prev => prev === 'HIGH' ? 'ALL' : 'HIGH')}
+                className="card" 
+                style={{ 
+                  padding: '12px 16px', 
+                  background: piiSeverityFilter === 'HIGH' ? 'rgba(245, 158, 11, 0.22)' : 'rgba(245, 158, 11, 0.1)', 
+                  border: piiSeverityFilter === 'HIGH' ? '2px solid #f59e0b' : '1px solid rgba(245, 158, 11, 0.3)',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease'
+                }}
+                title="Click to filter High findings"
+              >
+                <div style={{ fontSize: '0.75rem', color: '#f59e0b', fontWeight: 700, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span>HIGH RISK FINDINGS</span>
+                  {piiSeverityFilter === 'HIGH' && <span className="badge badge-amber" style={{ fontSize: '0.65rem' }}>FILTER ACTIVE</span>}
+                </div>
                 <div style={{ fontSize: '1.5rem', fontWeight: 800, color: '#f59e0b', marginTop: '2px' }}>{piiReport.highCount}</div>
               </div>
-              <div className="card" style={{ padding: '12px 16px', background: 'rgba(59, 130, 246, 0.1)', border: '1px solid rgba(59, 130, 246, 0.3)' }}>
-                <div style={{ fontSize: '0.75rem', color: '#3b82f6', fontWeight: 700 }}>MEDIUM RISK FINDINGS</div>
+
+              <div 
+                onClick={() => setPiiSeverityFilter(prev => prev === 'MEDIUM' ? 'ALL' : 'MEDIUM')}
+                className="card" 
+                style={{ 
+                  padding: '12px 16px', 
+                  background: piiSeverityFilter === 'MEDIUM' ? 'rgba(59, 130, 246, 0.22)' : 'rgba(59, 130, 246, 0.1)', 
+                  border: piiSeverityFilter === 'MEDIUM' ? '2px solid #3b82f6' : '1px solid rgba(59, 130, 246, 0.3)',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease'
+                }}
+                title="Click to filter Medium findings"
+              >
+                <div style={{ fontSize: '0.75rem', color: '#3b82f6', fontWeight: 700, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span>MEDIUM RISK FINDINGS</span>
+                  {piiSeverityFilter === 'MEDIUM' && <span className="badge badge-cyan" style={{ fontSize: '0.65rem' }}>FILTER ACTIVE</span>}
+                </div>
                 <div style={{ fontSize: '1.5rem', fontWeight: 800, color: '#3b82f6', marginTop: '2px' }}>{piiReport.mediumCount}</div>
               </div>
             </div>
+
+            {/* Filter & Search Toolbar */}
+            <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap', background: 'var(--bg-input)', padding: '10px 14px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-subtle)' }}>
+              {/* Severity Pill Selector */}
+              <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginRight: '4px' }}>Severity:</span>
+                <button
+                  type="button"
+                  onClick={() => setPiiSeverityFilter('ALL')}
+                  className={`btn btn-sm ${piiSeverityFilter === 'ALL' ? 'btn-primary' : 'btn-secondary'}`}
+                  style={{ padding: '3px 9px', fontSize: '0.7rem' }}
+                >
+                  All ({piiReport.findings.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPiiSeverityFilter('CRITICAL')}
+                  className={`btn btn-sm ${piiSeverityFilter === 'CRITICAL' ? 'btn-primary' : 'btn-secondary'}`}
+                  style={{ padding: '3px 9px', fontSize: '0.7rem', color: piiSeverityFilter === 'CRITICAL' ? '#fff' : '#f43f5e' }}
+                >
+                  Critical ({piiReport.criticalCount})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPiiSeverityFilter('HIGH')}
+                  className={`btn btn-sm ${piiSeverityFilter === 'HIGH' ? 'btn-primary' : 'btn-secondary'}`}
+                  style={{ padding: '3px 9px', fontSize: '0.7rem', color: piiSeverityFilter === 'HIGH' ? '#fff' : '#f59e0b' }}
+                >
+                  High ({piiReport.highCount})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPiiSeverityFilter('MEDIUM')}
+                  className={`btn btn-sm ${piiSeverityFilter === 'MEDIUM' ? 'btn-primary' : 'btn-secondary'}`}
+                  style={{ padding: '3px 9px', fontSize: '0.7rem', color: piiSeverityFilter === 'MEDIUM' ? '#fff' : '#3b82f6' }}
+                >
+                  Medium ({piiReport.mediumCount})
+                </button>
+              </div>
+
+              {/* Category Dropdown */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Category:</span>
+                <select
+                  value={piiCategoryFilter}
+                  onChange={(e) => setPiiCategoryFilter(e.target.value)}
+                  className="select"
+                  style={{ fontSize: '0.75rem', padding: '3px 8px', width: 'auto', minWidth: '150px' }}
+                >
+                  <option value="ALL">All Categories</option>
+                  <option value="CREDENTIALS">Credentials & Tokens</option>
+                  <option value="CONTACT_PII">Contact & Addresses</option>
+                  <option value="GOVERNMENT_ID">Government IDs</option>
+                  <option value="FINANCIAL">Financial & Banking</option>
+                  <option value="BIOMETRIC">Biometrics</option>
+                  <option value="MEDICAL">Medical & Health</option>
+                  <option value="GEOLOCATION">Geolocation & GPS</option>
+                  <option value="DEMOGRAPHICS">Demographics</option>
+                </select>
+              </div>
+
+              {/* Instant Search Input */}
+              <div style={{ flex: 1, minWidth: '180px', position: 'relative' }}>
+                <Search size={13} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                <input
+                  type="text"
+                  placeholder="Search table or field name (e.g. User, email, token)..."
+                  value={piiSearchQuery}
+                  onChange={(e) => setPiiSearchQuery(e.target.value)}
+                  className="input"
+                  style={{ paddingLeft: '30px', fontSize: '0.75rem', padding: '4px 8px 4px 30px' }}
+                />
+              </div>
+
+              {(piiSeverityFilter !== 'ALL' || piiCategoryFilter !== 'ALL' || piiSearchQuery) && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPiiSeverityFilter('ALL');
+                    setPiiCategoryFilter('ALL');
+                    setPiiSearchQuery('');
+                  }}
+                  className="btn btn-secondary btn-sm"
+                  style={{ fontSize: '0.7rem', padding: '3px 8px' }}
+                >
+                  Clear Filters
+                </button>
+              )}
+            </div>
           </div>
 
-          <div className="card">
-            <div className="card-title" style={{ marginBottom: '12px' }}>
-              <span>Identified Vulnerable Fields ({piiReport.findings.length})</span>
-            </div>
+          {/* Filtered Findings List */}
+          {(() => {
+            const filteredFindings = piiReport.findings.filter(f => {
+              if (piiSeverityFilter !== 'ALL' && f.severity !== piiSeverityFilter) return false;
+              if (piiCategoryFilter !== 'ALL' && f.category !== piiCategoryFilter) return false;
+              if (piiSearchQuery) {
+                const q = piiSearchQuery.toLowerCase();
+                const matchTable = f.table.toLowerCase().includes(q);
+                const matchField = f.field.toLowerCase().includes(q);
+                const matchDesc = f.description.toLowerCase().includes(q);
+                if (!matchTable && !matchField && !matchDesc) return false;
+              }
+              return true;
+            });
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              {piiReport.findings.map(f => (
-                <div key={f.id} style={{ padding: '14px', borderRadius: 'var(--radius-md)', background: 'var(--bg-input)', border: '1px solid var(--border-subtle)' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <span className={`badge ${f.severity === 'CRITICAL' ? 'badge-rose' : f.severity === 'HIGH' ? 'badge-amber' : 'badge-cyan'}`}>
-                        {f.severity}
-                      </span>
-                      <strong>{f.table}.{f.field}</strong>
-                      <span className="badge badge-indigo">{f.category}</span>
-                    </div>
-                  </div>
-                  <div style={{ fontSize: '0.825rem', color: 'var(--text-secondary)', marginBottom: '6px' }}>{f.description}</div>
-                  <div style={{ fontSize: '0.8rem', color: 'var(--accent-emerald)', background: 'rgba(16, 185, 129, 0.1)', padding: '6px 10px', borderRadius: '4px' }}>
-                    💡 <strong>Bubble Privacy Rule Fix:</strong> {f.recommendation}
+            return (
+              <div className="card">
+                <div className="card-header">
+                  <div className="card-title">
+                    <span>Identified Vulnerable Fields ({filteredFindings.length} of {piiReport.findings.length})</span>
                   </div>
                 </div>
-              ))}
-            </div>
-          </div>
+
+                {filteredFindings.length === 0 ? (
+                  <div style={{ padding: '32px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.875rem' }}>
+                    No PII findings match your active filter criteria.
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    {filteredFindings.map(f => (
+                      <div key={f.id} style={{ padding: '14px', borderRadius: 'var(--radius-md)', background: 'var(--bg-input)', border: '1px solid var(--border-subtle)' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <span className={`badge ${f.severity === 'CRITICAL' ? 'badge-rose' : f.severity === 'HIGH' ? 'badge-amber' : 'badge-cyan'}`}>
+                              {f.severity}
+                            </span>
+                            <strong style={{ fontSize: '0.9rem' }}>{f.table}.{f.field}</strong>
+                            <span className="badge badge-indigo">{f.category}</span>
+                            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>({f.type})</span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => handleCopy(`${f.table}.${f.field}`, 'Field name')}
+                            className="btn btn-secondary btn-sm"
+                            style={{ fontSize: '0.675rem', padding: '2px 6px' }}
+                            title="Copy field reference"
+                          >
+                            <Copy size={10} />
+                          </button>
+                        </div>
+                        <div style={{ fontSize: '0.825rem', color: 'var(--text-secondary)', marginBottom: '6px' }}>{f.description}</div>
+                        <div style={{ fontSize: '0.8rem', color: 'var(--accent-emerald)', background: 'rgba(16, 185, 129, 0.1)', padding: '6px 10px', borderRadius: '4px' }}>
+                          💡 <strong>Bubble Privacy Rule Fix:</strong> {f.recommendation}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })()}
         </div>
       )}
 

@@ -42,11 +42,13 @@ export class BubbleExtractor {
     const optionSets = rawJson.option_sets || rawJson.custom_options || {};
     if (typeof optionSets === 'object') {
       for (const [osKey, osData] of Object.entries<any>(optionSets)) {
-        if (osData?.options) {
-          const opts = Array.isArray(osData.options) ? osData.options : Object.values(osData.options);
-          for (const opt of opts) {
-            const optVal = typeof opt === 'string' ? opt : (opt?.display || opt?.value || opt?.name || opt?.text);
-            addText(optVal, `opt_${osKey}_${optVal}`, 'option_set', `Option Set: ${osKey}`);
+        if (!osData || typeof osData !== 'object') continue;
+        const rawOpts = osData.values || osData.options || osData.choices || osData.list || [];
+        const opts = Array.isArray(rawOpts) ? rawOpts : Object.values(rawOpts);
+        for (const opt of opts) {
+          const optVal = typeof opt === 'string' ? opt : (opt?.display || opt?.value || opt?.db_value || opt?.name || opt?.text);
+          if (optVal) {
+            addText(String(optVal), `opt_${osKey}_${optVal}`, 'option_set', `Option Set: ${osData.display || osKey}`);
           }
         }
       }

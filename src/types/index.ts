@@ -679,10 +679,15 @@ export interface WorkflowNode {
   type: WorkflowNodeType;
   label: string;
   sublabel?: string;
+  categoryName?: string;
+  explanation?: string;
+  rawType?: string;
   condition?: string;
   actionIndex?: number;
   details?: Record<string, any>;
   isBlockingClient?: boolean;
+  performanceImpact?: string;
+  executionLocation?: 'Client (Browser)' | 'Server (Backend)';
 }
 
 export interface WorkflowEdge {
@@ -701,6 +706,14 @@ export interface WorkflowGraphData {
   nodes: WorkflowNode[];
   edges: WorkflowEdge[];
   optimizationAdvice: string[];
+}
+
+export interface TypeScriptGeneratorOptions {
+  mode?: 'interfaces' | 'zod' | 'client';
+  includeJsDoc?: boolean;
+  includeCrudDtos?: boolean;
+  includeEnvelopes?: boolean;
+  includeSchemaMap?: boolean;
 }
 
 // ============================================================================

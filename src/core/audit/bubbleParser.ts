@@ -109,11 +109,13 @@ export class BubbleParser {
         const osObj = rawJson.option_sets || rawJson.custom_options;
         if (osObj && typeof osObj === 'object') {
           for (const [osKey, osData] of Object.entries<any>(osObj)) {
-            const opts = osData.options ? (Array.isArray(osData.options) ? osData.options : Object.values(osData.options)) : [];
+            if (!osData || typeof osData !== 'object') continue;
+            const rawOpts = osData.values || osData.options || osData.choices || osData.list || [];
+            const opts = Array.isArray(rawOpts) ? rawOpts : Object.values(rawOpts);
             optionSets.push({
               id: osKey,
-              name: osData.name || osKey,
-              options: opts.map((o: any) => typeof o === 'string' ? o : (o.display || o.value || o.name || 'Option'))
+              name: osData.display || osData.name || osKey,
+              options: opts.map((o: any) => typeof o === 'string' ? o : (o.display || o.value || o.db_value || o.name || 'Option'))
             });
           }
         }

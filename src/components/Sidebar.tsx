@@ -97,7 +97,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             Bubble Studio
           </h1>
           <div style={{ fontSize: '0.675rem', color: 'var(--text-muted)' }}>
-            v1.4.0 • All-in-One Suite
+            v2.1.0-beta • Enterprise Suite
           </div>
         </div>
       </div>

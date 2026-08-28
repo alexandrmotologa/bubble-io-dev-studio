@@ -154,4 +154,66 @@ export class SchemaMigrationsEngine {
       }
     ];
   }
+
+  /**
+   * Generates SQL DDL migration statements for PostgreSQL or MySQL
+   */
+  public static generateSqlDdl(migration: SchemaMigration, dialect: 'postgres' | 'mysql' = 'postgres'): string {
+    let sql = `-- ==========================================================================\n`;
+    sql += `-- Migration: ${migration.version}_${migration.name}\n`;
+    sql += `-- Description: ${migration.description || 'Schema change migration'}\n`;
+    sql += `-- App: ${migration.app} (${migration.environment})\n`;
+    sql += `-- Generated: ${migration.createdAt}\n`;
+    sql += `-- Dialect: ${dialect.toUpperCase()}\n`;
+    sql += `-- ==========================================================================\n\n`;
+
+    const mapSqlType = (bubbleType: string): string => {
+      const b = (bubbleType || 'text').toLowerCase();
+      if (b.includes('[]') || b.includes('list')) return dialect === 'postgres' ? 'JSONB' : 'JSON';
+      if (b.includes('number') || b.includes('int')) return 'NUMERIC';
+      if (b.includes('date')) return dialect === 'postgres' ? 'TIMESTAMPTZ' : 'DATETIME';
+      if (b.includes('bool')) return 'BOOLEAN';
+      if (b.includes('geo') || b.includes('address')) return dialect === 'postgres' ? 'JSONB' : 'JSON';
+      return 'TEXT';
+    };
+
+    for (const c of migration.changes) {
+      const tbl = c.table.toLowerCase().replace(/[^a-z0-9_]/g, '_');
+      const fld = c.field ? c.field.toLowerCase().replace(/[^a-z0-9_]/g, '_') : '';
+      const colType = mapSqlType(c.type || 'text');
+
+      switch (c.action) {
+        case 'ADD_TABLE':
+          sql += `-- Create table ${c.table}\n`;
+          sql += `CREATE TABLE IF NOT EXISTS "${tbl}" (\n`;
+          sql += `    "id" VARCHAR(64) PRIMARY KEY,\n`;
+          sql += `    "created_date" ${mapSqlType('date')} DEFAULT CURRENT_TIMESTAMP,\n`;
+          sql += `    "modified_date" ${mapSqlType('date')} DEFAULT CURRENT_TIMESTAMP\n`;
+          sql += `);\n\n`;
+          break;
+        case 'REMOVE_TABLE':
+          sql += `-- Drop table ${c.table}\n`;
+          sql += `DROP TABLE IF EXISTS "${tbl}" CASCADE;\n\n`;
+          break;
+        case 'ADD_FIELD':
+          sql += `-- Add column ${c.field} to ${c.table}\n`;
+          sql += `ALTER TABLE "${tbl}" ADD COLUMN IF NOT EXISTS "${fld}" ${colType};\n\n`;
+          break;
+        case 'REMOVE_FIELD':
+          sql += `-- Drop column ${c.field} from ${c.table}\n`;
+          sql += `ALTER TABLE "${tbl}" DROP COLUMN IF EXISTS "${fld}";\n\n`;
+          break;
+        case 'CHANGE_FIELD_TYPE':
+          sql += `-- Modify column ${c.field} type on ${c.table}\n`;
+          if (dialect === 'postgres') {
+            sql += `ALTER TABLE "${tbl}" ALTER COLUMN "${fld}" TYPE ${colType} USING "${fld}"::${colType};\n\n`;
+          } else {
+            sql += `ALTER TABLE "${tbl}" MODIFY COLUMN "${fld}" ${colType};\n\n`;
+          }
+          break;
+      }
+    }
+
+    return sql;
+  }
 }

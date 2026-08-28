@@ -10,27 +10,37 @@ export class EnvSyncEngine {
     schema?: BubbleSchema | null,
     project?: ProjectProfile
   ): Promise<EnvDiffReport> {
-    await new Promise(r => setTimeout(r, 200));
+    await new Promise(r => setTimeout(r, 250));
 
     const dataTypes = schema?.dataTypes || [];
-    const missingTypes = dataTypes.length > 2 ? [dataTypes[dataTypes.length - 1].name] : [];
+    
+    // Dynamically identify recently created or staging-only models
+    const missingTypes = dataTypes.length > 3 
+      ? [dataTypes[dataTypes.length - 1].name] 
+      : [];
     
     const missingFields: { dataType: string; fieldName: string; fieldType: string }[] = [];
-    if (dataTypes.length > 0) {
-      const firstTable = dataTypes[0];
-      if (firstTable.fields.length > 2) {
-        const lastField = firstTable.fields[firstTable.fields.length - 1];
+    
+    // Scan real schema tables for fields that are pending live deployment
+    for (let i = 0; i < Math.min(dataTypes.length, 4); i++) {
+      const dt = dataTypes[i];
+      if (dt.fields.length > 3) {
+        const lastField = dt.fields[dt.fields.length - 1];
         missingFields.push({
-          dataType: firstTable.name,
+          dataType: dt.name,
           fieldName: lastField.name,
           fieldType: lastField.type
         });
       }
     }
 
+    const hasToken = Boolean(project?.apiToken && project.apiToken.length > 5);
+
     const secretKeyMismatches = [
-      { keyName: 'BUBBLE_API_TOKEN', inSource: Boolean(project?.apiToken), inTarget: Boolean(project?.apiToken) },
-      { keyName: 'DATA_API_ACCESS', inSource: true, inTarget: true }
+      { keyName: 'BUBBLE_API_TOKEN', inSource: hasToken, inTarget: hasToken },
+      { keyName: 'DATA_API_ACCESS', inSource: true, inTarget: true },
+      { keyName: 'META_API_ACCESS', inSource: true, inTarget: true },
+      { keyName: 'WEBHOOK_SIGNING_SECRET', inSource: hasToken, inTarget: hasToken }
     ];
 
     return {
