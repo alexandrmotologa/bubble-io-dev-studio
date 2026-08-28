@@ -104,6 +104,8 @@ export interface BackupOptions {
   constraintJson?: string;
   encryptPassphrase?: string;
   cloudDestination?: string; // s3:// or gs://
+  scope?: 'all' | 'selective';
+  selectedTables?: string[];
 }
 
 export interface BackupResult {
@@ -117,6 +119,8 @@ export interface BackupResult {
   format: 'json' | 'csv';
   encrypted?: boolean;
   cloudUrl?: string;
+  checksum?: string;
+  scope?: 'all' | 'selective';
 }
 
 // Schema Migrations (Schema-as-Code)

@@ -14,11 +14,17 @@ import {
   Plus,
   Play,
   X,
-  ShieldAlert
+  ShieldAlert,
+  Download,
+  Search,
+  FileText,
+  Copy,
+  Check
 } from 'lucide-react';
 import { BubbleDataType, DatabaseSnapshot, DataGridRecord, ProjectProfile, RollbackExecutionResult, SnapshotComparisonReport } from '../types';
 import { SnapshotEngine } from '../core/snapshots/snapshotEngine';
 import { DataGridEngine } from '../core/data-grid/dataGridEngine';
+import { toast } from '../core/toast/toastManager';
 
 interface DatabaseSnapshotManagerProps {
   project?: ProjectProfile;
@@ -35,11 +41,13 @@ export const DatabaseSnapshotManager: React.FC<DatabaseSnapshotManagerProps> = (
   const [selectedType, setSelectedType] = useState<string>(dataTypes[0]?.name || 'User');
   const [snapshotName, setSnapshotName] = useState('');
   const [isCapturing, setIsCapturing] = useState(false);
+  const [autoSnapshotEnabled, setAutoSnapshotEnabled] = useState<boolean>(true);
 
   // Comparison State
   const [baselineId, setBaselineId] = useState<string>('');
   const [targetId, setTargetId] = useState<string>('');
   const [diffReport, setDiffReport] = useState<SnapshotComparisonReport | null>(null);
+  const [diffSearchQuery, setDiffSearchQuery] = useState<string>('');
 
   // Rollback State
   const [isRollingBack, setIsRollingBack] = useState(false);
@@ -78,6 +86,7 @@ export const DatabaseSnapshotManager: React.FC<DatabaseSnapshotManagerProps> = (
       );
       setSnapshots(prev => [snap, ...prev]);
       setSnapshotName('');
+      toast.success(`Captured snapshot for ${selectedType}`);
       onLog('devops', `Snapshot '${snap.name}' saved to IndexedDB with ${snap.recordCount} records.`, 'success');
     } finally {
       setIsCapturing(false);
@@ -90,6 +99,7 @@ export const DatabaseSnapshotManager: React.FC<DatabaseSnapshotManagerProps> = (
     if (diffReport?.baselineSnapshotId === id || diffReport?.targetSnapshotId === id) {
       setDiffReport(null);
     }
+    toast.success('Snapshot deleted');
     onLog('devops', `Deleted snapshot ${id}`, 'info');
   };
 
@@ -102,6 +112,60 @@ export const DatabaseSnapshotManager: React.FC<DatabaseSnapshotManagerProps> = (
     setDiffReport(rep);
     setRollbackResult(null);
     onLog('devops', `Calculated diff between '${base.name}' and '${targ.name}': ${rep.modifiedCount} modified, ${rep.addedCount} added, ${rep.deletedCount} deleted.`);
+  };
+
+  const handleExportDiffMarkdown = () => {
+    if (!diffReport) return;
+    const base = snapshots.find(s => s.id === baselineId);
+    const targ = snapshots.find(s => s.id === targetId);
+
+    let md = `# 📊 Database Snapshot Differential Audit Report\n\n`;
+    md += `- **Generated:** ${new Date().toISOString()}\n`;
+    md += `- **Baseline Snapshot:** ${base?.name || baselineId} (${base?.dataType}, ${base?.recordCount} rows)\n`;
+    md += `- **Target Snapshot:** ${targ?.name || targetId} (${targ?.dataType}, ${targ?.recordCount} rows)\n\n`;
+    md += `## 📈 Summary Metrics\n\n`;
+    md += `| Category | Count |\n| :--- | :--- |\n`;
+    md += `| 🟢 Added Records | ${diffReport.addedCount} |\n`;
+    md += `| 🟡 Modified Records | ${diffReport.modifiedCount} |\n`;
+    md += `| 🔴 Deleted Records | ${diffReport.deletedCount} |\n`;
+    md += `| 🟣 Unchanged Records | ${diffReport.unchangedCount} |\n\n`;
+    md += `## 📝 Detailed Record Differences\n\n`;
+
+    for (const d of diffReport.recordDiffs) {
+      md += `### Record \`${d.recordId}\` (${d.diffType.toUpperCase()})\n`;
+      if (d.fieldDiffs && d.fieldDiffs.length > 0) {
+        for (const fd of d.fieldDiffs) {
+          md += `- **${fd.field}**: \`${String(fd.oldValue)}\` ➔ \`${String(fd.newValue)}\`\n`;
+        }
+      }
+      md += `\n`;
+    }
+
+    const blob = new Blob([md], { type: 'text/markdown' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `snapshot_diff_${base?.name || 'baseline'}_vs_${targ?.name || 'target'}.md`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast.success('Exported diff audit report (.md)');
+  };
+
+  const handleExportDiffJson = () => {
+    if (!diffReport) return;
+    const payload = JSON.stringify(diffReport, null, 2);
+    const blob = new Blob([payload], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `snapshot_diff_${baselineId}_vs_${targetId}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast.success('Exported diff report (.json)');
   };
 
   const handleExecuteRollback = async () => {
@@ -171,8 +235,11 @@ export const DatabaseSnapshotManager: React.FC<DatabaseSnapshotManagerProps> = (
         <div className="card">
           <div className="card-header">
             <div>
-              <div className="card-title">Saved Snapshots ({snapshots.length})</div>
-              <div className="card-subtitle">Persisted locally in IndexedDB storage</div>
+              <div className="card-title">
+                <Layers size={16} color="var(--primary)" />
+                <span>Captured Local Snapshots ({snapshots.length})</span>
+              </div>
+              <div className="card-subtitle">Stored safely in IndexedDB for 1-Click Rollback</div>
             </div>
             <button onClick={loadSnapshots} className="btn btn-secondary btn-sm" style={{ padding: '2px 8px' }}>
               <RefreshCw size={11} />
@@ -243,9 +310,35 @@ export const DatabaseSnapshotManager: React.FC<DatabaseSnapshotManagerProps> = (
               <div className="card-subtitle">Compare snapshots and roll back compensations</div>
             </div>
 
-            <button onClick={handleCompare} disabled={snapshots.length < 1} className="btn btn-secondary btn-sm">
-              <span>Run Diff</span>
-            </button>
+            <div style={{ display: 'flex', gap: '6px' }}>
+              {diffReport && (
+                <>
+                  <button
+                    type="button"
+                    onClick={handleExportDiffMarkdown}
+                    className="btn btn-secondary btn-sm"
+                    style={{ fontSize: '0.7rem', padding: '3px 8px' }}
+                    title="Export Diff as Markdown Report"
+                  >
+                    <FileText size={12} />
+                    <span>MD</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleExportDiffJson}
+                    className="btn btn-secondary btn-sm"
+                    style={{ fontSize: '0.7rem', padding: '3px 8px' }}
+                    title="Export Diff as JSON"
+                  >
+                    <Download size={12} />
+                    <span>JSON</span>
+                  </button>
+                </>
+              )}
+              <button onClick={handleCompare} disabled={snapshots.length < 1} className="btn btn-primary btn-sm">
+                <span>Run Diff</span>
+              </button>
+            </div>
           </div>
 
           {/* Snapshot selector inputs */}
@@ -281,49 +374,81 @@ export const DatabaseSnapshotManager: React.FC<DatabaseSnapshotManagerProps> = (
 
           {diffReport ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              {/* Metric badges */}
-              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                <span className="badge badge-indigo">
-                  {diffReport.unchangedCount} Unchanged
-                </span>
-                <span className="badge badge-amber">
-                  {diffReport.modifiedCount} Modified
-                </span>
-                <span className="badge badge-emerald">
-                  {diffReport.addedCount} Added
-                </span>
-                <span className="badge badge-rose">
-                  {diffReport.deletedCount} Deleted
-                </span>
+              {/* Metric badges and Search */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+                <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                  <span className="badge badge-indigo">
+                    {diffReport.unchangedCount} Unchanged
+                  </span>
+                  <span className="badge badge-amber">
+                    {diffReport.modifiedCount} Modified
+                  </span>
+                  <span className="badge badge-emerald">
+                    {diffReport.addedCount} Added
+                  </span>
+                  <span className="badge badge-rose">
+                    {diffReport.deletedCount} Deleted
+                  </span>
+                </div>
+
+                <div style={{ position: 'relative', width: '160px' }}>
+                  <Search size={12} color="var(--text-muted)" style={{ position: 'absolute', left: '8px', top: '50%', transform: 'translateY(-50%)' }} />
+                  <input
+                    type="text"
+                    placeholder="Search diff..."
+                    value={diffSearchQuery}
+                    onChange={(e) => setDiffSearchQuery(e.target.value)}
+                    className="input"
+                    style={{ paddingLeft: '26px', fontSize: '0.725rem', height: '26px' }}
+                  />
+                </div>
               </div>
 
               {/* Differential Record List */}
-              <div style={{ maxHeight: '240px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                {diffReport.recordDiffs.map((diff, dIdx) => (
-                  <div key={dIdx} style={{
-                    padding: '8px 10px',
-                    borderRadius: 'var(--radius-sm)',
-                    background: diff.diffType === 'added' ? 'rgba(16, 185, 129, 0.08)' : diff.diffType === 'deleted' ? 'rgba(244, 63, 94, 0.08)' : 'rgba(245, 158, 11, 0.08)',
-                    border: '1px solid var(--border-subtle)',
-                    fontSize: '0.75rem'
-                  }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 700 }}>
-                        {diff.recordId}
-                      </span>
-                      <span className={`badge ${diff.diffType === 'added' ? 'badge-emerald' : diff.diffType === 'deleted' ? 'badge-rose' : 'badge-amber'}`} style={{ fontSize: '0.65rem' }}>
-                        {diff.diffType.toUpperCase()}
-                      </span>
-                    </div>
+              {(() => {
+                const filtered = diffReport.recordDiffs.filter(d => {
+                  if (!diffSearchQuery.trim()) return true;
+                  const q = diffSearchQuery.toLowerCase();
+                  if (d.recordId.toLowerCase().includes(q)) return true;
+                  if (d.fieldDiffs?.some(fd => fd.field.toLowerCase().includes(q) || String(fd.newValue).toLowerCase().includes(q) || String(fd.oldValue).toLowerCase().includes(q))) return true;
+                  return false;
+                });
 
-                    {diff.fieldDiffs && diff.fieldDiffs.map((fd, fdIdx) => (
-                      <div key={fdIdx} style={{ marginTop: '4px', fontSize: '0.7rem', color: 'var(--text-secondary)' }}>
-                        <strong>{fd.field}</strong>: <span style={{ textDecoration: 'line-through', opacity: 0.7 }}>"{String(fd.oldValue)}"</span> ➔ <span style={{ color: 'var(--accent-emerald)', fontWeight: 600 }}>"{String(fd.newValue)}"</span>
+                return (
+                  <div style={{ maxHeight: '240px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    {filtered.length === 0 ? (
+                      <div style={{ padding: '16px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.75rem' }}>
+                        No changes match search query "{diffSearchQuery}".
                       </div>
-                    ))}
+                    ) : (
+                      filtered.map((diff, dIdx) => (
+                        <div key={dIdx} style={{
+                          padding: '8px 10px',
+                          borderRadius: 'var(--radius-sm)',
+                          background: diff.diffType === 'added' ? 'rgba(16, 185, 129, 0.08)' : diff.diffType === 'deleted' ? 'rgba(244, 63, 94, 0.08)' : 'rgba(245, 158, 11, 0.08)',
+                          border: '1px solid var(--border-subtle)',
+                          fontSize: '0.75rem'
+                        }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 700 }}>
+                              {diff.recordId}
+                            </span>
+                            <span className={`badge ${diff.diffType === 'added' ? 'badge-emerald' : diff.diffType === 'deleted' ? 'badge-rose' : 'badge-amber'}`} style={{ fontSize: '0.65rem' }}>
+                              {diff.diffType.toUpperCase()}
+                            </span>
+                          </div>
+
+                          {diff.fieldDiffs && diff.fieldDiffs.map((fd, fdIdx) => (
+                            <div key={fdIdx} style={{ marginTop: '4px', fontSize: '0.7rem', color: 'var(--text-secondary)' }}>
+                              <strong>{fd.field}</strong>: <span style={{ textDecoration: 'line-through', opacity: 0.7 }}>"{String(fd.oldValue)}"</span> ➔ <span style={{ color: 'var(--accent-emerald)', fontWeight: 600 }}>"{String(fd.newValue)}"</span>
+                            </div>
+                          ))}
+                        </div>
+                      ))
+                    )}
                   </div>
-                ))}
-              </div>
+                );
+              })()}
 
               {/* 1-Click Rollback Trigger */}
               <div style={{ marginTop: '8px', paddingTop: '12px', borderTop: '1px solid var(--border-subtle)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>

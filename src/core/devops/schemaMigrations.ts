@@ -156,11 +156,14 @@ export class SchemaMigrationsEngine {
   }
 
   /**
-   * Generates SQL DDL migration statements for PostgreSQL or MySQL
+   * Generates SQL DDL migration statements for PostgreSQL, MySQL, SQLite, or BigQuery
    */
-  public static generateSqlDdl(migration: SchemaMigration, dialect: 'postgres' | 'mysql' = 'postgres'): string {
+  public static generateSqlDdl(
+    migration: SchemaMigration,
+    dialect: 'postgres' | 'mysql' | 'sqlite' | 'bigquery' = 'postgres'
+  ): string {
     let sql = `-- ==========================================================================\n`;
-    sql += `-- Migration: ${migration.version}_${migration.name}\n`;
+    sql += `-- Migration (UP): ${migration.version}_${migration.name}\n`;
     sql += `-- Description: ${migration.description || 'Schema change migration'}\n`;
     sql += `-- App: ${migration.app} (${migration.environment})\n`;
     sql += `-- Generated: ${migration.createdAt}\n`;
@@ -169,12 +172,12 @@ export class SchemaMigrationsEngine {
 
     const mapSqlType = (bubbleType: string): string => {
       const b = (bubbleType || 'text').toLowerCase();
-      if (b.includes('[]') || b.includes('list')) return dialect === 'postgres' ? 'JSONB' : 'JSON';
-      if (b.includes('number') || b.includes('int')) return 'NUMERIC';
-      if (b.includes('date')) return dialect === 'postgres' ? 'TIMESTAMPTZ' : 'DATETIME';
-      if (b.includes('bool')) return 'BOOLEAN';
+      if (b.includes('[]') || b.includes('list')) return dialect === 'postgres' ? 'JSONB' : dialect === 'bigquery' ? 'ARRAY<STRING>' : 'JSON';
+      if (b.includes('number') || b.includes('int')) return dialect === 'sqlite' ? 'INTEGER' : dialect === 'bigquery' ? 'NUMERIC' : 'NUMERIC';
+      if (b.includes('date')) return dialect === 'postgres' ? 'TIMESTAMPTZ' : dialect === 'bigquery' ? 'TIMESTAMP' : 'DATETIME';
+      if (b.includes('bool')) return dialect === 'sqlite' ? 'INTEGER' : 'BOOLEAN';
       if (b.includes('geo') || b.includes('address')) return dialect === 'postgres' ? 'JSONB' : 'JSON';
-      return 'TEXT';
+      return dialect === 'bigquery' ? 'STRING' : 'TEXT';
     };
 
     for (const c of migration.changes) {
@@ -185,30 +188,102 @@ export class SchemaMigrationsEngine {
       switch (c.action) {
         case 'ADD_TABLE':
           sql += `-- Create table ${c.table}\n`;
-          sql += `CREATE TABLE IF NOT EXISTS "${tbl}" (\n`;
-          sql += `    "id" VARCHAR(64) PRIMARY KEY,\n`;
-          sql += `    "created_date" ${mapSqlType('date')} DEFAULT CURRENT_TIMESTAMP,\n`;
-          sql += `    "modified_date" ${mapSqlType('date')} DEFAULT CURRENT_TIMESTAMP\n`;
-          sql += `);\n\n`;
+          if (dialect === 'bigquery') {
+            sql += `CREATE TABLE IF NOT EXISTS \`${tbl}\` (\n`;
+            sql += `    id STRING NOT NULL,\n`;
+            sql += `    created_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP(),\n`;
+            sql += `    modified_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP()\n`;
+            sql += `);\n\n`;
+          } else {
+            sql += `CREATE TABLE IF NOT EXISTS "${tbl}" (\n`;
+            sql += `    "id" VARCHAR(64) PRIMARY KEY,\n`;
+            sql += `    "created_date" ${mapSqlType('date')} DEFAULT CURRENT_TIMESTAMP,\n`;
+            sql += `    "modified_date" ${mapSqlType('date')} DEFAULT CURRENT_TIMESTAMP\n`;
+            sql += `);\n\n`;
+          }
           break;
         case 'REMOVE_TABLE':
           sql += `-- Drop table ${c.table}\n`;
-          sql += `DROP TABLE IF EXISTS "${tbl}" CASCADE;\n\n`;
+          if (dialect === 'bigquery') {
+            sql += `DROP TABLE IF EXISTS \`${tbl}\`;\n\n`;
+          } else {
+            sql += `DROP TABLE IF EXISTS "${tbl}" CASCADE;\n\n`;
+          }
           break;
         case 'ADD_FIELD':
           sql += `-- Add column ${c.field} to ${c.table}\n`;
-          sql += `ALTER TABLE "${tbl}" ADD COLUMN IF NOT EXISTS "${fld}" ${colType};\n\n`;
+          if (dialect === 'bigquery') {
+            sql += `ALTER TABLE \`${tbl}\` ADD COLUMN IF NOT EXISTS ${fld} ${colType};\n\n`;
+          } else {
+            sql += `ALTER TABLE "${tbl}" ADD COLUMN IF NOT EXISTS "${fld}" ${colType};\n\n`;
+          }
           break;
         case 'REMOVE_FIELD':
           sql += `-- Drop column ${c.field} from ${c.table}\n`;
-          sql += `ALTER TABLE "${tbl}" DROP COLUMN IF EXISTS "${fld}";\n\n`;
+          if (dialect === 'bigquery') {
+            sql += `ALTER TABLE \`${tbl}\` DROP COLUMN IF EXISTS ${fld};\n\n`;
+          } else {
+            sql += `ALTER TABLE "${tbl}" DROP COLUMN IF EXISTS "${fld}";\n\n`;
+          }
           break;
         case 'CHANGE_FIELD_TYPE':
           sql += `-- Modify column ${c.field} type on ${c.table}\n`;
           if (dialect === 'postgres') {
             sql += `ALTER TABLE "${tbl}" ALTER COLUMN "${fld}" TYPE ${colType} USING "${fld}"::${colType};\n\n`;
+          } else if (dialect === 'bigquery') {
+            sql += `-- BigQuery does not support direct column type changes without recreate\n`;
           } else {
             sql += `ALTER TABLE "${tbl}" MODIFY COLUMN "${fld}" ${colType};\n\n`;
+          }
+          break;
+      }
+    }
+
+    return sql;
+  }
+
+  /**
+   * Generates Rollback (DOWN) SQL DDL migration statements
+   */
+  public static generateDownSqlDdl(
+    migration: SchemaMigration,
+    dialect: 'postgres' | 'mysql' | 'sqlite' | 'bigquery' = 'postgres'
+  ): string {
+    let sql = `-- ==========================================================================\n`;
+    sql += `-- Migration (DOWN - Rollback): ${migration.version}_${migration.name}\n`;
+    sql += `-- Description: Reverts ${migration.name}\n`;
+    sql += `-- App: ${migration.app} (${migration.environment})\n`;
+    sql += `-- Dialect: ${dialect.toUpperCase()}\n`;
+    sql += `-- ==========================================================================\n\n`;
+
+    // Reverse order of changes for rollback
+    const reversed = [...migration.changes].reverse();
+
+    for (const c of reversed) {
+      const tbl = c.table.toLowerCase().replace(/[^a-z0-9_]/g, '_');
+      const fld = c.field ? c.field.toLowerCase().replace(/[^a-z0-9_]/g, '_') : '';
+
+      switch (c.action) {
+        case 'ADD_TABLE':
+          sql += `-- Revert ADD_TABLE: Drop table ${c.table}\n`;
+          sql += dialect === 'bigquery' ? `DROP TABLE IF EXISTS \`${tbl}\`;\n\n` : `DROP TABLE IF EXISTS "${tbl}" CASCADE;\n\n`;
+          break;
+        case 'REMOVE_TABLE':
+          sql += `-- Revert REMOVE_TABLE: Recreate table ${c.table}\n`;
+          sql += `CREATE TABLE IF NOT EXISTS "${tbl}" ("id" VARCHAR(64) PRIMARY KEY);\n\n`;
+          break;
+        case 'ADD_FIELD':
+          sql += `-- Revert ADD_FIELD: Drop column ${c.field} from ${c.table}\n`;
+          sql += dialect === 'bigquery' ? `ALTER TABLE \`${tbl}\` DROP COLUMN IF EXISTS ${fld};\n\n` : `ALTER TABLE "${tbl}" DROP COLUMN IF EXISTS "${fld}";\n\n`;
+          break;
+        case 'REMOVE_FIELD':
+          sql += `-- Revert REMOVE_FIELD: Re-add column ${c.field} to ${c.table}\n`;
+          sql += `ALTER TABLE "${tbl}" ADD COLUMN IF NOT EXISTS "${fld}" TEXT;\n\n`;
+          break;
+        case 'CHANGE_FIELD_TYPE':
+          sql += `-- Revert CHANGE_FIELD_TYPE: Restore column ${c.field} type on ${c.table}\n`;
+          if (c.previousType && dialect === 'postgres') {
+            sql += `ALTER TABLE "${tbl}" ALTER COLUMN "${fld}" TYPE ${c.previousType};\n\n`;
           }
           break;
       }
