@@ -25,6 +25,7 @@ import { DevOpsEngine } from './core/devops/devopsEngine';
 import { AuditEngine } from './core/audit/auditEngine';
 import { getProviderDisplayName, getModelDisplayName, getProviderForModel, getDefaultModelForProvider } from './core/ai/aiProviders';
 import { DevOpsSubTab } from './views/DevOpsView';
+import { APP_VERSION } from './version';
 
 export const App: React.FC = () => {
   const store = ProjectStore.getInstance();
@@ -118,7 +119,7 @@ export const App: React.FC = () => {
 
   // Initial welcome log & check if first run onboarding is needed
   useEffect(() => {
-    addLog('system', 'Bubble.io Dev Studio v2.2.0-beta initialized.', 'success');
+    addLog('system', `Bubble.io Dev Studio v${APP_VERSION} initialized.`, 'success');
     if (settings.projects.length === 0) {
       addLog('system', 'No Bubble application connected yet. Opening connection setup...', 'warn');
       setIsConnectModalOpen(true);

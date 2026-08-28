@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { NavigationTab, ProjectProfile } from '../types';
 import { ProjectDropdown } from './ProjectDropdown';
+import { APP_VERSION_LABEL } from '../version';
 
 interface SidebarProps {
   currentTab: NavigationTab;
@@ -97,7 +98,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             Bubble Studio
           </h1>
           <div style={{ fontSize: '0.675rem', color: 'var(--text-muted)' }}>
-            v2.2.0-beta • Enterprise Suite
+            {APP_VERSION_LABEL}
           </div>
         </div>
       </div>
