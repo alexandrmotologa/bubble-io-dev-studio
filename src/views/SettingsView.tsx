@@ -41,6 +41,7 @@ import { TranslatorEngine } from '../core/translator/translatorEngine';
 import { ConfirmDeleteModal } from '../components/ConfirmDeleteModal';
 import { AI_PROVIDERS, PROVIDER_MODELS, getProviderForModel, getDefaultModelForProvider, getProviderDisplayName, getModelDisplayName } from '../core/ai/aiProviders';
 import { toast } from '../core/toast/toastManager';
+import { ProjectStore } from '../core/storage/projectStore';
 import { APP_VERSION, APP_VERSION_LABEL, APP_NAME, APP_EDITION } from '../version';
 
 interface SettingsViewProps {
@@ -205,6 +206,45 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     } finally {
       setTestingAppId(null);
     }
+  };
+
+  const handleExportBds = (projId: string) => {
+    try {
+      const proj = formData.projects.find(p => p.id === projId);
+      if (!proj) return;
+      const bdsJson = ProjectStore.getInstance().exportWorkspaceBundle(projId);
+      const blob = new Blob([bdsJson], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${proj.name.toLowerCase().replace(/\s+/g, '_')}_bundle_${Date.now()}.bds`;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success(`Exported .bds workspace bundle for '${proj.name}'`);
+      onLog('system', `Exported portable .bds workspace archive for '${proj.name}'.`, 'success');
+    } catch (e: any) {
+      toast.error(`Export failed: ${e.message}`);
+    }
+  };
+
+  const handleImportBds = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const text = event.target?.result as string;
+        const imported = ProjectStore.getInstance().importWorkspaceBundle(text);
+        const updatedSettings = ProjectStore.getInstance().getSettings();
+        setFormData(updatedSettings);
+        onSaveSettings(updatedSettings);
+        toast.success(`Imported workspace '${imported.name}' from .bds bundle!`);
+        onLog('system', `Imported workspace '${imported.name}' from .bds bundle.`, 'success');
+      } catch (err: any) {
+        toast.error(`Import failed: ${err.message}`);
+      }
+    };
+    reader.readAsText(file);
   };
 
   const handleAttachBlueprintToProject = (projId: string, e: React.ChangeEvent<HTMLInputElement>) => {
@@ -723,12 +763,25 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               </div>
             </div>
 
-            {onOpenConnectModal && (
-              <button onClick={onOpenConnectModal} className="btn btn-primary btn-sm" style={{ padding: '6px 14px' }}>
-                <Plus size={14} />
-                <span>Connect App with Wizard</span>
-              </button>
-            )}
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+              <label className="btn btn-secondary btn-sm" style={{ padding: '6px 12px', cursor: 'pointer', margin: 0 }}>
+                <Upload size={13} />
+                <span>Import .bds Archive</span>
+                <input
+                  type="file"
+                  accept=".bds,.json"
+                  onChange={handleImportBds}
+                  style={{ display: 'none' }}
+                />
+              </label>
+
+              {onOpenConnectModal && (
+                <button onClick={onOpenConnectModal} className="btn btn-primary btn-sm" style={{ padding: '6px 14px' }}>
+                  <Plus size={14} />
+                  <span>Connect App with Wizard</span>
+                </button>
+              )}
+            </div>
           </div>
 
           {/* Existing projects list with rich details */}
@@ -844,6 +897,17 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                         >
                           <Activity size={12} className={isPinging ? 'spin' : ''} />
                           <span>{isPinging ? 'Pinging...' : 'Test Connection'}</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => handleExportBds(proj.id)}
+                          className="btn btn-secondary btn-sm"
+                          style={{ fontSize: '0.725rem', padding: '4px 10px' }}
+                          title="Export full workspace bundle (.bds) archive"
+                        >
+                          <Download size={12} />
+                          <span>Export .bds</span>
                         </button>
 
                         <button

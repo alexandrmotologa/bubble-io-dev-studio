@@ -7,14 +7,16 @@ import {
   Code2, 
   Copy, 
   Check, 
-  ArrowRight, 
+  ShieldCheck, 
   Play, 
   Layers, 
   FileCode,
-  Sliders
+  Sliders,
+  CheckCircle2,
+  AlertCircle
 } from 'lucide-react';
-import { CopilotEngine } from '../core/copilot/copilotEngine';
-import { CopilotQueryResponse, CopilotRegexResponse } from '../types';
+import { CopilotEngine, PrivacyRuleExplanationResult } from '../core/ai/copilotEngine';
+import { toast } from '../core/toast/toastManager';
 
 interface AiCopilotModalProps {
   isOpen: boolean;
@@ -27,29 +29,29 @@ interface AiCopilotModalProps {
   xaiApiKey?: string;
 }
 
-type CopilotMode = 'query' | 'regex';
+type CopilotMode = 'query' | 'regex' | 'privacy';
 
 export const AiCopilotModal: React.FC<AiCopilotModalProps> = ({
   isOpen,
   onClose,
   onApplyQueryToRepl,
-  availableDataTypes = ['User', 'Product', 'Order', 'PaymentRecord'],
-  geminiApiKey,
-  openaiApiKey,
-  groqApiKey,
-  xaiApiKey
+  availableDataTypes = ['User', 'Product', 'Order', 'PaymentRecord', 'Transaction']
 }) => {
   const [mode, setMode] = useState<CopilotMode>('query');
   const [targetDataType, setTargetDataType] = useState(availableDataTypes[0] || 'User');
-  const [queryPrompt, setQueryPrompt] = useState('Find all active users with role Admin who registered this month');
+  const [queryPrompt, setQueryPrompt] = useState('Find all active orders with total > 100 created in the last 30 days');
   const [isGenerating, setIsGenerating] = useState(false);
-  const [queryResult, setQueryResult] = useState<CopilotQueryResponse | null>(null);
+  const [queryResult, setQueryResult] = useState<any | null>(null);
 
   // Regex mode state
-  const [regexDesc, setRegexDesc] = useState('Extract email address from user comment text');
-  const [sampleText, setSampleText] = useState('Please contact support at john.doe@example.com for order #1234');
-  const [regexResult, setRegexResult] = useState<CopilotRegexResponse | null>(null);
-  const [copied, setCopied] = useState(false);
+  const [regexDesc, setRegexDesc] = useState('Validate standard RFC email address');
+  const [regexResult, setRegexResult] = useState<any | null>(null);
+
+  // Privacy mode state
+  const [privacyPrompt, setPrivacyPrompt] = useState('Current User is Record Owner or Admin');
+  const [privacyResult, setPrivacyResult] = useState<PrivacyRuleExplanationResult | null>(null);
+
+  const [copiedKey, setCopiedKey] = useState<string | null>(null);
 
   if (!isOpen) return null;
 
@@ -57,15 +59,9 @@ export const AiCopilotModal: React.FC<AiCopilotModalProps> = ({
     if (!queryPrompt.trim()) return;
     setIsGenerating(true);
     try {
-      const res = await CopilotEngine.generateQueryConstraints(
-        {
-          naturalLanguagePrompt: queryPrompt,
-          targetDataType,
-          provider: 'groq'
-        },
-        { geminiApiKey, openaiApiKey, groqApiKey, xaiApiKey }
-      );
+      const res = await CopilotEngine.generateSearchQuery(queryPrompt);
       setQueryResult(res);
+      toast.success('Generated Bubble search query constraints');
     } finally {
       setIsGenerating(false);
     }
@@ -75,20 +71,31 @@ export const AiCopilotModal: React.FC<AiCopilotModalProps> = ({
     if (!regexDesc.trim()) return;
     setIsGenerating(true);
     try {
-      const res = await CopilotEngine.generateRegex({
-        description: regexDesc,
-        sampleInput: sampleText
-      });
+      const res = await CopilotEngine.generateRegex(regexDesc);
       setRegexResult(res);
+      toast.success('Compiled Bubble Regex formula');
     } finally {
       setIsGenerating(false);
     }
   };
 
-  const handleCopy = (text: string) => {
+  const handleGeneratePrivacy = async () => {
+    if (!privacyPrompt.trim()) return;
+    setIsGenerating(true);
+    try {
+      const res = await CopilotEngine.explainPrivacyRule(privacyPrompt);
+      setPrivacyResult(res);
+      toast.success('Analyzed Privacy Rule access boundaries');
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const handleCopy = (text: string, key: string) => {
     navigator.clipboard.writeText(text);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    setCopiedKey(key);
+    toast.success('Copied to clipboard');
+    setTimeout(() => setCopiedKey(null), 2000);
   };
 
   return (
@@ -110,8 +117,8 @@ export const AiCopilotModal: React.FC<AiCopilotModalProps> = ({
         className="card"
         style={{
           width: '100%',
-          maxWidth: '750px',
-          maxHeight: '85vh',
+          maxWidth: '820px',
+          maxHeight: '88vh',
           display: 'flex',
           flexDirection: 'column',
           boxShadow: '0 25px 60px -15px rgba(0, 0, 0, 0.7), 0 0 40px rgba(99, 102, 241, 0.2)',
@@ -132,8 +139,8 @@ export const AiCopilotModal: React.FC<AiCopilotModalProps> = ({
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <div style={{
-              width: '34px',
-              height: '34px',
+              width: '36px',
+              height: '36px',
               borderRadius: '8px',
               background: 'linear-gradient(135deg, #6366f1 0%, #06b6d4 100%)',
               display: 'flex',
@@ -146,21 +153,21 @@ export const AiCopilotModal: React.FC<AiCopilotModalProps> = ({
             <div>
               <div style={{ fontWeight: 700, fontSize: '1rem', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <span>Bubble AI Copilot & Expression Studio</span>
-                <span className="badge badge-cyan" style={{ fontSize: '0.65rem' }}>Ctrl+I</span>
+                <span className="badge badge-cyan" style={{ fontSize: '0.65rem' }}>Ctrl + I</span>
               </div>
               <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-                Natural language query synthesis & dynamic regex builder
+                Natural language query synthesis, dynamic regex formulas & privacy rule explainers
               </div>
             </div>
           </div>
 
-          <button onClick={onClose} className="btn-icon" style={{ border: 'none', background: 'transparent' }}>
+          <button onClick={onClose} className="btn-icon" style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: 'var(--text-muted)' }}>
             <X size={18} />
           </button>
         </div>
 
         {/* Sub-mode selector */}
-        <div style={{ display: 'flex', borderBottom: '1px solid var(--border-subtle)', background: 'var(--bg-input)' }}>
+        <div style={{ display: 'flex', borderBottom: '1px solid var(--border-subtle)', background: 'var(--bg-input)', overflowX: 'auto' }}>
           <button
             onClick={() => setMode('query')}
             style={{
@@ -176,11 +183,12 @@ export const AiCopilotModal: React.FC<AiCopilotModalProps> = ({
               alignItems: 'center',
               justifyContent: 'center',
               gap: '6px',
-              borderBottom: mode === 'query' ? '2px solid var(--primary)' : 'none'
+              borderBottom: mode === 'query' ? '2px solid var(--primary)' : 'none',
+              whiteSpace: 'nowrap'
             }}
           >
             <Search size={14} />
-            <span>Text-to-Data API Query</span>
+            <span>Text-to-Search Query</span>
           </button>
           <button
             onClick={() => setMode('regex')}
@@ -197,22 +205,46 @@ export const AiCopilotModal: React.FC<AiCopilotModalProps> = ({
               alignItems: 'center',
               justifyContent: 'center',
               gap: '6px',
-              borderBottom: mode === 'regex' ? '2px solid var(--primary)' : 'none'
+              borderBottom: mode === 'regex' ? '2px solid var(--primary)' : 'none',
+              whiteSpace: 'nowrap'
             }}
           >
             <Code2 size={14} />
-            <span>Bubble Regex & Formula Builder</span>
+            <span>Regex & Formula Builder</span>
+          </button>
+          <button
+            onClick={() => setMode('privacy')}
+            style={{
+              flex: 1,
+              padding: '10px',
+              border: 'none',
+              background: mode === 'privacy' ? 'var(--bg-card)' : 'transparent',
+              color: mode === 'privacy' ? 'var(--primary)' : 'var(--text-secondary)',
+              fontWeight: 600,
+              fontSize: '0.85rem',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '6px',
+              borderBottom: mode === 'privacy' ? '2px solid var(--primary)' : 'none',
+              whiteSpace: 'nowrap'
+            }}
+          >
+            <ShieldCheck size={14} />
+            <span>Privacy Rule Explainer</span>
           </button>
         </div>
 
         {/* Modal Body */}
         <div style={{ padding: '20px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          {mode === 'query' ? (
+          {/* Mode 1: Search Query */}
+          {mode === 'query' && (
             <>
               <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-end', flexWrap: 'wrap' }}>
                 <div style={{ width: '160px' }}>
                   <label className="input-label">Target Data Type</label>
-                  <select value={targetDataType} onChange={e => setTargetDataType(e.target.value)} className="select">
+                  <select value={targetDataType} onChange={e => setTargetDataType(e.target.value)} className="select select-premium">
                     {availableDataTypes.map(t => (
                       <option key={t} value={t}>{t}</option>
                     ))}
@@ -224,7 +256,7 @@ export const AiCopilotModal: React.FC<AiCopilotModalProps> = ({
                     type="text"
                     value={queryPrompt}
                     onChange={e => setQueryPrompt(e.target.value)}
-                    placeholder="e.g. Find all active users with role Admin..."
+                    placeholder="e.g. Find all active users registered last week..."
                     className="input"
                     onKeyDown={e => e.key === 'Enter' && handleGenerateQuery()}
                   />
@@ -235,56 +267,32 @@ export const AiCopilotModal: React.FC<AiCopilotModalProps> = ({
                 </button>
               </div>
 
-              {/* Sample Prompts */}
-              <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center' }}>
-                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Try:</span>
-                {[
-                  'Active admins with orders > 100',
-                  'Users with verified email address',
-                  'Orders with status Completed created this year'
-                ].map(p => (
-                  <button
-                    key={p}
-                    onClick={() => setQueryPrompt(p)}
-                    className="badge badge-indigo"
-                    style={{ cursor: 'pointer', border: 'none', background: 'var(--bg-input)' }}
-                  >
-                    {p}
-                  </button>
-                ))}
-              </div>
-
               {/* Output */}
               {queryResult && (
-                <div className="card" style={{ background: 'var(--bg-input)', border: '1px solid var(--border-subtle)' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-                    <div style={{ fontWeight: 700, fontSize: '0.85rem', color: 'var(--accent-emerald)' }}>
-                      ✓ {queryResult.interpretedQuery}
-                    </div>
-                    <button onClick={() => handleCopy(JSON.stringify(queryResult.bubbleConstraints, null, 2))} className="btn btn-secondary btn-sm" style={{ padding: '3px 8px', fontSize: '0.7rem' }}>
-                      {copied ? <Check size={11} color="var(--accent-emerald)" /> : <Copy size={11} />}
-                      <span>{copied ? 'Copied' : 'Copy Constraints'}</span>
+                <div className="card" style={{ background: 'var(--bg-input)', border: '1px solid var(--border-subtle)', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--accent-cyan)' }}>BUBBLE "DO A SEARCH FOR" EXPRESSION</span>
+                    <button onClick={() => handleCopy(queryResult.bubbleExpression, 'copy_search')} className="btn btn-secondary btn-sm" style={{ padding: '2px 8px', fontSize: '0.7rem' }}>
+                      {copiedKey === 'copy_search' ? <Check size={11} color="var(--accent-emerald)" /> : <Copy size={11} />}
+                      <span>{copiedKey === 'copy_search' ? 'Copied' : 'Copy'}</span>
                     </button>
                   </div>
+                  <code style={{ fontSize: '0.85rem', color: 'var(--text-primary)' }}>{queryResult.bubbleExpression}</code>
 
-                  <pre style={{
-                    background: '#090d16',
-                    padding: '12px',
-                    borderRadius: 'var(--radius-sm)',
-                    fontFamily: 'var(--font-mono)',
-                    fontSize: '0.75rem',
-                    color: '#93c5fd',
-                    overflowX: 'auto',
-                    margin: 0
-                  }}>
-                    {JSON.stringify(queryResult.bubbleConstraints, null, 2)}
-                  </pre>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '6px' }}>
+                    <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--primary)' }}>DATA API CONNECTOR QUERY</span>
+                    <button onClick={() => handleCopy(queryResult.apiConnectorQuery, 'copy_api')} className="btn btn-secondary btn-sm" style={{ padding: '2px 8px', fontSize: '0.7rem' }}>
+                      {copiedKey === 'copy_api' ? <Check size={11} color="var(--accent-emerald)" /> : <Copy size={11} />}
+                      <span>{copiedKey === 'copy_api' ? 'Copied' : 'Copy'}</span>
+                    </button>
+                  </div>
+                  <code style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', wordBreak: 'break-all' }}>{queryResult.apiConnectorQuery}</code>
 
-                  <div style={{ marginTop: '12px', display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
-                    {onApplyQueryToRepl && (
+                  {onApplyQueryToRepl && (
+                    <div style={{ marginTop: '6px', display: 'flex', justifyContent: 'flex-end' }}>
                       <button
                         onClick={() => {
-                          onApplyQueryToRepl(targetDataType, queryResult.bubbleConstraints);
+                          onApplyQueryToRepl(targetDataType, queryResult.constraints);
                           onClose();
                         }}
                         className="btn btn-primary btn-sm"
@@ -292,67 +300,107 @@ export const AiCopilotModal: React.FC<AiCopilotModalProps> = ({
                         <Play size={13} />
                         <span>Apply & Execute in Data REPL</span>
                       </button>
-                    )}
+                    </div>
+                  )}
+                </div>
+              )}
+            </>
+          )}
+
+          {/* Mode 2: Regex & Formula */}
+          {mode === 'regex' && (
+            <>
+              <div>
+                <label className="input-label">What text pattern do you want to match / validate?</label>
+                <div style={{ display: 'flex', gap: '10px' }}>
+                  <input
+                    type="text"
+                    value={regexDesc}
+                    onChange={e => setRegexDesc(e.target.value)}
+                    placeholder="e.g. Validate email, international phone number, kebab-case slug..."
+                    className="input"
+                    style={{ flex: 1 }}
+                    onKeyDown={e => e.key === 'Enter' && handleGenerateRegex()}
+                  />
+                  <button onClick={handleGenerateRegex} disabled={isGenerating} className="btn btn-primary">
+                    <Sparkles size={14} className={isGenerating ? 'spin' : ''} />
+                    <span>{isGenerating ? 'Compiling...' : 'Compile Regex'}</span>
+                  </button>
+                </div>
+              </div>
+
+              {regexResult && (
+                <div className="card" style={{ background: 'var(--bg-input)', border: '1px solid var(--border-subtle)', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--accent-cyan)' }}>REGULAR EXPRESSION PATTERN</span>
+                    <button onClick={() => handleCopy(regexResult.pattern, 'copy_reg')} className="btn btn-secondary btn-sm" style={{ padding: '2px 8px', fontSize: '0.7rem' }}>
+                      {copiedKey === 'copy_reg' ? <Check size={11} color="var(--accent-emerald)" /> : <Copy size={11} />}
+                      <span>{copiedKey === 'copy_reg' ? 'Copied' : 'Copy'}</span>
+                    </button>
+                  </div>
+                  <code style={{ fontSize: '0.85rem', color: 'var(--accent-emerald)' }}>{regexResult.pattern}</code>
+
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '6px' }}>
+                    <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--primary)' }}>BUBBLE FORMULA EXPRESSION</span>
+                    <button onClick={() => handleCopy(regexResult.bubbleFormula, 'copy_formula')} className="btn btn-secondary btn-sm" style={{ padding: '2px 8px', fontSize: '0.7rem' }}>
+                      {copiedKey === 'copy_formula' ? <Check size={11} color="var(--accent-emerald)" /> : <Copy size={11} />}
+                      <span>{copiedKey === 'copy_formula' ? 'Copied' : 'Copy'}</span>
+                    </button>
+                  </div>
+                  <code style={{ fontSize: '0.8rem', color: 'var(--text-primary)', wordBreak: 'break-all' }}>{regexResult.bubbleFormula}</code>
+
+                  <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                    <strong>Explanation:</strong> {regexResult.explanation}
                   </div>
                 </div>
               )}
             </>
-          ) : (
-            /* Regex Builder Mode */
+          )}
+
+          {/* Mode 3: Privacy Rule Explainer */}
+          {mode === 'privacy' && (
             <>
               <div>
-                <label className="input-label">What text pattern do you want to match / extract?</label>
-                <input
-                  type="text"
-                  value={regexDesc}
-                  onChange={e => setRegexDesc(e.target.value)}
-                  placeholder="e.g. Extract email address, phone number, currency amount..."
-                  className="input"
-                  onKeyDown={e => e.key === 'Enter' && handleGenerateRegex()}
-                />
+                <label className="input-label">Describe the Bubble Privacy Rule or Permission Condition</label>
+                <div style={{ display: 'flex', gap: '10px' }}>
+                  <input
+                    type="text"
+                    value={privacyPrompt}
+                    onChange={e => setPrivacyPrompt(e.target.value)}
+                    placeholder="e.g. Current User is User's Admin or Created By Current User..."
+                    className="input"
+                    style={{ flex: 1 }}
+                    onKeyDown={e => e.key === 'Enter' && handleGeneratePrivacy()}
+                  />
+                  <button onClick={handleGeneratePrivacy} disabled={isGenerating} className="btn btn-primary">
+                    <Sparkles size={14} className={isGenerating ? 'spin' : ''} />
+                    <span>{isGenerating ? 'Analyzing...' : 'Explain Rule'}</span>
+                  </button>
+                </div>
               </div>
 
-              <div>
-                <label className="input-label">Sample Input Text for Live Validation</label>
-                <textarea
-                  value={sampleText}
-                  onChange={e => setSampleText(e.target.value)}
-                  placeholder="Paste sample string from Bubble input or API response..."
-                  className="input"
-                  style={{ height: '70px', resize: 'vertical', fontFamily: 'var(--font-mono)', fontSize: '0.8rem' }}
-                />
-              </div>
-
-              <button onClick={handleGenerateRegex} disabled={isGenerating} className="btn btn-primary" style={{ alignSelf: 'flex-start' }}>
-                <Sparkles size={14} className={isGenerating ? 'spin' : ''} />
-                <span>{isGenerating ? 'Compiling Regex...' : 'Compile Bubble Regex'}</span>
-              </button>
-
-              {regexResult && (
-                <div className="card" style={{ background: 'var(--bg-input)', border: '1px solid var(--border-subtle)' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                    <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{regexResult.explanation}</div>
-                    <button onClick={() => handleCopy(regexResult.regexPattern)} className="btn btn-secondary btn-sm" style={{ padding: '3px 8px', fontSize: '0.7rem' }}>
-                      {copied ? <Check size={11} color="var(--accent-emerald)" /> : <Copy size={11} />}
-                      <span>{copied ? 'Copied' : 'Copy Pattern'}</span>
-                    </button>
+              {privacyResult && (
+                <div className="card" style={{ background: 'var(--bg-input)', border: '1px solid var(--border-subtle)', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--accent-emerald)' }}>
+                    RULE SCOPE: {privacyResult.roleName.toUpperCase()}
+                  </div>
+                  <div style={{ fontSize: '0.85rem', color: 'var(--text-primary)', lineHeight: 1.5 }}>
+                    {privacyResult.plainEnglishSummary}
                   </div>
 
-                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '12px' }}>
-                    <code style={{ flex: 1, padding: '8px 12px', background: '#090d16', borderRadius: 'var(--radius-sm)', color: '#f472b6', fontSize: '0.85rem' }}>
-                      /{regexResult.regexPattern}/{regexResult.regexFlags}
-                    </code>
-                  </div>
-
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span style={{ fontSize: '0.75rem', fontWeight: 600 }}>Test Result:</span>
-                    {regexResult.matchesSample ? (
-                      <span className="badge badge-emerald">
-                        ✓ MATCH FOUND: {regexResult.matchedValues.join(', ')}
-                      </span>
-                    ) : (
-                      <span className="badge badge-rose">✕ No match on sample input</span>
-                    )}
+                  <div className="grid-2" style={{ gap: '10px', marginTop: '6px' }}>
+                    <div style={{ background: 'rgba(99, 102, 241, 0.08)', padding: '10px', borderRadius: 'var(--radius-sm)', border: '1px solid rgba(99, 102, 241, 0.2)' }}>
+                      <strong style={{ fontSize: '0.75rem', color: 'var(--accent-cyan)' }}>Visible Fields:</strong>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginTop: '4px' }}>
+                        {privacyResult.canViewFields.map((f, i) => <span key={i} className="badge badge-indigo" style={{ fontSize: '0.65rem' }}>{f}</span>)}
+                      </div>
+                    </div>
+                    <div style={{ background: 'rgba(16, 185, 129, 0.08)', padding: '10px', borderRadius: 'var(--radius-sm)', border: '1px solid rgba(16, 185, 129, 0.2)' }}>
+                      <strong style={{ fontSize: '0.75rem', color: 'var(--accent-emerald)' }}>Search & Write Access:</strong>
+                      <div style={{ fontSize: '0.75rem', color: 'var(--text-primary)', marginTop: '4px' }}>
+                        Searchable: <strong>Yes</strong> • Modifiable: <code>{privacyResult.canModifyFields.join(', ')}</code>
+                      </div>
+                    </div>
                   </div>
                 </div>
               )}

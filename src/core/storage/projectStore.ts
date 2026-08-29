@@ -209,4 +209,49 @@ export class ProjectStore {
     });
     this.save(this.settings);
   }
+
+  /**
+   * Exports full project profile and blueprint as a portable .bds archive
+   */
+  public exportWorkspaceBundle(projectId: string): string {
+    const proj = this.settings.projects.find(p => p.id === projectId);
+    if (!proj) throw new Error('Workspace not found for export');
+
+    const bundle = {
+      format: 'bubble_dev_studio_bundle_v1',
+      exportedAt: new Date().toISOString(),
+      project: proj,
+      metadata: {
+        studioVersion: '2.9.0-beta',
+        pagesCount: proj.stats?.pagesCount || 1,
+        workflowsCount: proj.stats?.workflowsCount || 0,
+        tablesCount: proj.stats?.dataTypesCount || 0
+      }
+    };
+
+    return JSON.stringify(bundle, null, 2);
+  }
+
+  /**
+   * Imports a .bds workspace archive
+   */
+  public importWorkspaceBundle(bundleJson: string): ProjectProfile {
+    const parsed = JSON.parse(bundleJson);
+    if (!parsed.project || !parsed.project.name || !parsed.project.appId) {
+      throw new Error('Invalid .bds workspace archive format');
+    }
+
+    const importedProj: ProjectProfile = {
+      ...parsed.project,
+      id: 'proj_' + Math.random().toString(36).substring(2, 9),
+      name: `${parsed.project.name} (Imported)`,
+      createdAt: new Date().toISOString(),
+      lastActiveAt: new Date().toISOString()
+    };
+
+    this.settings.projects.push(importedProj);
+    this.settings.activeProjectId = importedProj.id;
+    this.save(this.settings);
+    return importedProj;
+  }
 }

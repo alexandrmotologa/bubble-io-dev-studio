@@ -23,7 +23,8 @@ import {
   AlertTriangle,
   Info,
   History,
-  ShieldCheck
+  ShieldCheck,
+  Puzzle
 } from 'lucide-react';
 import { AppDiffResult, AuditHealthReport, DeadItem, ProjectProfile } from '../types';
 import { AuditEngine } from '../core/audit/auditEngine';
@@ -31,6 +32,7 @@ import { AppDiffEngine } from '../core/audit/appDiffEngine';
 import { SafeCleanerEngine } from '../core/audit/safeCleaner';
 import { InteractiveDagGraph } from '../components/InteractiveDagGraph';
 import { SafeCleanupModal } from '../components/SafeCleanupModal';
+import { PluginAuditor, PluginAuditSummary } from '../core/audit/pluginAuditor';
 import { toast } from '../core/toast/toastManager';
 
 interface AuditViewProps {
@@ -38,7 +40,7 @@ interface AuditViewProps {
   onLog: (module: 'audit', message: string, level?: 'info' | 'success' | 'warn' | 'error') => void;
 }
 
-type AuditSubTab = 'overview' | 'explorer' | 'graph' | 'diff' | 'cleaner' | 'export';
+type AuditSubTab = 'overview' | 'explorer' | 'graph' | 'plugins' | 'diff' | 'cleaner' | 'export';
 
 export const AuditView: React.FC<AuditViewProps> = ({ activeProject, onLog }) => {
   const [subTab, setSubTab] = useState<AuditSubTab>('overview');
@@ -56,6 +58,7 @@ export const AuditView: React.FC<AuditViewProps> = ({ activeProject, onLog }) =>
 
   // Selected items for bulk purge
   const [selectedItemIds, setSelectedItemIds] = useState<Set<string>>(new Set());
+  const [pluginAudit, setPluginAudit] = useState<PluginAuditSummary>(() => PluginAuditor.auditPlugins(activeProject?.blueprintExportJson));
 
   useEffect(() => {
     runAudit();
@@ -71,6 +74,7 @@ export const AuditView: React.FC<AuditViewProps> = ({ activeProject, onLog }) =>
         rep.appName = activeProject.name;
       }
       setReport(rep);
+      setPluginAudit(PluginAuditor.auditPlugins(targetJson));
 
       // Construct a baseline diff if none exists
       if (!diffResult) {
@@ -319,6 +323,10 @@ export const AuditView: React.FC<AuditViewProps> = ({ activeProject, onLog }) =>
         <button onClick={() => setSubTab('graph')} className={`btn btn-sm ${subTab === 'graph' ? 'btn-primary' : 'btn-secondary'}`} style={{ border: 'none' }}>
           <Layers size={13} />
           <span>DAG Dependency Graph</span>
+        </button>
+        <button onClick={() => setSubTab('plugins')} className={`btn btn-sm ${subTab === 'plugins' ? 'btn-primary' : 'btn-secondary'}`} style={{ border: 'none' }}>
+          <Puzzle size={13} />
+          <span>Plugin Health & Scripts ({pluginAudit.totalPlugins})</span>
         </button>
         <button onClick={() => setSubTab('diff')} className={`btn btn-sm ${subTab === 'diff' ? 'btn-primary' : 'btn-secondary'}`} style={{ border: 'none' }}>
           <GitCompare size={13} />
@@ -631,6 +639,111 @@ export const AuditView: React.FC<AuditViewProps> = ({ activeProject, onLog }) =>
             onLog('audit', `Pruned node ${nodeId} from AST graph.`, 'success');
           }}
         />
+      )}
+
+      {/* ========================================================================= */}
+      {/* SUBTAB: PLUGIN HEALTH & SCRIPTS AUDIT */}
+      {/* ========================================================================= */}
+      {subTab === 'plugins' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          {/* Metrics Summary Bar */}
+          <div className="grid-4" style={{ gap: '10px' }}>
+            <div className="card" style={{ padding: '12px 14px' }}>
+              <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>INSTALLED PLUGINS</div>
+              <div style={{ fontSize: '1.2rem', fontWeight: 800, color: 'var(--primary)' }}>{pluginAudit.totalPlugins} Installed</div>
+              <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>All elements & actions</div>
+            </div>
+            <div className="card" style={{ padding: '12px 14px' }}>
+              <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>HEADER SCRIPT BLOAT</div>
+              <div style={{ fontSize: '1.2rem', fontWeight: 800, color: pluginAudit.totalHeaderWeightKb > 150 ? '#f43f5e' : 'var(--accent-amber)' }}>{pluginAudit.totalHeaderWeightKb} KB</div>
+              <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>Loaded synchronously in header</div>
+            </div>
+            <div className="card" style={{ padding: '12px 14px' }}>
+              <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>PAGE LOAD LATENCY IMPACT</div>
+              <div style={{ fontSize: '1.2rem', fontWeight: 800, color: pluginAudit.totalEstimatedLatencyMs > 200 ? '#f43f5e' : 'var(--accent-cyan)' }}>+{pluginAudit.totalEstimatedLatencyMs}ms</div>
+              <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>Estimated FCP delay</div>
+            </div>
+            <div className="card" style={{ padding: '12px 14px' }}>
+              <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>OVERALL PLUGIN GRADE</div>
+              <div style={{ fontSize: '1.2rem', fontWeight: 800, color: pluginAudit.overallPluginGrade.startsWith('A') ? 'var(--accent-emerald)' : 'var(--accent-amber)' }}>Grade {pluginAudit.overallPluginGrade}</div>
+              <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>{pluginAudit.deprecatedPluginsCount} deprecated API warnings</div>
+            </div>
+          </div>
+
+          {/* Plugin Table Card */}
+          <div className="card">
+            <div className="card-header">
+              <div>
+                <div className="card-title">
+                  <Puzzle size={18} color="var(--primary)" />
+                  <span>Installed Plugins Deep Performance Analysis</span>
+                </div>
+                <div className="card-subtitle">Identifies heavy external JavaScript CDNs, synchronous header scripts, and outdated Bubble Plugin APIs</div>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              {pluginAudit.plugins.map(p => (
+                <div
+                  key={p.id}
+                  style={{
+                    padding: '14px 16px',
+                    borderRadius: 'var(--radius-md)',
+                    background: 'var(--bg-input)',
+                    border: '1px solid var(--border-subtle)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '8px'
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <div style={{
+                        width: '32px',
+                        height: '32px',
+                        borderRadius: '8px',
+                        background: 'rgba(99, 102, 241, 0.15)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: 'var(--primary)'
+                      }}>
+                        <Puzzle size={16} />
+                      </div>
+                      <div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <strong style={{ fontSize: '0.9rem', color: 'var(--text-primary)' }}>{p.name}</strong>
+                          <span className="badge badge-indigo" style={{ fontSize: '0.65rem' }}>v{p.version}</span>
+                          <span className="badge badge-cyan" style={{ fontSize: '0.65rem' }}>{p.author}</span>
+                          {p.loadsInHeader && (
+                            <span className="badge badge-rose" style={{ fontSize: '0.65rem' }}>Header Script ({p.estimatedScriptSizeKb} KB)</span>
+                          )}
+                          {p.usesDeprecatedApi && (
+                            <span className="badge badge-amber" style={{ fontSize: '0.65rem' }}>Deprecated API v2</span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                        Latency: <strong>+{p.pageLoadImpactMs}ms</strong>
+                      </span>
+                      <span className={`badge ${p.healthStatus === 'optimal' ? 'badge-emerald' : p.healthStatus === 'warning' ? 'badge-amber' : 'badge-rose'}`} style={{ fontSize: '0.7rem' }}>
+                        {p.healthStatus.toUpperCase()}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Recommendations */}
+                  <div style={{ fontSize: '0.775rem', color: 'var(--text-secondary)', background: 'var(--bg-card)', padding: '8px 12px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)' }}>
+                    <strong>Audit Advice:</strong> {p.recommendations.join(' ')}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
       )}
 
       {/* ========================================================================= */}

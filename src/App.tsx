@@ -318,6 +318,7 @@ export const App: React.FC = () => {
             onToggleTerminal={() => setIsTerminalOpen(!isTerminalOpen)}
             logCount={logs.length}
             onToggleMobileSidebar={() => setIsMobileSidebarOpen(prev => !prev)}
+            onOpenCopilot={() => setIsCopilotOpen(true)}
           />
 
           {/* View Switcher */}

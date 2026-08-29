@@ -20,6 +20,7 @@ interface HeaderProps {
   onToggleTerminal: () => void;
   logCount: number;
   onToggleMobileSidebar?: () => void;
+  onOpenCopilot?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -30,7 +31,8 @@ export const Header: React.FC<HeaderProps> = ({
   isTerminalOpen,
   onToggleTerminal,
   logCount,
-  onToggleMobileSidebar
+  onToggleMobileSidebar,
+  onOpenCopilot
 }) => {
   const getTabDetails = (tab: NavigationTab) => {
     switch (tab) {
@@ -112,6 +114,20 @@ export const Header: React.FC<HeaderProps> = ({
             <Globe size={14} />
             <span>{activeProject.customDomain}</span>
           </div>
+        )}
+
+        {/* AI Copilot Button */}
+        {onOpenCopilot && (
+          <button
+            onClick={onOpenCopilot}
+            className="btn btn-secondary btn-sm"
+            title="Open Bubble AI Copilot & Query Assistant (Ctrl + I)"
+            style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+          >
+            <Sparkles size={14} color="var(--accent-cyan)" />
+            <span className="mobile-hide">AI Copilot</span>
+            <span style={{ fontSize: '0.65rem', background: 'rgba(255, 255, 255, 0.1)', padding: '1px 5px', borderRadius: '4px' }}>Ctrl+I</span>
+          </button>
         )}
 
         {/* Theme Toggle */}
