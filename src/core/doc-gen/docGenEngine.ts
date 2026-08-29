@@ -2,6 +2,7 @@ import { AuditHealthReport, BubbleSchema, DocBookProject, DocSection, ProjectPro
 import { DevOpsEngine } from '../devops/devopsEngine';
 import { BubbleExtractor } from '../translator/bubbleExtractor';
 import { WorkflowGraphEngine } from '../workflows/workflowGraphEngine';
+import { APP_VERSION_LABEL } from '../../version';
 
 export class DocGenEngine {
   /**
@@ -39,7 +40,7 @@ export class DocGenEngine {
 - **Environment**: \`${project.environment}\`
 - **Custom Domain**: \`${project.customDomain || `${project.appId}.bubbleapps.io`}\`
 - **Generated At**: \`${new Date().toUTCString()}\`
-- **Dev Studio Suite**: \`v2.6.0 • Enterprise Suite\`
+- **Dev Studio Suite**: \`${APP_VERSION_LABEL}\`
 
 ### Executive Summary
 This developer documentation book provides a complete, authoritative architectural reference for **${project.name}**. It consolidates data dictionaries, entity relationships, security access controls, API catalogs, event workflows, localization keys, and AST code quality metrics.

@@ -1,4 +1,4 @@
-# 📸 Visual QA & Regression Suite Guide (v2.7.0-beta)
+# 📸 Visual QA & Regression Suite Guide (v2.8.0-beta)
 
 The **Visual QA Suite** automates responsive multi-device pixel diff testing for Bubble.io web applications.
 

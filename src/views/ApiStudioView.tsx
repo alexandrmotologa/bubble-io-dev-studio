@@ -37,6 +37,7 @@ import { ApiConnectorCallConfig, ApiConnectorHeader, ApiConnectorParameter, Open
 import { ApiStudioEngine, WebhookPreset, SchemaValidationResult } from '../core/api-studio/apiStudioEngine';
 import { PluginSdkGenerator } from '../components/PluginSdkGenerator';
 import { toast } from '../core/toast/toastManager';
+import { APP_VERSION } from '../version';
 
 interface ApiStudioViewProps {
   activeProject?: ProjectProfile;
@@ -544,7 +545,7 @@ export const ApiStudioView: React.FC<ApiStudioViewProps> = ({ activeProject, onL
                 <h1 style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>
                   Webhooks & API Studio
                 </h1>
-                <span className="badge badge-indigo">v2.6.0-beta</span>
+                <span className="badge badge-indigo">v{APP_VERSION}</span>
               </div>
               <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
                 Inspect live webhook payloads, parse complex cURL commands, import OpenAPI 3.0 & Swagger specs, and scaffold Bubble Plugin Actions for <strong>{activeProject?.name || 'Active Workspace'}</strong>

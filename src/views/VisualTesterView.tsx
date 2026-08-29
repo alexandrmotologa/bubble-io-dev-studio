@@ -29,6 +29,7 @@ import { SplitScreenSlider } from '../components/SplitScreenSlider';
 import { MultiDeviceViewport } from '../components/MultiDeviceViewport';
 import { ProjectStore } from '../core/storage/projectStore';
 import { toast } from '../core/toast/toastManager';
+import { APP_VERSION } from '../version';
 
 interface VisualTesterViewProps {
   onLog: (module: 'visual-tester', message: string, level?: 'info' | 'success' | 'warn' | 'error') => void;
@@ -300,7 +301,7 @@ export const VisualTesterView: React.FC<VisualTesterViewProps> = ({ onLog, activ
                 <h1 style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>
                   Visual QA & Pixel Regression Suite
                 </h1>
-                <span className="badge badge-amber">v2.7.0-beta</span>
+                <span className="badge badge-amber">v{APP_VERSION}</span>
               </div>
               <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
                 Multi-device pixel diff testing, interactive slider inspection, 4-up responsive matrix & Agency Basic Auth for <strong>{activeProject?.name || 'Workspace'}</strong>

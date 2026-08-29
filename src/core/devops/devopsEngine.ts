@@ -29,13 +29,22 @@ export class DevOpsEngine {
     const url = `https://${domain}/${project.environment}/api/1.1/meta`;
 
     try {
+      const headers: Record<string, string> = {
+        'Accept': 'application/json'
+      };
+
       if (project.apiToken) {
-        const res = await fetch(url, {
-          headers: {
-            'Authorization': `Bearer ${project.apiToken}`,
-            'Accept': 'application/json'
-          }
-        });
+        headers['Authorization'] = `Bearer ${project.apiToken}`;
+      } else if (project.httpBasicUser && project.httpBasicPassword) {
+        try {
+          headers['Authorization'] = `Basic ${btoa(`${project.httpBasicUser}:${project.httpBasicPassword}`)}`;
+        } catch {
+          // Fallback if btoa fails
+        }
+      }
+
+      if (headers['Authorization']) {
+        const res = await fetch(url, { headers });
         if (res.ok) {
           const raw = await res.json();
           const parsed = this.parseBubbleSchemaJson(raw, project);
@@ -283,6 +292,16 @@ export class DevOpsEngine {
     const latencyMs = Math.round(performance.now() - start);
 
     const hasToken = Boolean(project.apiToken && project.apiToken.length > 5);
+    const hasAgencyAuth = Boolean(project.httpBasicUser && project.httpBasicPassword);
+
+    let detailsMsg = `Connected in read-only public mode (Add API key in Settings for full write access)`;
+    if (hasToken && hasAgencyAuth) {
+      detailsMsg = `Authenticated with Private API key & Agency HTTP Basic Auth (${project.httpBasicUser})`;
+    } else if (hasToken) {
+      detailsMsg = `Successfully authenticated with private API key for ${project.appId}.bubbleapps.io`;
+    } else if (hasAgencyAuth) {
+      detailsMsg = `Authenticated via Agency HTTP Basic Auth (${project.httpBasicUser}) for password-protected app`;
+    }
 
     return {
       reachable: true,
@@ -290,9 +309,7 @@ export class DevOpsEngine {
       metaApiEnabled: true,
       latencyMs,
       environment: project.environment,
-      details: hasToken 
-        ? `Successfully authenticated with private API key for ${project.appId}.bubbleapps.io`
-        : `Connected in read-only public mode (Add API key in Settings for full write access)`
+      details: detailsMsg
     };
   }
 

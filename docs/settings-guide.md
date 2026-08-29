@@ -1,4 +1,4 @@
-# ⚙️ Settings & Integrations Hub Guide (v2.7.0-beta)
+# ⚙️ Settings & Integrations Hub Guide (v2.8.0-beta)
 
 The **Settings & Integrations Hub** manages multi-provider AI credentials, Bubble workspace connections, zero-telemetry security storage, and client-side system diagnostics.
 

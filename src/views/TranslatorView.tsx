@@ -35,6 +35,7 @@ import { SearchableLanguageSelect } from '../components/SearchableLanguageSelect
 import { AI_PROVIDERS, PROVIDER_MODELS, getProviderForModel } from '../core/ai/aiProviders';
 import { toast } from '../core/toast/toastManager';
 import { PseudoLocalizerEngine } from '../core/translator/pseudoLocalizer';
+import { APP_VERSION } from '../version';
 
 interface TranslatorViewProps {
   onLog: (module: 'translator', message: string, level?: 'info' | 'success' | 'warn' | 'error') => void;
@@ -499,7 +500,7 @@ export const TranslatorView: React.FC<TranslatorViewProps> = ({
                 <h1 style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>
                   AI Localization & Translation Studio
                 </h1>
-                <span className="badge badge-cyan">v2.7.0-beta</span>
+                <span className="badge badge-cyan">v{APP_VERSION}</span>
               </div>
               <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
                 Multi-Provider AI localization, 77+ languages, brand glossary protection & 1-click Bubble CSV sync for <strong>{activeProject?.name || 'Workspace'}</strong>
