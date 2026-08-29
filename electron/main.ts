@@ -160,6 +160,9 @@ function createWindow() {
     minWidth: 1080,
     minHeight: 700,
     title: 'Bubble.io Dev Studio',
+    icon: process.platform === 'win32'
+      ? path.join(__dirname, '../build/icon.ico')
+      : path.join(__dirname, '../build/icon.png'),
     backgroundColor: '#080b11',
     titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'default',
     webPreferences: {

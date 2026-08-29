@@ -7,7 +7,8 @@ node_modules/
 dist/
 dist-electron/
 release/
-build/
+build/*
+!build/icon.*
 
 # Logs
 npm-debug.log*

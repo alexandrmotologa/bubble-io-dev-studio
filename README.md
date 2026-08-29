@@ -23,6 +23,8 @@ For developers and teams who want to run the desktop application directly withou
 | **🐧 Linux** | [**Bubble.io.Dev.Studio-3.0.0.AppImage**](https://github.com/alexandrmotologa/bubble-io-dev-studio/releases/download/v3.0.0/Bubble.io.Dev.Studio-3.0.0.AppImage) • [.deb](https://github.com/alexandrmotologa/bubble-io-dev-studio/releases/download/v3.0.0/bubble-io-dev-studio_3.0.0_amd64.deb) | AppImage / Debian package | x64 |
 
 > 🚀 **GitHub Release Hub**: [**View Official v3.0.0 Release & Changelog on GitHub**](https://github.com/alexandrmotologa/bubble-io-dev-studio/releases/tag/v3.0.0) | [Latest Release](https://github.com/alexandrmotologa/bubble-io-dev-studio/releases/latest)
+>
+> 💡 **First-Time Windows Installation Note**: Because this is an open-source/indie release that is not signed with an expensive enterprise EV certificate, Windows SmartScreen may show a blue prompt saying *"Windows protected your PC"*. Simply click **"More info"** ➔ **"Run anyway"** to launch the installer.
 
 ---
 
