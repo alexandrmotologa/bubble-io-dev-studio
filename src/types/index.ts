@@ -282,6 +282,12 @@ export interface DagNode {
   type: string;
   category: 'page' | 'element' | 'workflow' | 'field' | 'style' | 'plugin' | 'option_set';
   isDead: boolean;
+  status?: 'active' | 'warning' | 'dead';
+  pageParent?: string;
+  callCount?: number;
+  orphanReason?: string;
+  referencedBy?: string[];
+  callsTo?: string[];
   incomingEdges: number;
   outgoingEdges: number;
 }

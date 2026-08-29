@@ -36,13 +36,14 @@ export class BubbleParser {
             const pageElements: any[] = [];
             const pageWorkflows = pageData.workflows ? Object.values(pageData.workflows) : [];
 
-            const collectElements = (elTree: any) => {
+            const collectElements = (elTree: any, parentId = '') => {
               if (!elTree || typeof elTree !== 'object') return;
               for (const [elemKey, elem] of Object.entries<any>(elTree)) {
                 if (!elem || typeof elem !== 'object') continue;
+                const uniqueElemId = `${pageKey}_${parentId ? `${parentId}_` : ''}${elemKey}`;
                 pageElements.push(elem);
                 elements.push({
-                  id: elemKey,
+                  id: uniqueElemId,
                   name: elem.name || elem.properties?.name || elemKey,
                   type: elem.type || elem.properties?.type || 'Group',
                   page: pageName,
@@ -50,7 +51,7 @@ export class BubbleParser {
                   raw: elem
                 });
                 if (elem.elements || elem.children || elem.sub_elements) {
-                  collectElements(elem.elements || elem.children || elem.sub_elements);
+                  collectElements(elem.elements || elem.children || elem.sub_elements, elemKey);
                 }
               }
             };
@@ -66,9 +67,10 @@ export class BubbleParser {
             });
 
             for (const [wfKey, wf] of Object.entries<any>(pageData.workflows || {})) {
+              const uniqueWfId = `${pageKey}_${wfKey}`;
               if (wf.event_type === 'custom_event') {
                 customEvents.push({
-                  id: wfKey,
+                  id: uniqueWfId,
                   name: wf.name || wfKey,
                   page: pageName,
                   actionsCount: wf.actions ? Object.keys(wf.actions).length : 0,
@@ -76,12 +78,12 @@ export class BubbleParser {
                 });
               } else {
                 workflows.push({
-                  id: wfKey,
+                  id: uniqueWfId,
                   name: wf.name || `When ${wf.element_name || 'Event'} is triggered`,
                   eventType: wf.event_type || 'button_click',
                   page: pageName,
                   actionsCount: wf.actions ? Object.keys(wf.actions).length : 0,
-                  targetElementId: wf.element_id,
+                  targetElementId: wf.element_id ? `${pageKey}_${wf.element_id}` : undefined,
                   raw: wf
                 });
               }
