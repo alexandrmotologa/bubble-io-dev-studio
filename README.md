@@ -1,6 +1,6 @@
 # 🚀 Bubble.io Dev Studio
 
-[![Version](https://img.shields.io/badge/Version-2.5.0--beta-brightgreen.svg)]()
+[![Version](https://img.shields.io/badge/Version-2.7.0--beta-brightgreen.svg)]()
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.7-blue.svg?style=flat&logo=typescript)](https://www.typescriptlang.org/)
 [![Electron](https://img.shields.io/badge/Electron-34-47848F.svg?style=flat&logo=electron)](https://www.electronjs.org/)
 [![React](https://img.shields.io/badge/React-18-61DAFB.svg?style=flat&logo=react)](https://react.dev/)
@@ -158,6 +158,7 @@ Explore detailed engineering specifications and user manuals in the [`docs/`](fi
 - 🔌 [Webhooks & API Studio Guide](file:///b:/workgit/bubble-io-dev-studio/docs/api-studio-guide.md)
 - 📸 [Visual QA & Multi-Viewport Suite Guide](file:///b:/workgit/bubble-io-dev-studio/docs/visual-qa-guide.md)
 - 📚 [DocGen Developer Book Guide](file:///b:/workgit/bubble-io-dev-studio/docs/docgen-guide.md)
+- ⚙️ [Settings & Integrations Hub Guide](file:///b:/workgit/bubble-io-dev-studio/docs/settings-guide.md)
 
 ---
 
