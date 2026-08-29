@@ -878,7 +878,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                             </span>
                           </div>
                           <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '2px', display: 'flex', gap: '8px', alignItems: 'center' }}>
-                            <span>App ID: <code style={{ color: 'var(--text-primary)' }}>{proj.appId}</code></span>
+                            <span>App ID: <code style={{ color: 'var(--text-primary)', letterSpacing: '2px', fontFamily: 'monospace' }}>••••••••••••</code></span>
                             {proj.customDomain && <span>• Domain: <strong>{proj.customDomain}</strong></span>}
                             <span>• Added: {new Date(proj.createdAt).toLocaleDateString()}</span>
                           </div>
