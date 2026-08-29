@@ -13,6 +13,8 @@ The **Settings & Integrations Hub** manages multi-provider AI credentials, Bubbl
 
 ### 2. 🗂️ Bubble Apps & Workspaces (`workspaces`)
 - **Workspace Manager**: View all connected Bubble applications with environment badges (`VERSION-TEST`, `LIVE`), custom domains, and App IDs.
+- **Manual Workspace Editor Modal (`Edit Details`)**: Directly edit application title, Bubble App ID, target environment, custom domain, Data API URL, private bearer API token, and Agency Plan HTTP Basic Auth credentials (username & password).
+- **Full Workspace Bundle Archive (`.bds`)**: 1-Click export and import of portable workspace configurations (schemas, credentials, snapshots, and attached blueprints).
 - **Live Health & Ping**: Real-time HTTP reachability check and latency measurement.
 - **Blueprint Attachment**: Attach or replace `.bubble` JSON export files to unlock automated schema extraction, workflow DAGs, and page route catalogs.
 - **5-Step Verification Pills**: Visual verification status across App Reachability, Token Security, AI Provider, Blueprint sync, and Audit readiness.
