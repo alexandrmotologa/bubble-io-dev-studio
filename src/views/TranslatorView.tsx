@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
   Languages, 
   Sparkles, 
@@ -19,13 +19,22 @@ import {
   Layers,
   Globe,
   Grid,
-  FileCode
+  FileCode,
+  ShieldCheck,
+  Zap,
+  RefreshCw,
+  Copy,
+  Check,
+  Sliders,
+  Share2
 } from 'lucide-react';
 import { CostEstimate, ProjectProfile, TranslationItem, TranslationJobConfig, TranslationMemoryStats, TranslationProviderType } from '../types';
 import { TranslatorEngine } from '../core/translator/translatorEngine';
 import { BUBBLE_LANGUAGES, DEFAULT_TARGET_LANGUAGE, DEFAULT_SOURCE_LANGUAGE, getLanguageDisplayName } from '../core/translator/bubbleLanguages';
 import { SearchableLanguageSelect } from '../components/SearchableLanguageSelect';
 import { AI_PROVIDERS, PROVIDER_MODELS, getProviderForModel } from '../core/ai/aiProviders';
+import { toast } from '../core/toast/toastManager';
+import { PseudoLocalizerEngine } from '../core/translator/pseudoLocalizer';
 
 interface TranslatorViewProps {
   onLog: (module: 'translator', message: string, level?: 'info' | 'success' | 'warn' | 'error') => void;
@@ -77,6 +86,45 @@ export const TranslatorView: React.FC<TranslatorViewProps> = ({
   const [useCache, setUseCache] = useState(true);
   const [isTranslating, setIsTranslating] = useState(false);
 
+  // Filters
+  const [categoryFilter, setCategoryFilter] = useState<string>('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'translated'>('all');
+  const [searchTerm, setSearchTerm] = useState('');
+
+  // Glossary State
+  const [glossary, setGlossary] = useState<Record<string, string>>(TranslatorEngine.getGlossary());
+  const [newGlossaryTerm, setNewGlossaryTerm] = useState('');
+  const [newGlossaryRepl, setNewGlossaryRepl] = useState('');
+  const [glossarySearch, setGlossarySearch] = useState('');
+
+  // Cache Memory State
+  const [memoryStats, setMemoryStats] = useState<TranslationMemoryStats>(TranslatorEngine.getMemoryStats());
+
+  // Pseudo-localization Interactive State
+  const [pseudoCustomInput, setPseudoCustomInput] = useState('Save changes and proceed to dashboard');
+  const [pseudoExpansionPercent, setPseudoExpansionPercent] = useState<number>(30);
+
+  // Add Item State
+  const [newSourceText, setNewSourceText] = useState('');
+  const [newKey, setNewKey] = useState('');
+  const [newCategory, setNewCategory] = useState<'ui' | 'error' | 'notification' | 'email' | 'db_value' | 'option_set'>('ui');
+
+  // Progress State
+  const [progress, setProgress] = useState<{ current: number; total: number }>({ current: 0, total: 0 });
+  const [multiProgress, setMultiProgress] = useState<{
+    currentLang: string;
+    langIndex: number;
+    totalLangs: number;
+    itemIndex: number;
+    totalItems: number;
+  }>({
+    currentLang: '',
+    langIndex: 0,
+    totalLangs: 0,
+    itemIndex: 0,
+    totalItems: 0
+  });
+
   // Sync Provider & Model from active project or default settings
   useEffect(() => {
     if (activeProject?.aiProvider) {
@@ -102,41 +150,12 @@ export const TranslatorView: React.FC<TranslatorViewProps> = ({
     }
   }, [activeProject?.id, activeProject?.blueprintFileName, activeProject?.blueprintExportJson]);
 
-  const [progress, setProgress] = useState<{ current: number; total: number }>({ current: 0, total: 0 });
-  const [multiProgress, setMultiProgress] = useState<{
-    currentLang: string;
-    langIndex: number;
-    totalLangs: number;
-    itemIndex: number;
-    totalItems: number;
-  }>({
-    currentLang: '',
-    langIndex: 0,
-    totalLangs: 0,
-    itemIndex: 0,
-    totalItems: 0
-  });
-
-  const [searchTerm, setSearchTerm] = useState('');
-
-  // Glossary State
-  const [glossary, setGlossary] = useState<Record<string, string>>(TranslatorEngine.getGlossary());
-  const [newGlossaryTerm, setNewGlossaryTerm] = useState('');
-  const [newGlossaryRepl, setNewGlossaryRepl] = useState('');
-
-  // Cache Memory State
-  const [memoryStats, setMemoryStats] = useState<TranslationMemoryStats>(TranslatorEngine.getMemoryStats());
-
-  // Cost Estimates
-  const [costEstimates, setCostEstimates] = useState<CostEstimate[]>([]);
-
-  // Add Item State
-  const [newSourceText, setNewSourceText] = useState('');
-  const [newKey, setNewKey] = useState('');
-  const [newCategory, setNewCategory] = useState<'ui' | 'error' | 'notification' | 'email' | 'db_value' | 'option_set'>('ui');
+  // Cost estimates
+  const costEstimates = useMemo(() => {
+    return TranslatorEngine.estimateCosts(items);
+  }, [items]);
 
   useEffect(() => {
-    setCostEstimates(TranslatorEngine.estimateCosts(items));
     setMemoryStats(TranslatorEngine.getMemoryStats());
   }, [items]);
 
@@ -146,12 +165,6 @@ export const TranslatorView: React.FC<TranslatorViewProps> = ({
       setActiveDisplayLang(selectedTargetLangs[0]);
     }
   }, [selectedTargetLangs]);
-
-  const handleLoadSampleData = () => {
-    const sampleItems = TranslatorEngine.getSampleItems();
-    setItems(sampleItems);
-    onLog('translator', `Loaded sample Bubble translation dataset (${sampleItems.length} strings).`, 'info');
-  };
 
   const handleProviderChange = (newProvider: TranslationProviderType) => {
     setProvider(newProvider);
@@ -168,6 +181,7 @@ export const TranslatorView: React.FC<TranslatorViewProps> = ({
     setProgress({ current: 0, total: totalOps });
 
     onLog('translator', `Starting AI translation across ${selectedTargetLangs.length} language(s) [${selectedTargetLangs.join(', ')}] using ${provider.toUpperCase()} (${model})...`);
+    toast.info(`Translating ${items.length} strings across ${selectedTargetLangs.length} languages...`);
 
     const baseConfig: Omit<TranslationJobConfig, 'targetLang'> = {
       sourceLang,
@@ -188,29 +202,74 @@ export const TranslatorView: React.FC<TranslatorViewProps> = ({
         (langIdx, totalLangs, itemIdx, totalItems, currentLang) => {
           setMultiProgress({ currentLang, langIndex: langIdx, totalLangs, itemIndex: itemIdx, totalItems });
           setProgress({ current: (langIdx - 1) * totalItems + itemIdx, total: totalLangs * totalItems });
-          onLog('translator', `[${currentLang.toUpperCase()}] Translated string ${itemIdx}/${totalItems} (Language ${langIdx}/${totalLangs})...`);
         }
       );
 
       setItems(multiResult.items);
       setMemoryStats(TranslatorEngine.getMemoryStats());
+      toast.success(`Translation completed! ${items.length} strings translated across ${selectedTargetLangs.length} languages.`);
       onLog('translator', `Multi-language translation completed! Processed ${items.length} strings across ${selectedTargetLangs.length} languages (${multiResult.tokensUsed} tokens used).`, 'success');
     } catch (e: any) {
+      toast.error(`Translation error: ${e.message}`);
       onLog('translator', `Translation error: ${e.message}`, 'error');
     } finally {
       setIsTranslating(false);
     }
   };
 
+  const handleTranslateSingleItem = async (itemId: string, targetLang: string) => {
+    const item = items.find(i => i.id === itemId);
+    if (!item) return;
+
+    toast.info(`Translating '${item.key}' to ${targetLang.toUpperCase()}...`);
+    const config: TranslationJobConfig = {
+      sourceLang,
+      targetLang,
+      provider,
+      model,
+      temperature: 0.3,
+      tone,
+      useGlossary,
+      useCache,
+      glossary
+    };
+
+    try {
+      const res = await TranslatorEngine.runTranslation([item], config);
+      if (res.items[0]) {
+        const translatedText = res.items[0].translatedText || '';
+        setItems(prev => prev.map(it => {
+          if (it.id === itemId) {
+            const updatedTrans = { ...(it.translations || {}), [targetLang]: translatedText };
+            return {
+              ...it,
+              translations: updatedTrans,
+              translatedText: targetLang === activeDisplayLang ? translatedText : it.translatedText,
+              status: 'translated'
+            };
+          }
+          return it;
+        }));
+        toast.success(`Translated '${item.key}' to ${targetLang.toUpperCase()}`);
+      }
+    } catch (e: any) {
+      toast.error(`Failed to translate: ${e.message}`);
+    }
+  };
+
   const handleRunPseudoLocalization = () => {
-    const pseudoItems = TranslatorEngine.generatePseudoLocalization(items);
+    const pseudoItems = items.map(item => ({
+      ...item,
+      translatedText: PseudoLocalizerEngine.localize(item.sourceText, pseudoExpansionPercent),
+      status: 'translated' as const
+    }));
     setItems(pseudoItems);
-    onLog('translator', `Generated pseudo-localization for ${items.length} strings with expansion padding for UI layout testing.`, 'success');
+    toast.success(`Applied pseudo-localization (${pseudoExpansionPercent}% expansion) to ${items.length} strings`);
+    onLog('translator', `Generated pseudo-localization for ${items.length} strings with ${pseudoExpansionPercent}% expansion padding for UI layout testing.`, 'success');
   };
 
   const handleExportSingleCsv = (lang: string) => {
     if (items.length === 0) return;
-    // Map items for this specific language
     const langItems = items.map(item => ({
       ...item,
       translatedText: item.translations?.[lang] || item.translatedText || ''
@@ -223,6 +282,8 @@ export const TranslatorView: React.FC<TranslatorViewProps> = ({
     a.href = url;
     a.download = `bubble_translations_${lang}_${Date.now()}.csv`;
     a.click();
+    URL.revokeObjectURL(url);
+    toast.success(`Exported Bubble CSV for ${lang.toUpperCase()}`);
     onLog('translator', `Exported Bubble App Text CSV for ${lang.toUpperCase()}.`, 'success');
   };
 
@@ -253,6 +314,8 @@ export const TranslatorView: React.FC<TranslatorViewProps> = ({
     a.href = url;
     a.download = `bubble_multi_language_bundle_${Date.now()}.json`;
     a.click();
+    URL.revokeObjectURL(url);
+    toast.success(`Exported Consolidated JSON for ${selectedTargetLangs.length} languages`);
     onLog('translator', `Exported Consolidated JSON for ${selectedTargetLangs.length} languages.`, 'success');
   };
 
@@ -266,14 +329,17 @@ export const TranslatorView: React.FC<TranslatorViewProps> = ({
       if (file.name.endsWith('.csv')) {
         const parsed = TranslatorEngine.parseBubbleCsv(content);
         setItems(parsed);
+        toast.success(`Imported ${parsed.length} strings from Bubble CSV`);
         onLog('translator', `Imported ${parsed.length} strings from Bubble CSV: ${file.name}`, 'success');
       } else {
         try {
           const json = JSON.parse(content);
           const extracted = TranslatorEngine.extractFromBubbleJson(json);
           setItems(extracted);
+          toast.success(`Extracted ${extracted.length} strings from ${file.name}`);
           onLog('translator', `Extracted ${extracted.length} strings & Option Sets from ${file.name}`, 'success');
         } catch {
+          toast.error(`Failed to parse ${file.name}`);
           onLog('translator', `Failed to parse ${file.name}`, 'error');
         }
       }
@@ -284,17 +350,41 @@ export const TranslatorView: React.FC<TranslatorViewProps> = ({
   const handleLoadSampleStrings = () => {
     const samples = TranslatorEngine.getSampleItems();
     setItems(samples);
+    toast.info(`Loaded ${samples.length} sample application texts`);
     onLog('translator', `Loaded ${samples.length} sample application texts for testing.`, 'info');
   };
 
   const handleAddGlossaryTerm = () => {
-    if (!newGlossaryTerm.trim()) return;
+    if (!newGlossaryTerm.trim()) {
+      toast.warn('Please enter a protected term');
+      return;
+    }
     const updated = { ...glossary, [newGlossaryTerm.trim()]: newGlossaryRepl.trim() || newGlossaryTerm.trim() };
     setGlossary(updated);
     TranslatorEngine.saveGlossary(updated);
     setNewGlossaryTerm('');
     setNewGlossaryRepl('');
+    toast.success(`Added protected term: "${newGlossaryTerm.trim()}"`);
     onLog('translator', `Added protected glossary term: "${newGlossaryTerm}"`);
+  };
+
+  const handleInjectStandardGlossary = () => {
+    const bubblePresets = {
+      'Bubble': 'Bubble',
+      'Bubble.io': 'Bubble.io',
+      'Stripe': 'Stripe',
+      'OAuth': 'OAuth',
+      'Webhook': 'Webhook',
+      'API': 'API',
+      '[Current User]': '[Current User]',
+      "[Current User's email]": "[Current User's email]",
+      "[Parent group's Thing]": "[Parent group's Thing]",
+      '[Result of step 1]': '[Result of step 1]'
+    };
+    const merged = { ...glossary, ...bubblePresets };
+    setGlossary(merged);
+    TranslatorEngine.saveGlossary(merged);
+    toast.success('Injected Bubble Standard Token Presets into Glossary');
   };
 
   const handleRemoveGlossaryTerm = (term: string) => {
@@ -302,17 +392,22 @@ export const TranslatorView: React.FC<TranslatorViewProps> = ({
     delete updated[term];
     setGlossary(updated);
     TranslatorEngine.saveGlossary(updated);
+    toast.info(`Removed term: "${term}"`);
     onLog('translator', `Removed glossary term: "${term}"`);
   };
 
   const handleClearCache = () => {
     TranslatorEngine.clearMemoryCache();
     setMemoryStats(TranslatorEngine.getMemoryStats());
+    toast.warn('Cleared translation memory cache');
     onLog('translator', 'Translation memory cache cleared.', 'warn');
   };
 
   const handleAddItem = () => {
-    if (!newSourceText.trim()) return;
+    if (!newSourceText.trim()) {
+      toast.warn('Please enter source text to add');
+      return;
+    }
     const newItem: TranslationItem = {
       id: `custom_${Date.now()}`,
       key: newKey.trim() || `app_text_${items.length + 1}`,
@@ -324,6 +419,7 @@ export const TranslatorView: React.FC<TranslatorViewProps> = ({
     setItems([newItem, ...items]);
     setNewSourceText('');
     setNewKey('');
+    toast.success(`Added new text: ${newItem.key}`);
     onLog('translator', `Added new text entry: '${newItem.key}'`);
   };
 
@@ -335,83 +431,175 @@ export const TranslatorView: React.FC<TranslatorViewProps> = ({
           ...item,
           translations: updatedTrans,
           translatedText: lang === activeDisplayLang ? text : item.translatedText,
-          status: 'reviewed'
+          status: text.trim() ? 'reviewed' : 'pending'
         };
       }
       return item;
     }));
   };
 
-  const filteredItems = items.filter(item => {
-    const q = searchTerm.toLowerCase();
-    const matchesKey = item.key.toLowerCase().includes(q);
-    const matchesSource = item.sourceText.toLowerCase().includes(q);
-    const matchesCurrent = item.translations?.[activeDisplayLang]?.toLowerCase().includes(q) || item.translatedText?.toLowerCase().includes(q);
-    return !searchTerm || matchesKey || matchesSource || matchesCurrent;
-  });
+  // Filtered Items
+  const filteredItems = useMemo(() => {
+    return items.filter(item => {
+      const q = searchTerm.toLowerCase();
+      const matchesSearch = !searchTerm || 
+        item.key.toLowerCase().includes(q) || 
+        item.sourceText.toLowerCase().includes(q) ||
+        (item.translations?.[activeDisplayLang] || item.translatedText || '').toLowerCase().includes(q);
+      
+      const matchesCategory = categoryFilter === 'all' || item.category === categoryFilter;
+      
+      const currentTranslation = item.translations?.[activeDisplayLang] || (activeDisplayLang === selectedTargetLangs[0] ? item.translatedText : '');
+      const matchesStatus = statusFilter === 'all' || 
+        (statusFilter === 'translated' && Boolean(currentTranslation)) ||
+        (statusFilter === 'pending' && !currentTranslation);
+
+      return matchesSearch && matchesCategory && matchesStatus;
+    });
+  }, [items, searchTerm, categoryFilter, statusFilter, activeDisplayLang, selectedTargetLangs]);
+
+  // Category counts
+  const categoryCounts = useMemo(() => {
+    const counts: Record<string, number> = { all: items.length };
+    for (const it of items) {
+      counts[it.category] = (counts[it.category] || 0) + 1;
+    }
+    return counts;
+  }, [items]);
+
+  // Glossary filtered entries
+  const filteredGlossary = useMemo(() => {
+    return Object.entries(glossary).filter(([term, repl]) => {
+      const q = glossarySearch.toLowerCase();
+      return !glossarySearch || term.toLowerCase().includes(q) || repl.toLowerCase().includes(q);
+    });
+  }, [glossary, glossarySearch]);
 
   return (
     <div className="view-container">
-      {/* Sub Navigation */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
-        <div style={{ display: 'flex', gap: '6px', background: 'var(--bg-input)', padding: '4px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-subtle)', flexWrap: 'wrap' }}>
-          <button onClick={() => setSubTab('studio')} className={`btn btn-sm ${subTab === 'studio' ? 'btn-primary' : 'btn-secondary'}`} style={{ border: 'none' }}>
-            <Languages size={13} />
-            <span>Localization Studio ({items.length})</span>
-          </button>
-          <button onClick={() => setSubTab('glossary')} className={`btn btn-sm ${subTab === 'glossary' ? 'btn-primary' : 'btn-secondary'}`} style={{ border: 'none' }}>
-            <BookOpen size={13} />
-            <span>Protected Glossary ({Object.keys(glossary).length})</span>
-          </button>
-          <button onClick={() => setSubTab('cache')} className={`btn btn-sm ${subTab === 'cache' ? 'btn-primary' : 'btn-secondary'}`} style={{ border: 'none' }}>
-            <Database size={13} />
-            <span>Translation Memory</span>
-          </button>
-          <button onClick={() => setSubTab('pseudo')} className={`btn btn-sm ${subTab === 'pseudo' ? 'btn-primary' : 'btn-secondary'}`} style={{ border: 'none' }}>
-            <FileText size={13} />
-            <span>Pseudo-Localization</span>
-          </button>
-          <button onClick={() => setSubTab('cost')} className={`btn btn-sm ${subTab === 'cost' ? 'btn-primary' : 'btn-secondary'}`} style={{ border: 'none' }}>
-            <DollarSign size={13} />
-            <span>Cost Estimator</span>
-          </button>
-        </div>
+      {/* Header Banner */}
+      <div className="card" style={{ background: 'linear-gradient(135deg, rgba(6, 182, 212, 0.12) 0%, rgba(99, 102, 241, 0.08) 100%)', border: '1px solid var(--border-active)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+            <div style={{
+              width: '44px',
+              height: '44px',
+              borderRadius: '12px',
+              background: 'linear-gradient(135deg, #06b6d4 0%, #6366f1 100%)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: '#fff',
+              boxShadow: '0 8px 20px -4px rgba(6, 182, 212, 0.4)'
+            }}>
+              <Languages size={24} />
+            </div>
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <h1 style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>
+                  AI Localization & Translation Studio
+                </h1>
+                <span className="badge badge-cyan">v2.7.0-beta</span>
+              </div>
+              <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
+                Multi-Provider AI localization, 77+ languages, brand glossary protection & 1-click Bubble CSV sync for <strong>{activeProject?.name || 'Workspace'}</strong>
+              </div>
+            </div>
+          </div>
 
-        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-          <label className="btn btn-secondary btn-sm" style={{ cursor: 'pointer', margin: 0 }}>
-            <Upload size={13} />
-            <span>Import Bubble CSV / .bubble</span>
-            <input type="file" accept=".csv,.json,.bubble" onChange={handleFileUpload} style={{ display: 'none' }} />
-          </label>
+          {/* Top Actions */}
+          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+            <label className="btn btn-secondary btn-sm" style={{ cursor: 'pointer', margin: 0 }}>
+              <Upload size={13} />
+              <span>Import CSV / .bubble</span>
+              <input type="file" accept=".csv,.json,.bubble" onChange={handleFileUpload} style={{ display: 'none' }} />
+            </label>
 
-          {selectedTargetLangs.length > 1 ? (
-            <div style={{ display: 'flex', gap: '6px' }}>
-              <button
-                onClick={handleExportAllLanguages}
-                disabled={items.length === 0}
+            {selectedTargetLangs.length > 1 ? (
+              <div style={{ display: 'flex', gap: '6px' }}>
+                <button
+                  onClick={handleExportAllLanguages}
+                  disabled={items.length === 0}
+                  className="btn btn-primary btn-sm"
+                  title="Export separate CSV files for all selected languages"
+                >
+                  <Download size={13} />
+                  <span>Export {selectedTargetLangs.length} CSVs</span>
+                </button>
+                <button
+                  onClick={handleExportJsonBundle}
+                  disabled={items.length === 0}
+                  className="btn btn-secondary btn-sm"
+                  title="Export single consolidated JSON for all target languages"
+                >
+                  <FileCode size={13} />
+                  <span>JSON Bundle</span>
+                </button>
+              </div>
+            ) : (
+              <button 
+                onClick={() => handleExportSingleCsv(selectedTargetLangs[0] || 'en_us')} 
+                disabled={items.length === 0} 
                 className="btn btn-primary btn-sm"
-                title="Export separate CSV files for all selected languages"
               >
                 <Download size={13} />
-                <span>Export {selectedTargetLangs.length} CSVs</span>
+                <span>Export Bubble CSV ({selectedTargetLangs[0]?.toUpperCase()})</span>
               </button>
-              <button
-                onClick={handleExportJsonBundle}
-                disabled={items.length === 0}
-                className="btn btn-secondary btn-sm"
-                title="Export single consolidated JSON for all target languages"
-              >
-                <FileCode size={13} />
-                <span>JSON Bundle</span>
-              </button>
-            </div>
-          ) : (
-            <button onClick={() => handleExportSingleCsv(selectedTargetLangs[0] || 'en_us')} disabled={items.length === 0} className="btn btn-primary btn-sm">
-              <Download size={13} />
-              <span>Export Bubble CSV ({selectedTargetLangs[0]?.toUpperCase()})</span>
-            </button>
-          )}
+            )}
+          </div>
         </div>
+      </div>
+
+      {/* Subtab Navigation */}
+      <div style={{
+        display: 'flex',
+        gap: '6px',
+        background: 'var(--bg-input)',
+        padding: '4px',
+        borderRadius: 'var(--radius-md)',
+        border: '1px solid var(--border-subtle)',
+        overflowX: 'auto'
+      }}>
+        <button
+          onClick={() => setSubTab('studio')}
+          className={`btn btn-sm ${subTab === 'studio' ? 'btn-primary' : 'btn-secondary'}`}
+          style={{ border: 'none', whiteSpace: 'nowrap' }}
+        >
+          <Languages size={13} />
+          <span>Localization Studio ({items.length})</span>
+        </button>
+        <button
+          onClick={() => setSubTab('glossary')}
+          className={`btn btn-sm ${subTab === 'glossary' ? 'btn-primary' : 'btn-secondary'}`}
+          style={{ border: 'none', whiteSpace: 'nowrap' }}
+        >
+          <BookOpen size={13} />
+          <span>Brand Glossary ({Object.keys(glossary).length})</span>
+        </button>
+        <button
+          onClick={() => setSubTab('cache')}
+          className={`btn btn-sm ${subTab === 'cache' ? 'btn-primary' : 'btn-secondary'}`}
+          style={{ border: 'none', whiteSpace: 'nowrap' }}
+        >
+          <Database size={13} />
+          <span>Translation Memory ({memoryStats.totalCachedEntries})</span>
+        </button>
+        <button
+          onClick={() => setSubTab('pseudo')}
+          className={`btn btn-sm ${subTab === 'pseudo' ? 'btn-primary' : 'btn-secondary'}`}
+          style={{ border: 'none', whiteSpace: 'nowrap' }}
+        >
+          <FileText size={13} />
+          <span>Pseudo-Localization Testing</span>
+        </button>
+        <button
+          onClick={() => setSubTab('cost')}
+          className={`btn btn-sm ${subTab === 'cost' ? 'btn-primary' : 'btn-secondary'}`}
+          style={{ border: 'none', whiteSpace: 'nowrap' }}
+        >
+          <DollarSign size={13} />
+          <span>Token & Cost Estimator</span>
+        </button>
       </div>
 
       {/* Hero Configuration Toolbar */}
@@ -419,7 +607,7 @@ export const TranslatorView: React.FC<TranslatorViewProps> = ({
         <div className="card-header">
           <div>
             <div className="card-title">
-              <Languages size={20} color="var(--accent-cyan)" />
+              <Zap size={18} color="var(--accent-cyan)" />
               <span>Multi-Provider AI Localization Engine</span>
             </div>
             <div className="card-subtitle">
@@ -448,8 +636,8 @@ export const TranslatorView: React.FC<TranslatorViewProps> = ({
         </div>
 
         {/* Translation Configuration Grid */}
-        <div className="grid-4" style={{ marginTop: '12px', alignItems: 'flex-start' }}>
-          {/* 1. Searchable Target Languages Dropdown */}
+        <div className="grid-4" style={{ marginTop: '12px', alignItems: 'flex-start', gap: '14px' }}>
+          {/* 1. Target Languages Multi-select */}
           <div style={{ gridColumn: 'span 2' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
               <label className="input-label" style={{ margin: 0 }}>
@@ -469,14 +657,14 @@ export const TranslatorView: React.FC<TranslatorViewProps> = ({
           {/* 2. Provider Selector */}
           <div>
             <label className="input-label">AI Provider</label>
-            <select value={provider} onChange={e => handleProviderChange(e.target.value as any)} className="select">
+            <select value={provider} onChange={e => handleProviderChange(e.target.value as any)} className="select select-premium">
               <option value="gemini">Google Gemini (Gemini 2.0 / 1.5)</option>
               <option value="openai">OpenAI (GPT-4o / GPT-4o-mini)</option>
-              <option value="anthropic">Anthropic (Claude 3.5 Sonnet / Haiku)</option>
+              <option value="anthropic">Anthropic (Claude 3.7 Sonnet / Haiku)</option>
               <option value="groq">Groq (Ultra-Fast LPUs)</option>
               <option value="xai">xAI (Grok)</option>
               <option value="opencode">OpenCode (Go / Zen)</option>
-              <option value="openrouter">OpenRouter (Global Multi-LLM)</option>
+              <option value="openrouter">OpenRouter (Multi-LLM)</option>
               <option value="ollama">Ollama (Local / Free Offline)</option>
               <option value="mock">Built-in Studio Engine</option>
             </select>
@@ -485,7 +673,7 @@ export const TranslatorView: React.FC<TranslatorViewProps> = ({
           {/* 3. Model Selector */}
           <div>
             <label className="input-label">Model for {provider.toUpperCase()}</label>
-            <select value={model} onChange={e => setModel(e.target.value)} className="select">
+            <select value={model} onChange={e => setModel(e.target.value)} className="select select-premium">
               {PROVIDER_MODELS[provider]?.map(m => (
                 <option key={m.id} value={m.id}>{m.name}</option>
               ))}
@@ -500,7 +688,7 @@ export const TranslatorView: React.FC<TranslatorViewProps> = ({
             <select
               value={tone}
               onChange={e => setTone(e.target.value as any)}
-              className="select"
+              className="select select-premium"
               style={{ width: 'auto', padding: '4px 10px', height: '30px', fontSize: '0.8rem' }}
             >
               <option value="professional">Professional (Default)</option>
@@ -539,7 +727,9 @@ export const TranslatorView: React.FC<TranslatorViewProps> = ({
         )}
       </div>
 
-      {/* SUBTAB 1: LOCALIZATION STUDIO */}
+      {/* =====================================================================
+          SUBTAB 1: LOCALIZATION STUDIO & MATRIX
+          ===================================================================== */}
       {subTab === 'studio' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           {/* Add String Row */}
@@ -551,7 +741,7 @@ export const TranslatorView: React.FC<TranslatorViewProps> = ({
               </div>
               <div style={{ width: '140px' }}>
                 <label className="input-label">Category</label>
-                <select value={newCategory} onChange={e => setNewCategory(e.target.value as any)} className="select">
+                <select value={newCategory} onChange={e => setNewCategory(e.target.value as any)} className="select select-premium">
                   <option value="ui">UI Label</option>
                   <option value="error">Error Message</option>
                   <option value="notification">Notification</option>
@@ -570,7 +760,95 @@ export const TranslatorView: React.FC<TranslatorViewProps> = ({
             </div>
           </div>
 
-          {/* EMPTY STATE: No items */}
+          {/* Filtering Controls Bar */}
+          <div className="card" style={{ padding: '12px 16px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
+              {/* Category Pills */}
+              <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center' }}>
+                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Category:</span>
+                {(['all', 'ui', 'error', 'notification', 'email', 'option_set'] as const).map(cat => (
+                  <button
+                    key={cat}
+                    onClick={() => setCategoryFilter(cat)}
+                    className={`btn btn-sm ${categoryFilter === cat ? 'btn-primary' : 'btn-secondary'}`}
+                    style={{ fontSize: '0.725rem', padding: '3px 8px', height: '26px' }}
+                  >
+                    <span>{cat.toUpperCase()}</span>
+                    {categoryCounts[cat] !== undefined && (
+                      <span style={{ opacity: 0.7, marginLeft: '2px' }}>({categoryCounts[cat]})</span>
+                    )}
+                  </button>
+                ))}
+              </div>
+
+              {/* Status Filter & Search */}
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+                <select
+                  value={statusFilter}
+                  onChange={e => setStatusFilter(e.target.value as any)}
+                  className="select select-premium"
+                  style={{ width: 'auto', height: '32px', fontSize: '0.75rem', padding: '0 8px' }}
+                >
+                  <option value="all">All Statuses</option>
+                  <option value="pending">Pending Only</option>
+                  <option value="translated">Ready / Translated</option>
+                </select>
+
+                <div className="search-wrapper-premium" style={{ width: '220px' }}>
+                  <Search size={13} className="search-icon-premium" />
+                  <input
+                    type="text"
+                    placeholder="Search strings..."
+                    value={searchTerm}
+                    onChange={e => setSearchTerm(e.target.value)}
+                    className="search-input-premium"
+                  />
+                </div>
+
+                {/* View Mode Toggle */}
+                {selectedTargetLangs.length > 1 && (
+                  <div style={{ display: 'flex', gap: '4px', background: 'var(--bg-input)', padding: '2px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)' }}>
+                    <button
+                      onClick={() => setViewMode('single')}
+                      className={`btn btn-sm ${viewMode === 'single' ? 'btn-primary' : 'btn-secondary'}`}
+                      style={{ border: 'none', height: '28px', fontSize: '0.725rem', padding: '0 8px' }}
+                    >
+                      Single View
+                    </button>
+                    <button
+                      onClick={() => setViewMode('matrix')}
+                      className={`btn btn-sm ${viewMode === 'matrix' ? 'btn-primary' : 'btn-secondary'}`}
+                      style={{ border: 'none', height: '28px', fontSize: '0.725rem', padding: '0 8px' }}
+                    >
+                      <Grid size={12} />
+                      <span>Matrix ({selectedTargetLangs.length})</span>
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Target Language Switcher Chips for Single View */}
+            {viewMode === 'single' && selectedTargetLangs.length > 1 && (
+              <div style={{ display: 'flex', gap: '4px', alignItems: 'center', flexWrap: 'wrap', marginTop: '10px', paddingTop: '10px', borderTop: '1px solid var(--border-subtle)' }}>
+                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Active Target Language:</span>
+                {selectedTargetLangs.map(lang => (
+                  <button
+                    key={lang}
+                    type="button"
+                    onClick={() => setActiveDisplayLang(lang)}
+                    className={`btn btn-sm ${activeDisplayLang === lang ? 'btn-primary' : 'btn-secondary'}`}
+                    style={{ fontSize: '0.725rem', padding: '3px 8px', height: '26px' }}
+                  >
+                    <span>{lang.toUpperCase()}</span>
+                    <span style={{ opacity: 0.65, fontSize: '0.65rem' }}>({getLanguageDisplayName(lang)})</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* EMPTY STATE */}
           {items.length === 0 ? (
             <div className="card" style={{
               textAlign: 'center',
@@ -587,12 +865,13 @@ export const TranslatorView: React.FC<TranslatorViewProps> = ({
               </p>
 
               <div style={{ display: 'flex', justifyContent: 'center', gap: '14px', flexWrap: 'wrap' }}>
-                {activeProject?.blueprintExportJson ? (
+                {activeProject?.blueprintExportJson && (
                   <button
                     onClick={() => {
                       const extracted = TranslatorEngine.extractFromBlueprint(activeProject.blueprintExportJson);
                       setItems(extracted);
-                      onLog('translator', `Extracted ${extracted.length} real strings from ${activeProject.name}'s blueprint (${activeProject.blueprintFileName || 'export.bubble'})`, 'success');
+                      toast.success(`Extracted ${extracted.length} strings from ${activeProject.name}`);
+                      onLog('translator', `Extracted ${extracted.length} real strings from ${activeProject.name}'s blueprint`, 'success');
                     }}
                     className="btn btn-primary"
                     style={{ padding: '10px 20px', background: 'linear-gradient(135deg, var(--primary), var(--accent-cyan))' }}
@@ -600,7 +879,7 @@ export const TranslatorView: React.FC<TranslatorViewProps> = ({
                     <Sparkles size={16} />
                     <span>Extract All Strings from Attached .bubble Blueprint</span>
                   </button>
-                ) : null}
+                )}
 
                 <label className="btn btn-secondary" style={{ cursor: 'pointer', padding: '10px 20px' }}>
                   <Upload size={16} />
@@ -608,239 +887,141 @@ export const TranslatorView: React.FC<TranslatorViewProps> = ({
                   <input type="file" accept=".csv,.json,.bubble" onChange={handleFileUpload} style={{ display: 'none' }} />
                 </label>
 
-                <button onClick={handleLoadSampleStrings} className="btn btn-secondary" style={{ padding: '10px 20px', opacity: 0.8 }} title="Load demo placeholder strings for quick testing">
+                <button onClick={handleLoadSampleStrings} className="btn btn-secondary" style={{ padding: '10px 20px' }}>
                   <FileCode size={16} />
-                  <span>Load Demo Sample Texts</span>
+                  <span>Load Sample Application Texts</span>
                 </button>
               </div>
             </div>
-          ) : (
-            <>
-              {/* Language Switcher Tabs & View Mode Selector */}
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                  <div style={{ position: 'relative', width: '240px' }}>
-                    <Search size={13} style={{ position: 'absolute', left: '10px', top: '11px', color: 'var(--text-muted)' }} />
-                    <input type="text" placeholder="Filter strings..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="input" style={{ paddingLeft: '30px', height: '34px', fontSize: '0.8rem' }} />
-                  </div>
+          ) : viewMode === 'single' ? (
+            /* Single Language Card List */
+            <div className="card">
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {filteredItems.map(item => {
+                  const currentTranslation = item.translations?.[activeDisplayLang] || (activeDisplayLang === selectedTargetLangs[0] ? item.translatedText : '') || '';
+                  const isTranslated = Boolean(currentTranslation);
 
-                  {/* Multi-language view switcher */}
-                  {selectedTargetLangs.length > 1 && (
-                    <div style={{ display: 'flex', gap: '4px', background: 'var(--bg-input)', padding: '2px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)' }}>
-                      <button
-                        onClick={() => setViewMode('single')}
-                        className={`btn btn-sm ${viewMode === 'single' ? 'btn-primary' : 'btn-secondary'}`}
-                        style={{ border: 'none', height: '28px', fontSize: '0.725rem', padding: '0 8px' }}
-                      >
-                        Single View
-                      </button>
-                      <button
-                        onClick={() => setViewMode('matrix')}
-                        className={`btn btn-sm ${viewMode === 'matrix' ? 'btn-primary' : 'btn-secondary'}`}
-                        style={{ border: 'none', height: '28px', fontSize: '0.725rem', padding: '0 8px' }}
-                      >
-                        <Grid size={12} />
-                        <span>Matrix View ({selectedTargetLangs.length} Langs)</span>
-                      </button>
-                    </div>
-                  )}
-                </div>
-
-                {/* Target Language Switcher Chips */}
-                {viewMode === 'single' && selectedTargetLangs.length > 1 && (
-                  <div style={{ display: 'flex', gap: '4px', alignItems: 'center', flexWrap: 'wrap' }}>
-                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Viewing:</span>
-                    {selectedTargetLangs.map(lang => (
-                      <button
-                        key={lang}
-                        type="button"
-                        onClick={() => setActiveDisplayLang(lang)}
-                        className={`btn btn-sm ${activeDisplayLang === lang ? 'btn-primary' : 'btn-secondary'}`}
-                        style={{ fontSize: '0.725rem', padding: '3px 8px', height: '26px' }}
-                      >
-                        <span>{lang.toUpperCase()}</span>
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {/* Table rendering based on viewMode */}
-              {filteredItems.length === 0 ? (
-                <div className="card" style={{ padding: '36px 24px', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px' }}>
-                  <div style={{
-                    width: '54px',
-                    height: '54px',
-                    borderRadius: '50%',
-                    background: 'rgba(6, 182, 212, 0.12)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    color: 'var(--accent-cyan)'
-                  }}>
-                    <Languages size={28} />
-                  </div>
-
-                  <div>
-                    <h3 style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 6px' }}>
-                      No Application Strings Loaded Yet
-                    </h3>
-                    <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', maxWidth: '560px', margin: '0 auto', lineHeight: 1.6 }}>
-                      Import your Bubble App Texts CSV or attach your <code>.bubble</code> blueprint file to translate all UI strings into 50+ languages simultaneously using AI.
-                    </p>
-                  </div>
-
-                  {/* Step by step Bubble export guide */}
-                  <div style={{
-                    width: '100%',
-                    maxWidth: '620px',
-                    padding: '16px 20px',
-                    borderRadius: 'var(--radius-md)',
-                    background: 'var(--bg-input)',
-                    border: '1px solid var(--border-subtle)',
-                    textAlign: 'left',
-                    fontSize: '0.8rem',
-                    lineHeight: 1.7,
-                    color: 'var(--text-secondary)'
-                  }}>
-                    <div style={{ fontWeight: 700, color: 'var(--text-primary)', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <Sparkles size={15} color="var(--accent-cyan)" />
-                      <span>How to export & translate App Texts from Bubble.io:</span>
-                    </div>
-                    <div>1. <strong>In Bubble Editor:</strong> Click <strong>Settings (⚙️)</strong> ➔ <strong>Languages</strong> tab.</div>
-                    <div>2. <strong>Export CSV:</strong> Click <strong>"Export all text to CSV"</strong> to download your application strings file.</div>
-                    <div>3. <strong>Import here:</strong> Click the <strong>"Import Bubble CSV / .bubble"</strong> button in the top right.</div>
-                    <div>4. <strong>Translate:</strong> Select target languages, pick your AI model, and click <strong>"Translate All Strings"</strong>.</div>
-                    <div>5. <strong>Re-import to Bubble:</strong> Click <strong>"Export Bubble CSV"</strong> and upload it back in Bubble via <strong>"Import CSV"</strong>.</div>
-                  </div>
-
-                  <div style={{ display: 'flex', gap: '10px' }}>
-                    <label className="btn btn-primary" style={{ cursor: 'pointer', margin: 0, padding: '9px 18px' }}>
-                      <Upload size={15} />
-                      <span>Upload Bubble CSV or .bubble File</span>
-                      <input type="file" accept=".csv,.json,.bubble" onChange={handleFileUpload} style={{ display: 'none' }} />
-                    </label>
-                    <button onClick={handleLoadSampleData} className="btn btn-secondary" style={{ padding: '9px 18px' }}>
-                      <span>Load Sample Translation Dataset</span>
-                    </button>
-                  </div>
-                </div>
-              ) : viewMode === 'single' ? (
-                <div className="card">
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                    {filteredItems.map(item => {
-                      const currentTranslation = item.translations?.[activeDisplayLang] || (activeDisplayLang === selectedTargetLangs[0] ? item.translatedText : '') || '';
-                      const isTranslated = Boolean(currentTranslation);
-
-                      return (
-                        <div
-                          key={item.id}
-                          style={{
-                            display: 'grid',
-                            gridTemplateColumns: '220px 1fr 1fr 140px',
-                            gap: '14px',
-                            alignItems: 'center',
-                            padding: '12px 14px',
-                            borderRadius: 'var(--radius-md)',
-                            background: 'var(--bg-input)',
-                            border: '1px solid var(--border-subtle)'
-                          }}
-                        >
-                          <div>
-                            <div style={{ fontWeight: 600, fontSize: '0.8rem', color: 'var(--text-primary)' }}>{item.key}</div>
-                            <div style={{ display: 'flex', gap: '6px', marginTop: '3px' }}>
-                              <span className="badge badge-indigo" style={{ fontSize: '0.65rem' }}>{item.category}</span>
-                              {item.context && <span className="badge badge-cyan" style={{ fontSize: '0.65rem' }}>{item.context}</span>}
-                            </div>
-                          </div>
-
-                          <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-                            {item.sourceText}
-                          </div>
-
-                          <div>
-                            <input
-                              type="text"
-                              value={currentTranslation}
-                              placeholder={`Translate to ${activeDisplayLang.toUpperCase()}...`}
-                              onChange={e => handleUpdateTranslation(item.id, e.target.value, activeDisplayLang)}
-                              className="input"
-                              style={{
-                                fontSize: '0.85rem',
-                                borderColor: isTranslated ? 'var(--border-subtle)' : 'var(--accent-amber)'
-                              }}
-                            />
-                          </div>
-
-                          <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '6px' }}>
-                            {isTranslated ? (
-                              <span className="badge badge-emerald"><CheckCircle2 size={11} /> {activeDisplayLang.toUpperCase()} Ready</span>
-                            ) : (
-                              <span className="badge badge-amber"><Clock size={11} /> Pending</span>
-                            )}
-                          </div>
+                  return (
+                    <div
+                      key={item.id}
+                      style={{
+                        display: 'grid',
+                        gridTemplateColumns: '220px 1fr 1fr 180px',
+                        gap: '14px',
+                        alignItems: 'center',
+                        padding: '12px 14px',
+                        borderRadius: 'var(--radius-md)',
+                        background: 'var(--bg-input)',
+                        border: '1px solid var(--border-subtle)'
+                      }}
+                    >
+                      <div>
+                        <div style={{ fontWeight: 600, fontSize: '0.8rem', color: 'var(--text-primary)' }}>{item.key}</div>
+                        <div style={{ display: 'flex', gap: '6px', marginTop: '3px' }}>
+                          <span className="badge badge-indigo" style={{ fontSize: '0.65rem' }}>{item.category}</span>
+                          {item.context && <span className="badge badge-cyan" style={{ fontSize: '0.65rem' }}>{item.context}</span>}
                         </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              ) : (
-                /* Multi-Language Matrix View */
-                <div className="card" style={{ overflowX: 'auto' }}>
-                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.825rem' }}>
-                    <thead>
-                      <tr style={{ borderBottom: '1px solid var(--border-subtle)', textAlign: 'left', color: 'var(--text-muted)' }}>
-                        <th style={{ padding: '10px 12px', width: '180px' }}>Key & Category</th>
-                        <th style={{ padding: '10px 12px', minWidth: '200px' }}>Source (English)</th>
-                        {selectedTargetLangs.map(lang => (
-                          <th key={lang} style={{ padding: '10px 12px', minWidth: '220px' }}>
-                            <span className="badge badge-cyan">{lang.toUpperCase()}</span>
-                          </th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {filteredItems.map(item => (
-                        <tr key={item.id} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-                          <td style={{ padding: '10px 12px', verticalAlign: 'top' }}>
-                            <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{item.key}</div>
-                            <span className="badge badge-indigo" style={{ fontSize: '0.625rem', marginTop: '2px' }}>{item.category}</span>
-                          </td>
-                          <td style={{ padding: '10px 12px', color: 'var(--text-secondary)', verticalAlign: 'top' }}>
-                            {item.sourceText}
-                          </td>
-                          {selectedTargetLangs.map(lang => {
-                            const val = item.translations?.[lang] || (lang === selectedTargetLangs[0] ? item.translatedText : '') || '';
-                            return (
-                              <td key={lang} style={{ padding: '8px 10px', verticalAlign: 'top' }}>
-                                <input
-                                  type="text"
-                                  value={val}
-                                  placeholder="Pending..."
-                                  onChange={e => handleUpdateTranslation(item.id, e.target.value, lang)}
-                                  className="input"
-                                  style={{
-                                    fontSize: '0.8rem',
-                                    padding: '4px 8px',
-                                    height: '30px',
-                                    borderColor: val ? 'var(--border-subtle)' : 'var(--accent-amber)'
-                                  }}
-                                />
-                              </td>
-                            );
-                          })}
-                        </tr>
+                      </div>
+
+                      <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                        {item.sourceText}
+                      </div>
+
+                      <div>
+                        <input
+                          type="text"
+                          value={currentTranslation}
+                          placeholder={`Translate to ${activeDisplayLang.toUpperCase()}...`}
+                          onChange={e => handleUpdateTranslation(item.id, e.target.value, activeDisplayLang)}
+                          className="input"
+                          style={{
+                            fontSize: '0.85rem',
+                            borderColor: isTranslated ? 'var(--border-subtle)' : 'var(--accent-amber)'
+                          }}
+                        />
+                      </div>
+
+                      <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '8px' }}>
+                        <button
+                          onClick={() => handleTranslateSingleItem(item.id, activeDisplayLang)}
+                          className="btn btn-secondary btn-sm"
+                          title="Translate this string with AI"
+                          style={{ padding: '3px 8px', height: '26px' }}
+                        >
+                          <Sparkles size={11} color="var(--accent-cyan)" />
+                          <span style={{ fontSize: '0.7rem' }}>AI</span>
+                        </button>
+
+                        {isTranslated ? (
+                          <span className="badge badge-emerald"><CheckCircle2 size={11} /> Ready</span>
+                        ) : (
+                          <span className="badge badge-amber"><Clock size={11} /> Pending</span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ) : (
+            /* Multi-Language Matrix View */
+            <div className="card" style={{ overflowX: 'auto' }}>
+              <div className="data-grid-scroll-container">
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.825rem' }}>
+                  <thead>
+                    <tr style={{ borderBottom: '1px solid var(--border-subtle)', textAlign: 'left', color: 'var(--text-muted)' }}>
+                      <th style={{ padding: '10px 12px', width: '180px' }}>Key & Category</th>
+                      <th style={{ padding: '10px 12px', minWidth: '200px' }}>Source (English)</th>
+                      {selectedTargetLangs.map(lang => (
+                        <th key={lang} style={{ padding: '10px 12px', minWidth: '220px' }}>
+                          <span className="badge badge-cyan">{lang.toUpperCase()}</span>
+                        </th>
                       ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredItems.map(item => (
+                      <tr key={item.id} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+                        <td style={{ padding: '10px 12px', verticalAlign: 'top' }}>
+                          <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{item.key}</div>
+                          <span className="badge badge-indigo" style={{ fontSize: '0.625rem', marginTop: '2px' }}>{item.category}</span>
+                        </td>
+                        <td style={{ padding: '10px 12px', color: 'var(--text-secondary)', verticalAlign: 'top' }}>
+                          {item.sourceText}
+                        </td>
+                        {selectedTargetLangs.map(lang => {
+                          const val = item.translations?.[lang] || (lang === selectedTargetLangs[0] ? item.translatedText : '') || '';
+                          return (
+                            <td key={lang} style={{ padding: '8px 10px', verticalAlign: 'top' }}>
+                              <input
+                                type="text"
+                                value={val}
+                                placeholder="Pending..."
+                                onChange={e => handleUpdateTranslation(item.id, e.target.value, lang)}
+                                className="input"
+                                style={{
+                                  fontSize: '0.8rem',
+                                  padding: '4px 8px',
+                                  height: '30px',
+                                  borderColor: val ? 'var(--border-subtle)' : 'var(--accent-amber)'
+                                }}
+                              />
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
           )}
         </div>
       )}
 
-      {/* SUBTAB 2: GLOSSARY */}
+      {/* =====================================================================
+          SUBTAB 2: BRAND GLOSSARY & TOKEN PRESERVATION
+          ===================================================================== */}
       {subTab === 'glossary' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           <div className="card">
@@ -848,35 +1029,56 @@ export const TranslatorView: React.FC<TranslatorViewProps> = ({
               <div>
                 <div className="card-title">
                   <BookOpen size={18} color="var(--accent-cyan)" />
-                  <span>Brand Glossary & Protected Terms</span>
+                  <span>Brand Glossary & Dynamic Token Protection</span>
                 </div>
-                <div className="card-subtitle">Terms in this dictionary are preserved verbatim and will never be mistranslated by AI models</div>
+                <div className="card-subtitle">Terms in this dictionary and dynamic Bubble expressions are preserved verbatim and will never be mistranslated</div>
               </div>
+
+              <button
+                onClick={handleInjectStandardGlossary}
+                className="btn btn-secondary btn-sm"
+                title="Inject standard Bubble dynamic tokens into glossary"
+              >
+                <Sparkles size={13} color="var(--accent-cyan)" />
+                <span>Inject Bubble Token Presets</span>
+              </button>
             </div>
 
             <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-end', flexWrap: 'wrap' }}>
               <div style={{ flex: 1, minWidth: '180px' }}>
-                <label className="input-label">Protected Source Word</label>
-                <input type="text" placeholder="e.g. Bubble" value={newGlossaryTerm} onChange={e => setNewGlossaryTerm(e.target.value)} className="input" />
+                <label className="input-label">Protected Source Word / Token</label>
+                <input type="text" placeholder="e.g. Bubble or [Current User's Name]" value={newGlossaryTerm} onChange={e => setNewGlossaryTerm(e.target.value)} className="input" />
               </div>
               <div style={{ flex: 1, minWidth: '180px' }}>
                 <label className="input-label">Replacement in Target (Optional)</label>
-                <input type="text" placeholder="e.g. Bubble (leave empty to keep exact)" value={newGlossaryRepl} onChange={e => setNewGlossaryRepl(e.target.value)} className="input" />
+                <input type="text" placeholder="Leave empty to keep exact" value={newGlossaryRepl} onChange={e => setNewGlossaryRepl(e.target.value)} className="input" />
               </div>
               <button onClick={handleAddGlossaryTerm} className="btn btn-primary btn-sm" style={{ height: '38px' }}>
                 <Plus size={13} />
-                <span>Add Protected Term</span>
+                <span>Add Protected Rule</span>
               </button>
             </div>
           </div>
 
           <div className="card">
-            <div className="card-title" style={{ marginBottom: '12px' }}>
-              <span>Protected Brand Terms ({Object.keys(glossary).length})</span>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+              <div className="card-title" style={{ margin: 0 }}>
+                <span>Protected Brand Terms ({filteredGlossary.length})</span>
+              </div>
+              <div className="search-wrapper-premium" style={{ width: '220px' }}>
+                <Search size={13} className="search-icon-premium" />
+                <input
+                  type="text"
+                  placeholder="Filter glossary..."
+                  value={glossarySearch}
+                  onChange={e => setGlossarySearch(e.target.value)}
+                  className="search-input-premium"
+                />
+              </div>
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '10px' }}>
-              {Object.entries(glossary).map(([term, repl]) => (
+              {filteredGlossary.map(([term, repl]) => (
                 <div key={term} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', background: 'var(--bg-input)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)' }}>
                   <div>
                     <strong>{term}</strong> → <span style={{ color: 'var(--accent-cyan)' }}>{repl}</span>
@@ -891,21 +1093,26 @@ export const TranslatorView: React.FC<TranslatorViewProps> = ({
         </div>
       )}
 
-      {/* SUBTAB 3: TRANSLATION MEMORY (CACHE) */}
+      {/* =====================================================================
+          SUBTAB 3: TRANSLATION MEMORY (CACHE)
+          ===================================================================== */}
       {subTab === 'cache' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          <div className="grid-3">
+          <div className="grid-3" style={{ gap: '12px' }}>
             <div className="card" style={{ padding: '16px' }}>
               <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>TOTAL CACHED STRINGS</div>
               <div style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--accent-cyan)' }}>{memoryStats.totalCachedEntries}</div>
+              <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>Instant 0ms lookup across builds</div>
             </div>
             <div className="card" style={{ padding: '16px' }}>
               <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>CHARACTERS SAVED</div>
               <div style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--accent-emerald)' }}>{memoryStats.totalCharsSaved.toLocaleString()}</div>
+              <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>Zero duplicate token usage</div>
             </div>
             <div className="card" style={{ padding: '16px' }}>
               <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>ESTIMATED API SAVINGS</div>
               <div style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--primary)' }}>${memoryStats.estimatedSavingsUsd}</div>
+              <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>Cumulative lifetime savings</div>
             </div>
           </div>
 
@@ -930,35 +1137,92 @@ export const TranslatorView: React.FC<TranslatorViewProps> = ({
         </div>
       )}
 
-      {/* SUBTAB 4: PSEUDO-LOCALIZATION */}
+      {/* =====================================================================
+          SUBTAB 4: PSEUDO-LOCALIZATION
+          ===================================================================== */}
       {subTab === 'pseudo' && (
-        <div className="card">
-          <div className="card-header">
-            <div>
-              <div className="card-title">
-                <FileText size={18} color="var(--accent-cyan)" />
-                <span>Pseudo-Localization Testing Engine</span>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          {/* Interactive Tester Card */}
+          <div className="card">
+            <div className="card-header">
+              <div>
+                <div className="card-title">
+                  <FileText size={18} color="var(--accent-cyan)" />
+                  <span>Interactive Pseudo-Localization Testing Engine</span>
+                </div>
+                <div className="card-subtitle">Simulates 20%–50% German/Russian text expansion with accented glyphs to test Bubble UI overflow without real translations</div>
               </div>
-              <div className="card-subtitle">Simulates 40% German/Russian text expansion with accented characters to test Bubble UI overflow without real translation</div>
+
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Expansion:</span>
+                {[20, 30, 40, 50].map(pct => (
+                  <button
+                    key={pct}
+                    onClick={() => setPseudoExpansionPercent(pct)}
+                    className={`btn btn-sm ${pseudoExpansionPercent === pct ? 'btn-primary' : 'btn-secondary'}`}
+                    style={{ fontSize: '0.725rem', padding: '3px 8px', height: '26px' }}
+                  >
+                    {pct}%
+                  </button>
+                ))}
+              </div>
             </div>
-            <button onClick={handleRunPseudoLocalization} disabled={items.length === 0} className="btn btn-primary btn-sm">
-              <Sparkles size={13} />
-              <span>Apply Pseudo-Localization ({items.length})</span>
-            </button>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <div>
+                <label className="input-label">Test Input Text</label>
+                <input
+                  type="text"
+                  value={pseudoCustomInput}
+                  onChange={e => setPseudoCustomInput(e.target.value)}
+                  className="input"
+                />
+              </div>
+
+              <div style={{ padding: '14px', background: 'var(--bg-input)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-subtle)' }}>
+                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '4px' }}>
+                  Generated Pseudo-Localized String ({pseudoExpansionPercent}% expansion, +{Math.round(pseudoCustomInput.length * pseudoExpansionPercent / 100)} chars):
+                </div>
+                <div style={{ fontFamily: 'var(--font-mono)', fontSize: '1rem', color: 'var(--accent-cyan)' }}>
+                  {PseudoLocalizerEngine.localize(pseudoCustomInput, pseudoExpansionPercent)}
+                </div>
+              </div>
+
+              <button
+                onClick={handleRunPseudoLocalization}
+                disabled={items.length === 0}
+                className="btn btn-primary btn-sm"
+                style={{ alignSelf: 'flex-start' }}
+              >
+                <Sparkles size={13} />
+                <span>Apply Pseudo-Localization to All Loaded Strings ({items.length})</span>
+              </button>
+            </div>
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '12px' }}>
-            {items.slice(0, 5).map(item => (
-              <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px', background: 'var(--bg-input)', borderRadius: 'var(--radius-sm)', fontSize: '0.825rem' }}>
-                <span>{item.sourceText}</span>
-                <span style={{ color: 'var(--accent-cyan)', fontFamily: 'var(--font-mono)' }}>{item.translatedText || 'Click apply above to preview'}</span>
-              </div>
-            ))}
+          {/* Preview of Loaded Items */}
+          <div className="card">
+            <div className="card-title" style={{ marginBottom: '12px' }}>
+              <span>Preview of First 10 Application Strings</span>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              {items.slice(0, 10).map(item => (
+                <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', background: 'var(--bg-input)', borderRadius: 'var(--radius-sm)', fontSize: '0.825rem' }}>
+                  <span style={{ color: 'var(--text-secondary)' }}>{item.sourceText}</span>
+                  <span style={{ color: 'var(--accent-cyan)', fontFamily: 'var(--font-mono)' }}>
+                    {item.translatedText || PseudoLocalizerEngine.localize(item.sourceText, pseudoExpansionPercent)}
+                  </span>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       )}
 
-      {/* SUBTAB 5: COST ESTIMATOR */}
+      {/* =====================================================================
+          SUBTAB 5: REAL-TIME COST ESTIMATOR
+          ===================================================================== */}
       {subTab === 'cost' && (
         <div className="card">
           <div className="card-header">
@@ -971,18 +1235,23 @@ export const TranslatorView: React.FC<TranslatorViewProps> = ({
             </div>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '12px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '14px' }}>
             {costEstimates.map(est => {
               const multiCost = Math.round(est.estimatedCostUsd * selectedTargetLangs.length * 1000) / 1000;
               return (
-                <div key={est.provider + est.model} style={{ padding: '14px', background: 'var(--bg-input)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-subtle)' }}>
-                  <div style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--text-primary)' }}>{est.provider}</div>
-                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{est.model}</div>
-                  <div style={{ marginTop: '10px', fontSize: '1.2rem', fontWeight: 800, color: est.isFree ? 'var(--accent-emerald)' : 'var(--primary)' }}>
-                    {est.isFree ? 'FREE (0.00$)' : `$${multiCost.toFixed(4)}`}
+                <div key={est.provider + est.model} style={{ padding: '16px', background: 'var(--bg-input)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-subtle)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                  <div>
+                    <div style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--text-primary)' }}>{est.provider}</div>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{est.model}</div>
                   </div>
-                  <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
-                    {est.estimatedInputTokens * selectedTargetLangs.length} In / {est.estimatedOutputTokens * selectedTargetLangs.length} Out Tokens
+                  
+                  <div style={{ marginTop: '12px' }}>
+                    <div style={{ fontSize: '1.3rem', fontWeight: 800, color: est.isFree ? 'var(--accent-emerald)' : 'var(--primary)' }}>
+                      {est.isFree ? 'FREE (0.00$)' : `$${multiCost.toFixed(4)}`}
+                    </div>
+                    <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
+                      {est.estimatedInputTokens * selectedTargetLangs.length} In / {est.estimatedOutputTokens * selectedTargetLangs.length} Out Tokens
+                    </div>
                   </div>
                 </div>
               );

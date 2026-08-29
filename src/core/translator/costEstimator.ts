@@ -5,10 +5,12 @@ export class CostEstimatorEngine {
     'gemini-2.0-flash': { name: 'Google Gemini 2.0 Flash', inputPerMillion: 0.10, outputPerMillion: 0.40 },
     'gemini-1.5-pro': { name: 'Google Gemini 1.5 Pro', inputPerMillion: 1.25, outputPerMillion: 5.00 },
     'gpt-4o-mini': { name: 'OpenAI GPT-4o Mini', inputPerMillion: 0.15, outputPerMillion: 0.60 },
-    'gpt-4o': { name: 'OpenAI GPT-4o (Omni)', inputPerMillion: 2.50, outputPerMillion: 10.00 },
+    'gpt-4o': { name: 'OpenAI GPT-4o', inputPerMillion: 2.50, outputPerMillion: 10.00 },
     'claude-3-5-haiku': { name: 'Anthropic Claude 3.5 Haiku', inputPerMillion: 0.80, outputPerMillion: 4.00 },
-    'claude-3-5-sonnet': { name: 'Anthropic Claude 3.5 Sonnet', inputPerMillion: 3.00, outputPerMillion: 15.00 },
-    'ollama-local': { name: 'Ollama (Local / Offline)', inputPerMillion: 0, outputPerMillion: 0, isFree: true }
+    'claude-3-7-sonnet': { name: 'Anthropic Claude 3.7 Sonnet', inputPerMillion: 3.00, outputPerMillion: 15.00 },
+    'deepseek-chat': { name: 'DeepSeek V3 (Chat)', inputPerMillion: 0.14, outputPerMillion: 0.28 },
+    'groq-llama-3.3-70b': { name: 'Groq Llama 3.3 70B (Fast LPU)', inputPerMillion: 0.59, outputPerMillion: 0.79 },
+    'ollama-local': { name: 'Ollama (Local / Offline On-Premise)', inputPerMillion: 0, outputPerMillion: 0, isFree: true }
   };
 
   /**
@@ -16,7 +18,7 @@ export class CostEstimatorEngine {
    */
   public static estimate(items: TranslationItem[]): CostEstimate[] {
     const totalChars = items.reduce((sum, item) => sum + item.sourceText.length, 0);
-    // Standard rule of thumb: ~4 characters per token + prompt overhead
+    // Standard rule of thumb: ~3.5 characters per token + prompt overhead
     const baseTokens = Math.max(10, Math.round(totalChars / 3.5));
     const promptOverhead = items.length * 35; // system prompt + glossary injection tokens
     const estimatedInputTokens = baseTokens + promptOverhead;
