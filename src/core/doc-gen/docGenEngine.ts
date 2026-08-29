@@ -27,7 +27,7 @@ export class DocGenEngine {
     // 1. Overview Section
     sections.push({
       id: 'sec_overview',
-      title: '1. Executive Summary & Application Overview',
+      title: '1. Executive Summary',
       icon: 'Layers',
       category: 'overview',
       badge: 'Core',
@@ -87,7 +87,7 @@ This developer documentation book provides a complete, authoritative architectur
 
     sections.push({
       id: 'sec_database',
-      title: '2. Data Dictionary & Field Specifications',
+      title: '2. Data Dictionary & Fields',
       icon: 'Database',
       category: 'database',
       badge: `${dataTypes.length} Tables`,
@@ -109,7 +109,7 @@ This developer documentation book provides a complete, authoritative architectur
 
     sections.push({
       id: 'sec_erd',
-      title: '3. Entity-Relationship Diagram (ERD)',
+      title: '3. Entity-Relationship (ERD)',
       icon: 'GitBranch',
       category: 'database',
       enabled: true,
@@ -138,7 +138,7 @@ This developer documentation book provides a complete, authoritative architectur
 
     sections.push({
       id: 'sec_security',
-      title: '4. Privacy Rules & Security Matrix',
+      title: '4. Security & Privacy Matrix',
       icon: 'ShieldCheck',
       category: 'security',
       badge: securityReport ? `Grade ${securityReport.securityGrade}` : undefined,
@@ -173,7 +173,7 @@ This developer documentation book provides a complete, authoritative architectur
 
     sections.push({
       id: 'sec_api',
-      title: '5. API Endpoints & Backend Webhooks',
+      title: '5. API & Webhook Catalogs',
       icon: 'Radio',
       category: 'api',
       enabled: true,
@@ -199,7 +199,7 @@ This developer documentation book provides a complete, authoritative architectur
 
     sections.push({
       id: 'sec_workflows',
-      title: '6. Workflows & Logic Automation',
+      title: '6. Workflows & Event Logic',
       icon: 'Sliders',
       category: 'workflows',
       badge: `${extractedWorkflows.length > 0 ? extractedWorkflows.length : (project.stats?.workflowsCount || 0)} Workflows`,
@@ -224,7 +224,7 @@ This developer documentation book provides a complete, authoritative architectur
 
     sections.push({
       id: 'sec_localization',
-      title: '7. AI Localization & Language Matrix',
+      title: '7. AI Localization & Texts',
       icon: 'Languages',
       category: 'localization',
       badge: `${strings.length} Strings`,
@@ -256,7 +256,7 @@ This developer documentation book provides a complete, authoritative architectur
 
     sections.push({
       id: 'sec_audit',
-      title: '8. AST Code Health & Quality Scorecard',
+      title: '8. AST Health & Audit Score',
       icon: 'Stethoscope',
       category: 'quality',
       badge: auditReport ? `${auditReport.score}%` : undefined,

@@ -360,7 +360,7 @@ export const DocGenView: React.FC<DocGenViewProps> = ({ activeProject, onLog }) 
           )}
 
           {/* Main Two-Column Layout */}
-          <div className="responsive-split" style={{ gridTemplateColumns: '300px 1fr', alignItems: 'start' }}>
+          <div className="responsive-split" style={{ gridTemplateColumns: '320px 1fr', alignItems: 'start' }}>
             {/* Left Column: Table of Contents */}
             <div className="card" style={{ padding: '16px' }}>
               <div style={{ marginBottom: '12px' }}>
@@ -376,7 +376,7 @@ export const DocGenView: React.FC<DocGenViewProps> = ({ activeProject, onLog }) 
                 </div>
               </div>
 
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', maxHeight: '500px', overflowY: 'auto' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', maxHeight: '520px', overflowY: 'auto' }}>
                 {filteredSections.map(sec => {
                   const isSelected = sec.id === selectedSectionId;
 
@@ -384,6 +384,7 @@ export const DocGenView: React.FC<DocGenViewProps> = ({ activeProject, onLog }) 
                     <button
                       key={sec.id}
                       onClick={() => setSelectedSectionId(sec.id)}
+                      title={sec.title}
                       style={{
                         display: 'flex',
                         alignItems: 'center',
@@ -397,11 +398,13 @@ export const DocGenView: React.FC<DocGenViewProps> = ({ activeProject, onLog }) 
                         fontSize: '0.775rem',
                         textAlign: 'left',
                         cursor: 'pointer',
-                        transition: 'all 0.15s ease'
+                        transition: 'all 0.15s ease',
+                        width: '100%',
+                        boxSizing: 'border-box'
                       }}
                     >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        <span style={{ color: isSelected ? 'var(--primary)' : 'var(--text-muted)' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', overflow: 'hidden', minWidth: 0, flex: 1 }}>
+                        <span style={{ color: isSelected ? 'var(--primary)' : 'var(--text-muted)', flexShrink: 0, display: 'flex', alignItems: 'center' }}>
                           {sec.id === 'sec_overview' && <Layers size={14} />}
                           {sec.id === 'sec_database' && <Database size={14} />}
                           {sec.id === 'sec_erd' && <GitBranch size={14} />}
@@ -412,13 +415,13 @@ export const DocGenView: React.FC<DocGenViewProps> = ({ activeProject, onLog }) 
                           {sec.id === 'sec_audit' && <Stethoscope size={14} />}
                           {sec.category === 'custom' && <Edit3 size={14} />}
                         </span>
-                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0, flex: 1 }}>
                           {sec.title}
                         </span>
                       </div>
 
                       {sec.badge && (
-                        <span className="badge badge-indigo" style={{ fontSize: '0.65rem', padding: '1px 6px' }}>
+                        <span className="badge badge-indigo" style={{ fontSize: '0.65rem', padding: '2px 7px', flexShrink: 0, marginLeft: '8px' }}>
                           {sec.badge}
                         </span>
                       )}
