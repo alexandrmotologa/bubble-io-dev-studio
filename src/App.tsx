@@ -334,6 +334,7 @@ export const App: React.FC = () => {
                 isAuditing={isAuditing}
                 healthScore={healthScore}
                 healthGrade={healthGrade}
+                onOpenCopilot={() => setIsCopilotOpen(true)}
               />
             )}
 

@@ -1,4 +1,4 @@
-# 🔀 Visual Workflow Flowchart & Logic Guide
+# 🔀 Visual Workflow Flowchart & Logic Guide (v3.0.0)
 
 The **Visual Workflow Flowchart** module parses raw Bubble action chains into interactive node graphs, illustrating execution sequences, conditional branches, and potential performance bottlenecks.
 

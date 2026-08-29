@@ -1,4 +1,4 @@
-# 🛠️ DevOps & Database Studio Guide
+# 🛠️ DevOps & Database Studio Guide (v3.0.0)
 
 The **DevOps & Database Studio** is an enterprise-grade toolchain for managing Bubble.io database schemas, live records, TypeScript bindings, automated backups, and environment releases.
 

@@ -1,4 +1,4 @@
-# 🌐 Webhooks & API Studio Guide (v2.9.0-beta)
+# 🌐 Webhooks & API Studio Guide (v3.0.0)
 
 The **Webhooks & API Studio** simplifies external integrations, cURL importing, OpenAPI 3.0 specification mapping, Bubble API Connector scaffolding, and Bubble Plugin Builder action development.
 

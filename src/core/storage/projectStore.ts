@@ -222,7 +222,7 @@ export class ProjectStore {
       exportedAt: new Date().toISOString(),
       project: proj,
       metadata: {
-        studioVersion: '2.9.0-beta',
+        studioVersion: '3.0.0',
         pagesCount: proj.stats?.pagesCount || 1,
         workflowsCount: proj.stats?.workflowsCount || 0,
         tablesCount: proj.stats?.dataTypesCount || 0

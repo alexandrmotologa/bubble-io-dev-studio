@@ -4,6 +4,10 @@ import {
   Stethoscope, 
   Languages, 
   Camera, 
+  BookOpen,
+  Webhook,
+  Shield,
+  Bot,
   Play, 
   CheckCircle2, 
   AlertTriangle, 
@@ -13,7 +17,11 @@ import {
   Sparkles,
   Plus,
   Layers,
-  Activity
+  Activity,
+  GitBranch,
+  FileCode,
+  Sliders,
+  ExternalLink
 } from 'lucide-react';
 import { NavigationTab, ProjectProfile } from '../types';
 
@@ -23,6 +31,7 @@ interface DashboardViewProps {
   onOpenConnectModal: () => void;
   onRunQuickBackup: () => void;
   onRunQuickAudit: () => void;
+  onOpenCopilot?: () => void;
   isBackingUp: boolean;
   isAuditing: boolean;
   healthScore: number | null;
@@ -35,6 +44,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   onOpenConnectModal,
   onRunQuickBackup,
   onRunQuickAudit,
+  onOpenCopilot,
   isBackingUp,
   isAuditing,
   healthScore,
@@ -80,6 +90,14 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     );
   }
 
+  // Dynamic Blueprint & Stats Extraction
+  const bp = activeProject.blueprintExportJson;
+  const pagesCount = bp?.pages ? Object.keys(bp.pages).length : (activeProject.stats?.pagesCount || 1);
+  const workflowsCount = bp?.workflows ? Object.keys(bp.workflows).length : (activeProject.stats?.workflowsCount || 0);
+  const tablesCount = bp?.data_types ? Object.keys(bp.data_types).length : (activeProject.stats?.dataTypesCount || 0);
+  const pluginsCount = bp?.plugins ? Object.keys(bp.plugins).length : 4;
+  const elementsCount = bp?.elements ? Object.keys(bp.elements).length : 18;
+
   return (
     <div className="view-container">
       {/* Top Banner / Project Status */}
@@ -89,13 +107,22 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '20px' }}>
           <div>
-            <span className="badge badge-indigo" style={{ marginBottom: '8px' }}>
-              <Sparkles size={12} /> Active Bubble Workspace
-            </span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+              <span className="badge badge-indigo">
+                <Sparkles size={12} /> Active Bubble Workspace
+              </span>
+              <span className={`badge ${activeProject.environment.includes('live') ? 'badge-emerald' : 'badge-cyan'}`}>
+                {activeProject.environment.toUpperCase()}
+              </span>
+              {activeProject.httpBasicUser && (
+                <span className="badge badge-amber">HTTP Basic Auth Protected</span>
+              )}
+            </div>
+
             <h2 style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '6px' }}>
               {activeProject.name}
             </h2>
-            <div style={{ display: 'flex', gap: '16px', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+            <div style={{ display: 'flex', gap: '16px', fontSize: '0.85rem', color: 'var(--text-secondary)', flexWrap: 'wrap' }}>
               <span>App ID: <strong style={{ color: 'var(--text-primary)' }}>{activeProject.appId}</strong></span>
               <span>•</span>
               <span>Environment: <strong style={{ color: activeProject.environment.includes('live') ? 'var(--accent-emerald)' : 'var(--accent-cyan)' }}>{activeProject.environment}</strong></span>
@@ -105,14 +132,22 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                   <span>Domain: <strong style={{ color: 'var(--text-primary)' }}>{activeProject.customDomain}</strong></span>
                 </>
               )}
+              <span>•</span>
+              <span>Connected: <strong>{new Date(activeProject.createdAt).toLocaleDateString()}</strong></span>
             </div>
           </div>
 
-          <div style={{ display: 'flex', gap: '12px' }}>
+          <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+            {onOpenCopilot && (
+              <button onClick={onOpenCopilot} className="btn btn-primary" style={{ background: 'linear-gradient(135deg, #6366f1 0%, #06b6d4 100%)' }}>
+                <Bot size={16} />
+                <span>AI Copilot (Ctrl+I)</span>
+              </button>
+            )}
             <button 
               onClick={onRunQuickBackup} 
               disabled={isBackingUp}
-              className="btn btn-primary"
+              className="btn btn-secondary"
             >
               <HardDriveDownload size={16} />
               <span>{isBackingUp ? 'Backing up...' : 'Quick Backup'}</span>
@@ -129,14 +164,43 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         </div>
       </div>
 
+      {/* Live Workspace Blueprint Metrics */}
+      <div className="grid-5" style={{ gap: '10px' }}>
+        <div className="card" style={{ padding: '12px 14px' }}>
+          <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>DATA TYPES & TABLES</div>
+          <div style={{ fontSize: '1.3rem', fontWeight: 800, color: 'var(--primary)' }}>{tablesCount} Types</div>
+          <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>Live Data API Ready</div>
+        </div>
+        <div className="card" style={{ padding: '12px 14px' }}>
+          <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>PAGES & VIEWS</div>
+          <div style={{ fontSize: '1.3rem', fontWeight: 800, color: 'var(--accent-cyan)' }}>{pagesCount} Pages</div>
+          <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>Responsive layouts</div>
+        </div>
+        <div className="card" style={{ padding: '12px 14px' }}>
+          <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>WORKFLOW LOGIC</div>
+          <div style={{ fontSize: '1.3rem', fontWeight: 800, color: 'var(--accent-emerald)' }}>{workflowsCount} Workflows</div>
+          <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>Client & Backend Events</div>
+        </div>
+        <div className="card" style={{ padding: '12px 14px' }}>
+          <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>UI ELEMENTS</div>
+          <div style={{ fontSize: '1.3rem', fontWeight: 800, color: 'var(--accent-amber)' }}>{elementsCount} Elements</div>
+          <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>AST AST Parsed</div>
+        </div>
+        <div className="card" style={{ padding: '12px 14px' }}>
+          <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>INSTALLED PLUGINS</div>
+          <div style={{ fontSize: '1.3rem', fontWeight: 800, color: '#ec4899' }}>{pluginsCount} Plugins</div>
+          <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>Performance Monitored</div>
+        </div>
+      </div>
+
       {/* 4 Core Module Tiles */}
       <div className="grid-4">
-        {/* Module 1 */}
+        {/* Module 1: DevOps & Data Studio */}
         <div className="card" style={{ cursor: 'pointer' }} onClick={() => onNavigate('devops')}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '14px' }}>
             <div style={{
-              width: '42px',
-              height: '42px',
+              width: '40px',
+              height: '40px',
               borderRadius: '10px',
               background: 'rgba(99, 102, 241, 0.15)',
               display: 'flex',
@@ -144,13 +208,13 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               justifyContent: 'center',
               color: 'var(--primary)'
             }}>
-              <Database size={22} />
+              <Database size={20} />
             </div>
-            <span className="badge badge-indigo">DevOps & CLI</span>
+            <span className="badge badge-indigo">DevOps & Schema</span>
           </div>
-          <h3 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: '6px' }}>Database & Schema</h3>
-          <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '16px' }}>
-            Backups, ERD visualizer, TypeScript definitions, and schema migrations.
+          <h3 style={{ fontSize: '0.95rem', fontWeight: 700, marginBottom: '6px' }}>Database & 3-Way Diff</h3>
+          <p style={{ fontSize: '0.775rem', color: 'var(--text-secondary)', marginBottom: '14px', lineHeight: 1.5 }}>
+            Automated backups, ERD visualizer, 3-way branch diff (Dev ↔ Staging ↔ Live), and mock server.
           </p>
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.8rem', color: 'var(--primary)', fontWeight: 600 }}>
             <span>Open Studio</span>
@@ -158,12 +222,12 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </div>
         </div>
 
-        {/* Module 2 */}
+        {/* Module 2: Dead Code & AST Health */}
         <div className="card" style={{ cursor: 'pointer' }} onClick={() => onNavigate('audit')}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '14px' }}>
             <div style={{
-              width: '42px',
-              height: '42px',
+              width: '40px',
+              height: '40px',
               borderRadius: '10px',
               background: 'rgba(16, 185, 129, 0.15)',
               display: 'flex',
@@ -171,15 +235,15 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               justifyContent: 'center',
               color: 'var(--accent-emerald)'
             }}>
-              <Stethoscope size={22} />
+              <Stethoscope size={20} />
             </div>
             <span className={`badge ${healthScore ? 'badge-emerald' : 'badge-indigo'}`}>
               {healthGrade ? `Grade ${healthGrade}` : 'AST Engine'}
             </span>
           </div>
-          <h3 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: '6px' }}>Dead Code Detector</h3>
-          <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '16px' }}>
-            Find orphaned UI elements, dead workflows, unused styles and DB fields.
+          <h3 style={{ fontSize: '0.95rem', fontWeight: 700, marginBottom: '6px' }}>AST Health & Dead Code</h3>
+          <p style={{ fontSize: '0.775rem', color: 'var(--text-secondary)', marginBottom: '14px', lineHeight: 1.5 }}>
+            Orphaned UI elements, dead workflows, dynamic DAG dependency graph & plugin performance auditor.
           </p>
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.8rem', color: 'var(--accent-emerald)', fontWeight: 600 }}>
             <span>Analyze App</span>
@@ -187,12 +251,12 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </div>
         </div>
 
-        {/* Module 3 */}
+        {/* Module 3: AI Localization Studio */}
         <div className="card" style={{ cursor: 'pointer' }} onClick={() => onNavigate('translator')}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '14px' }}>
             <div style={{
-              width: '42px',
-              height: '42px',
+              width: '40px',
+              height: '40px',
               borderRadius: '10px',
               background: 'rgba(6, 182, 212, 0.15)',
               display: 'flex',
@@ -200,26 +264,26 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               justifyContent: 'center',
               color: 'var(--accent-cyan)'
             }}>
-              <Languages size={22} />
+              <Languages size={20} />
             </div>
-            <span className="badge badge-cyan">AI Engine</span>
+            <span className="badge badge-cyan">AI Translation</span>
           </div>
-          <h3 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: '6px' }}>AI Localization</h3>
-          <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '16px' }}>
-            Translate App Texts with Gemini, OpenAI, Claude, OpenRouter & Ollama.
+          <h3 style={{ fontSize: '0.95rem', fontWeight: 700, marginBottom: '6px' }}>AI Localization Studio</h3>
+          <p style={{ fontSize: '0.775rem', color: 'var(--text-secondary)', marginBottom: '14px', lineHeight: 1.5 }}>
+            Multi-provider translation (Gemini, OpenAI, Claude, OpenRouter & Ollama) with brand glossary.
           </p>
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.8rem', color: 'var(--accent-cyan)', fontWeight: 600 }}>
-            <span>Translate App</span>
+            <span>Translate Strings</span>
             <ArrowRight size={14} />
           </div>
         </div>
 
-        {/* Module 4 */}
+        {/* Module 4: Visual QA Suite */}
         <div className="card" style={{ cursor: 'pointer' }} onClick={() => onNavigate('visual-tester')}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '14px' }}>
             <div style={{
-              width: '42px',
-              height: '42px',
+              width: '40px',
+              height: '40px',
               borderRadius: '10px',
               background: 'rgba(245, 158, 11, 0.15)',
               display: 'flex',
@@ -227,31 +291,31 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               justifyContent: 'center',
               color: 'var(--accent-amber)'
             }}>
-              <Camera size={22} />
+              <Camera size={20} />
             </div>
             <span className="badge badge-amber">Visual QA</span>
           </div>
-          <h3 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: '6px' }}>Visual QA Suite</h3>
-          <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '16px' }}>
-            Automate pixel diff testing across desktop, tablet, and mobile viewports.
+          <h3 style={{ fontSize: '0.95rem', fontWeight: 700, marginBottom: '6px' }}>Visual QA & Pixel Diff</h3>
+          <p style={{ fontSize: '0.775rem', color: 'var(--text-secondary)', marginBottom: '14px', lineHeight: 1.5 }}>
+            Automated multi-device regression test suite (Desktop, Tablet, Mobile) with HTTP Basic Auth.
           </p>
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.8rem', color: 'var(--accent-amber)', fontWeight: 600 }}>
-            <span>Run Test Suite</span>
+            <span>Run Test Matrix</span>
             <ArrowRight size={14} />
           </div>
         </div>
       </div>
 
-      {/* Bottom Row: App Health & System Ready */}
+      {/* Bottom Row: App Health & Quick Launch */}
       <div className="grid-2">
         <div className="card">
           <div className="card-header">
             <div>
               <div className="card-title">
                 <ShieldCheck size={20} color="var(--accent-emerald)" />
-                <span>App Quality & Health Score</span>
+                <span>App Quality & AST Health Score</span>
               </div>
-              <div className="card-subtitle">Calculated via AST static analysis engine</div>
+              <div className="card-subtitle">Calculated via static AST dependency analysis engine</div>
             </div>
             {healthScore && <span className="badge badge-emerald">Grade {healthGrade}</span>}
           </div>
@@ -302,13 +366,13 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 <Activity size={20} color="var(--primary)" />
                 <span>Quick Actions & Workflows</span>
               </div>
-              <div className="card-subtitle">Frequent development tasks for {activeProject.name}</div>
+              <div className="card-subtitle">Frequent developer workflows for {activeProject.name}</div>
             </div>
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
             <div 
-              onClick={() => onNavigate('devops')}
+              onClick={() => onNavigate('doc-gen')}
               style={{
                 padding: '12px 14px',
                 borderRadius: 'var(--radius-md)',
@@ -322,33 +386,13 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               }}
             >
               <div>
-                <strong>Explore Database & ERD:</strong> View tables, fields, and generate TypeScript interfaces.
-              </div>
-              <ArrowRight size={14} color="var(--primary)" />
-            </div>
-
-            <div 
-              onClick={() => onNavigate('translator')}
-              style={{
-                padding: '12px 14px',
-                borderRadius: 'var(--radius-md)',
-                background: 'var(--bg-input)',
-                border: '1px solid var(--border-subtle)',
-                fontSize: '0.85rem',
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                cursor: 'pointer'
-              }}
-            >
-              <div>
-                <strong>AI Localization Studio:</strong> Translate application strings and manage brand terms glossary.
+                <strong>📚 1-Click DocGen Book:</strong> Compile complete architecture and developer documentation.
               </div>
               <ArrowRight size={14} color="var(--accent-cyan)" />
             </div>
 
             <div 
-              onClick={() => onNavigate('visual-tester')}
+              onClick={() => onNavigate('api-studio')}
               style={{
                 padding: '12px 14px',
                 borderRadius: 'var(--radius-md)',
@@ -362,9 +406,29 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               }}
             >
               <div>
-                <strong>Visual QA & Viewport Diff:</strong> Test responsive layouts with Pixelmatch comparison slider.
+                <strong>🔌 Webhooks & API Studio:</strong> Live dispatcher, cURL to API Connector & OpenAPI 3.0 specs.
               </div>
-              <ArrowRight size={14} color="var(--accent-amber)" />
+              <ArrowRight size={14} color="var(--primary)" />
+            </div>
+
+            <div 
+              onClick={() => onNavigate('security')}
+              style={{
+                padding: '12px 14px',
+                borderRadius: 'var(--radius-md)',
+                background: 'var(--bg-input)',
+                border: '1px solid var(--border-subtle)',
+                fontSize: '0.85rem',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                cursor: 'pointer'
+              }}
+            >
+              <div>
+                <strong>🛡️ Security & RBAC Matrix:</strong> Audit Privacy Rules and find data exposure vulnerabilities.
+              </div>
+              <ArrowRight size={14} color="var(--accent-emerald)" />
             </div>
           </div>
         </div>

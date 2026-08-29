@@ -1,4 +1,4 @@
-# 🏛️ Bubble.io Dev Studio — Architecture & Technical Specifications
+# 🏛️ Bubble.io Dev Studio — Architecture & Technical Specifications (v3.0.0)
 
 This document outlines the internal architecture, data flow, storage strategies, and engineering design patterns powering **Bubble.io Dev Studio**.
 

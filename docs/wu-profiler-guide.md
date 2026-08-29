@@ -1,4 +1,4 @@
-# ⚡ Workload Units (WU) & Query Profiler Guide
+# ⚡ Workload Units (WU) & Query Profiler Guide (v3.0.0)
 
 The **Workload Units (WU) & Query Profiler** helps you monitor, optimize, and reduce hosting costs on Bubble.io by pinpointing unindexed searches, nested loops, and memory-heavy workflows.
 

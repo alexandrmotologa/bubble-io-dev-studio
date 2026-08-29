@@ -120,6 +120,31 @@ input, textarea, select, code, pre {
   gap: 20px;
 }
 
+/* Layout Grids */
+.grid-5 {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.grid-4 {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.grid-3 {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.grid-2 {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
 /* Glassmorphism Cards */
 .card {
   background: var(--bg-card);
@@ -714,9 +739,21 @@ input, textarea, select, code, pre {
   }
 }
 
+@media (max-width: 1200px) {
+  .grid-5 {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
 @media (max-width: 1050px) {
   :root {
     --sidebar-width: 210px;
+  }
+  .grid-5 {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .grid-4 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
   .grid-3 {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -744,7 +781,7 @@ input, textarea, select, code, pre {
   :root {
     --sidebar-width: 190px;
   }
-  .grid-4, .grid-3, .grid-2 {
+  .grid-5, .grid-4, .grid-3, .grid-2 {
     grid-template-columns: 1fr;
   }
   .view-container {
@@ -796,7 +833,7 @@ input, textarea, select, code, pre {
     border-radius: var(--radius-md);
   }
 
-  .grid-4, .grid-3, .grid-2 {
+  .grid-5, .grid-4, .grid-3, .grid-2 {
     grid-template-columns: 1fr;
   }
 
