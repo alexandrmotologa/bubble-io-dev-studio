@@ -80,29 +80,20 @@ export const ProjectDropdown: React.FC<ProjectDropdownProps> = ({
           </div>
 
           <div style={{ minWidth: 0, flex: 1 }}>
-            <div style={{
-              fontSize: '0.85rem',
-              fontWeight: 700,
-              color: activeProject ? 'var(--text-primary)' : 'var(--text-muted)',
-              whiteSpace: 'nowrap',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis'
-            }}>
-              {activeProject ? activeProject.name : 'No App Connected'}
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '1px' }}>
-              {activeProject ? (
-                <>
-                  <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
-                    {activeProject.appId}
-                  </span>
-                  <span className={`badge ${activeProject.environment.includes('live') ? 'badge-emerald' : 'badge-cyan'}`} style={{ fontSize: '0.6rem', padding: '1px 5px' }}>
-                    {activeProject.environment.includes('live') ? 'LIVE' : 'TEST'}
-                  </span>
-                </>
-              ) : (
-                <span style={{ fontSize: '0.7rem', color: 'var(--accent-amber)' }}>
-                  Click to connect
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span style={{
+                fontSize: '0.85rem',
+                fontWeight: 700,
+                color: activeProject ? 'var(--text-primary)' : 'var(--text-muted)',
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis'
+              }}>
+                {activeProject ? activeProject.name : 'No App Connected'}
+              </span>
+              {activeProject && (
+                <span className={`badge ${activeProject.environment.includes('live') ? 'badge-emerald' : 'badge-cyan'}`} style={{ fontSize: '0.6rem', padding: '1px 5px', flexShrink: 0 }}>
+                  {activeProject.environment.includes('live') ? 'LIVE' : 'TEST'}
                 </span>
               )}
             </div>
@@ -177,8 +168,8 @@ export const ProjectDropdown: React.FC<ProjectDropdownProps> = ({
                       if (!isSelected) e.currentTarget.style.background = 'transparent';
                     }}
                   >
-                    <div style={{ minWidth: 0, flex: 1 }}>
-                      <div style={{
+                    <div style={{ minWidth: 0, flex: 1, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <span style={{
                         fontSize: '0.8rem',
                         fontWeight: isSelected ? 700 : 500,
                         color: isSelected ? 'var(--primary)' : 'var(--text-primary)',
@@ -187,13 +178,10 @@ export const ProjectDropdown: React.FC<ProjectDropdownProps> = ({
                         textOverflow: 'ellipsis'
                       }}>
                         {proj.name}
-                      </div>
-                      <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', display: 'flex', gap: '6px', alignItems: 'center' }}>
-                        <span>{proj.appId}</span>
-                        <span className={`badge ${proj.environment.includes('live') ? 'badge-emerald' : 'badge-cyan'}`} style={{ fontSize: '0.55rem', padding: '0 4px' }}>
-                          {proj.environment.includes('live') ? 'LIVE' : 'TEST'}
-                        </span>
-                      </div>
+                      </span>
+                      <span className={`badge ${proj.environment.includes('live') ? 'badge-emerald' : 'badge-cyan'}`} style={{ fontSize: '0.55rem', padding: '0 4px', flexShrink: 0 }}>
+                        {proj.environment.includes('live') ? 'LIVE' : 'TEST'}
+                      </span>
                     </div>
 
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
