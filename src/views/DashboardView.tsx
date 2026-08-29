@@ -123,7 +123,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               {activeProject.name}
             </h2>
             <div style={{ display: 'flex', gap: '16px', fontSize: '0.85rem', color: 'var(--text-secondary)', flexWrap: 'wrap' }}>
-              <span>App ID: <strong style={{ color: 'var(--text-primary)', letterSpacing: '2px', fontFamily: 'monospace' }}>••••••••••••</strong></span>
+              <span>App ID: <strong style={{ color: 'var(--text-primary)' }}>{activeProject.appId}</strong></span>
               <span>•</span>
               <span>Environment: <strong style={{ color: activeProject.environment.includes('live') ? 'var(--accent-emerald)' : 'var(--accent-cyan)' }}>{activeProject.environment}</strong></span>
               {activeProject.customDomain && (
