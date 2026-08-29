@@ -12,17 +12,17 @@
 
 ---
 
-## 📥 Download Desktop App (Pre-Built Binaries)
+## 📥 Download Desktop App (v3.0.0 Pre-Built Binaries)
 
-For users who want to run the app directly without compiling the source code:
+For developers and teams who want to run the desktop application directly without compiling from source:
 
-| Operating System | Download Link | Format | Architecture |
+| Platform | Download Link (v3.0.0 Production Stable) | Package Format | Architecture |
 | :--- | :--- | :--- | :--- |
-| **🪟 Windows** | [**Download for Windows (.exe)**](https://github.com/alexandrmotologa/bubble-io-dev-studio/releases/latest) | `.exe` NSIS Installer / Portable | x64 / ARM64 |
-| **🍎 macOS** | [**Download for macOS (.dmg)**](https://github.com/alexandrmotologa/bubble-io-dev-studio/releases/latest) | `.dmg` / `.zip` | Apple Silicon (M1/M2/M3) & Intel |
-| **🐧 Linux** | [**Download for Linux (.AppImage)**](https://github.com/alexandrmotologa/bubble-io-dev-studio/releases/latest) | `.AppImage` / `.deb` | x64 |
+| **🪟 Windows** | [**Bubble.io.Dev.Studio.Setup.3.0.0.exe**](https://github.com/alexandrmotologa/bubble-io-dev-studio/releases/download/v3.0.0/Bubble.io.Dev.Studio.Setup.3.0.0.exe) • [Portable .exe](https://github.com/alexandrmotologa/bubble-io-dev-studio/releases/download/v3.0.0/Bubble.io.Dev.Studio.3.0.0.exe) | NSIS Setup / Portable | x64 |
+| **🍎 macOS** | [**Bubble.io.Dev.Studio-3.0.0.dmg**](https://github.com/alexandrmotologa/bubble-io-dev-studio/releases/download/v3.0.0/Bubble.io.Dev.Studio-3.0.0.dmg) • [.zip](https://github.com/alexandrmotologa/bubble-io-dev-studio/releases/download/v3.0.0/Bubble.io.Dev.Studio-3.0.0-mac.zip) | Apple Disk Image / ZIP | Apple Silicon (M1/M2/M3/M4) & Intel |
+| **🐧 Linux** | [**Bubble.io.Dev.Studio-3.0.0.AppImage**](https://github.com/alexandrmotologa/bubble-io-dev-studio/releases/download/v3.0.0/Bubble.io.Dev.Studio-3.0.0.AppImage) • [.deb](https://github.com/alexandrmotologa/bubble-io-dev-studio/releases/download/v3.0.0/bubble-io-dev-studio_3.0.0_amd64.deb) | AppImage / Debian package | x64 |
 
-> 💡 *All builds and release artifacts are generated directly in the `release/` directory using `npm run dist:win`, `npm run dist:mac`, or `npm run dist:linux`.*
+> 🚀 **GitHub Release Hub**: [**View Official v3.0.0 Release & Changelog on GitHub**](https://github.com/alexandrmotologa/bubble-io-dev-studio/releases/tag/v3.0.0) | [Latest Release](https://github.com/alexandrmotologa/bubble-io-dev-studio/releases/latest)
 
 ---
 
