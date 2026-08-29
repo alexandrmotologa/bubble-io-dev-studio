@@ -1584,7 +1584,7 @@ export const DevOpsView: React.FC<DevOpsViewProps> = ({ activeProject, initialSu
                         ) : (
                           <div style={{
                             display: 'grid',
-                            gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 340px), 1fr))',
+                            gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 380px), 1fr))',
                             gap: '16px',
                             alignItems: 'start'
                           }}>
@@ -1616,11 +1616,11 @@ export const DevOpsView: React.FC<DevOpsViewProps> = ({ activeProject, initialSu
                                   paddingBottom: isCollapsed ? '0' : '12px',
                                   borderBottom: isCollapsed ? 'none' : '1px solid var(--border-subtle)',
                                   marginBottom: isCollapsed ? '0' : '12px',
-                                  gap: '12px'
+                                  gap: '10px'
                                 }}
                               >
                                 {/* Left: Chevron + Icon + Title + Badges */}
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0, flex: 1 }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, flex: 1, overflow: 'hidden' }}>
                                   <div
                                     style={{
                                       width: '22px',
@@ -1656,25 +1656,22 @@ export const DevOpsView: React.FC<DevOpsViewProps> = ({ activeProject, initialSu
                                     <Database size={13} color="var(--primary)" />
                                   </div>
 
-                                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, overflow: 'hidden' }}>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0, flex: 1, overflow: 'hidden' }}>
                                     <h3
                                       style={{
-                                        fontSize: '0.925rem',
+                                        fontSize: '0.9rem',
                                         fontWeight: 700,
                                         color: 'var(--text-primary)',
                                         margin: 0,
                                         overflow: 'hidden',
                                         textOverflow: 'ellipsis',
-                                        whiteSpace: 'nowrap'
+                                        whiteSpace: 'nowrap',
+                                        minWidth: '40px'
                                       }}
                                       title={dt.name}
                                     >
                                       {dt.name}
                                     </h3>
-
-                                    <span className="badge badge-indigo" style={{ fontSize: '0.625rem', padding: '1px 6px', textTransform: 'uppercase', letterSpacing: '0.3px', flexShrink: 0 }}>
-                                      Table
-                                    </span>
 
                                     {dt.recordCount && dt.recordCount > 0 ? (
                                       <span className="badge badge-cyan" style={{ fontSize: '0.625rem', padding: '1px 6px', flexShrink: 0 }}>
@@ -1809,7 +1806,7 @@ export const DevOpsView: React.FC<DevOpsViewProps> = ({ activeProject, initialSu
                     ) : (
                       <div style={{
                         display: 'grid',
-                        gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 340px), 1fr))',
+                        gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 380px), 1fr))',
                         gap: '16px',
                         alignItems: 'start'
                       }}>
@@ -1840,11 +1837,11 @@ export const DevOpsView: React.FC<DevOpsViewProps> = ({ activeProject, initialSu
                                   paddingBottom: isCollapsed ? '0' : '12px',
                                   borderBottom: isCollapsed ? 'none' : '1px solid var(--border-subtle)',
                                   marginBottom: isCollapsed ? '0' : '12px',
-                                  gap: '12px'
+                                  gap: '10px'
                                 }}
                               >
                                 {/* Left: Chevron + Icon + Title + Badge */}
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0, flex: 1 }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, flex: 1, overflow: 'hidden' }}>
                                   <div
                                     style={{
                                       width: '22px',
@@ -1880,25 +1877,22 @@ export const DevOpsView: React.FC<DevOpsViewProps> = ({ activeProject, initialSu
                                     <Tag size={13} color="var(--accent-amber)" />
                                   </div>
 
-                                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, overflow: 'hidden' }}>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0, flex: 1, overflow: 'hidden' }}>
                                     <h3
                                       style={{
-                                        fontSize: '0.925rem',
+                                        fontSize: '0.9rem',
                                         fontWeight: 700,
                                         color: 'var(--text-primary)',
                                         margin: 0,
                                         overflow: 'hidden',
                                         textOverflow: 'ellipsis',
-                                        whiteSpace: 'nowrap'
+                                        whiteSpace: 'nowrap',
+                                        minWidth: '40px'
                                       }}
                                       title={os.name}
                                     >
                                       {os.name}
                                     </h3>
-
-                                    <span className="badge badge-amber" style={{ fontSize: '0.625rem', padding: '1px 6px', textTransform: 'uppercase', letterSpacing: '0.3px', flexShrink: 0 }}>
-                                      Option Set
-                                    </span>
                                   </div>
                                 </div>
 

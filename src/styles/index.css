@@ -474,16 +474,26 @@ input, textarea, select, code, pre {
 }
 
 /* ==========================================================================
- * RESPONSIVE BREAKPOINTS & MOBILE OPTIMIZATIONS
+ * RESPONSIVE BREAKPOINTS & ADAPTIVE OPTIMIZATIONS
  * ========================================================================== */
 
-@media (max-width: 1400px) {
+@media (max-width: 1300px) {
+  :root {
+    --sidebar-width: 230px;
+  }
   .grid-4 {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+  .view-container {
+    padding: 20px 18px;
+    gap: 16px;
+  }
 }
 
-@media (max-width: 1024px) {
+@media (max-width: 1050px) {
+  :root {
+    --sidebar-width: 210px;
+  }
   .grid-3 {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -494,8 +504,28 @@ input, textarea, select, code, pre {
     grid-template-columns: 1fr !important;
   }
   .view-container {
-    padding: 20px;
-    gap: 20px;
+    padding: 16px 14px;
+    gap: 14px;
+  }
+  .card {
+    padding: 16px;
+  }
+  .header-actions {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+}
+
+@media (max-width: 880px) {
+  :root {
+    --sidebar-width: 190px;
+  }
+  .grid-4, .grid-3 {
+    grid-template-columns: 1fr;
+  }
+  .view-container {
+    padding: 14px 10px;
+    gap: 12px;
   }
 }
 
@@ -530,12 +560,12 @@ input, textarea, select, code, pre {
   }
 
   .view-container {
-    padding: 14px 10px;
-    gap: 14px;
+    padding: 12px 8px;
+    gap: 12px;
   }
 
   .card {
-    padding: 16px;
+    padding: 14px;
     border-radius: var(--radius-md);
   }
 
