@@ -250,7 +250,7 @@ export class SecurityEngine {
           tool: {
             driver: {
               name: 'Bubble.io Dev Studio Security Engine',
-              version: '2.2.0-beta',
+              version: '2.4.0-beta',
               informationUri: 'https://github.com/alexandrmotologa/bubble-io-dev-studio',
               rules: [
                 {

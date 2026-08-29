@@ -528,23 +528,105 @@ export interface SecurityAuditReport {
 // 6. WORKLOAD UNITS (WU) & QUERY PROFILER TYPES
 // ============================================================================
 
+export type WuOperationType = 
+  | 'search_unconstrained' 
+  | 'nested_search' 
+  | 'client_filter_large_list' 
+  | 'bulk_unbatched_update' 
+  | 'recursive_scheduled_loop' 
+  | 'unindexed_sort'
+  | 'heavy_custom_state'
+  | 'unbatched_api_call';
+
 export interface WuBottleneck {
   id: string;
   location: string;
   pageName?: string;
   workflowName?: string;
-  operationType: 'search_unconstrained' | 'nested_search' | 'client_filter_large_list' | 'bulk_unbatched_update' | 'recursive_scheduled_loop' | 'unindexed_sort';
-  severity: 'critical' | 'high' | 'medium';
+  operationType: WuOperationType;
+  severity: 'critical' | 'high' | 'medium' | 'info';
+  category: 'Database Queries' | 'Backend Workflows' | 'Frontend Rendering' | 'API & Webhooks' | 'Data Architecture';
   description: string;
+  rootCause: string;
   estimatedMonthlyWu: number;
   estimatedCostUsd: number;
   suggestedFix: string;
+  beforeCodeSnippet?: string;
+  afterCodeSnippet?: string;
+  wuReductionPercent: number;
+  affectedRecordsCount?: number;
+}
+
+export interface WuExecutionStep {
+  stepNumber: number;
+  name: string;
+  component: 'Database Engine' | 'Workflow Engine' | 'Browser Runtime' | 'API Connector';
+  costWu: number;
+  details: string;
+  isBottleneck?: boolean;
+}
+
+export interface WuSandboxPreset {
+  id: string;
+  title: string;
+  category: string;
+  description: string;
+  badExpression: string;
+  goodExpression: string;
+  beforeCostWu: number;
+  afterCostWu: number;
+  wuReductionPercent: number;
+  steps: WuExecutionStep[];
+  explanation: string;
+}
+
+export interface WuCapacityPlan {
+  id: string;
+  name: string;
+  monthlyWuAllowance: number;
+  basePriceUsd: number;
+  additionalCostPer100kWu: number;
+  utilizationPercent: number;
+  status: 'optimal' | 'tight' | 'exceeded' | 'underutilized';
+  isRecommended?: boolean;
+}
+
+export interface WuBurnRatePoint {
+  timeLabel: string;
+  wuConsumed: number;
+  primaryDriver: 'User Searches' | 'Scheduled Backend Cron' | 'API Webhooks' | 'Database Mutations' | 'Page Initialization';
+}
+
+export interface WuSpikeScenario {
+  id: string;
+  name: string;
+  description: string;
+  trafficMultiplier: number;
+  projectedMonthlyWu: number;
+  estimatedOverageUsd: number;
+  willTriggerThrottling: boolean;
+  status: 'safe' | 'warning' | 'danger';
+}
+
+export interface WuInventoryItem {
+  id: string;
+  type: 'search' | 'page' | 'backend_workflow' | 'api_endpoint' | 'custom_state';
+  name: string;
+  location: string;
+  estimatedMonthlyWu: number;
+  sharePercent: number;
+  executionFrequency: string;
+  dataVolume: string;
+  status: 'optimized' | 'needs_review' | 'critical';
+  recommendation: string;
 }
 
 export interface WuProfileReport {
   timestamp: string;
   totalEstimatedMonthlyWu: number;
   estimatedMonthlyCostUsd: number;
+  potentialSavingsMonthlyWu: number;
+  potentialSavingsCostUsd: number;
   efficiencyScore: number; // 0-100
   clientVsServerRatio: {
     clientPercentage: number;
@@ -561,6 +643,10 @@ export interface WuProfileReport {
     estimatedWu: number;
   }[];
   bottlenecks: WuBottleneck[];
+  capacityPlans: WuCapacityPlan[];
+  burnRateTimeline: WuBurnRatePoint[];
+  spikeScenarios: WuSpikeScenario[];
+  inventoryItems: WuInventoryItem[];
 }
 
 // ============================================================================
