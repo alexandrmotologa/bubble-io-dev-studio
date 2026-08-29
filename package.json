@@ -6,7 +6,7 @@
   "main": "dist-electron/main.js",
   "author": {
     "name": "Alexandr Motologa | MTLG Labs",
-    "url": "https://github.com/alexandrmotologa"
+    "url": "https://mtlglabs.space"
   },
   "license": "MIT",
   "keywords": [

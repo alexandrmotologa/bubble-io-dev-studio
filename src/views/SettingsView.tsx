@@ -1206,7 +1206,28 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               <strong>Bubble.io Dev Studio</strong> is the all-in-one developer productivity suite and GUI for Bubble.io engineers, agencies, and full-stack builders. It unifies Schema DevOps, Dead Code AST Audits, Workload Unit Profiling, Webhook Ingestion, 1-Click Documentation Books, AI Localization, and Visual QA Regression Testing into a single unified desktop workflow.
             </p>
 
-            <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', paddingTop: '12px', borderTop: '1px solid var(--border-subtle)' }}>
+            <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', paddingTop: '14px', borderTop: '1px solid var(--border-subtle)' }}>
+              <a
+                href="https://mtlglabs.space"
+                target="_blank"
+                rel="noreferrer"
+                className="btn btn-secondary btn-sm"
+                style={{ background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.15), rgba(6, 182, 212, 0.15))', border: '1px solid var(--border-active)' }}
+              >
+                <Globe size={14} color="var(--accent-cyan)" />
+                <span>🧪 MTLG Labs (mtlglabs.space)</span>
+              </a>
+
+              <a
+                href="https://mtlg.site"
+                target="_blank"
+                rel="noreferrer"
+                className="btn btn-secondary btn-sm"
+              >
+                <Globe size={14} color="var(--primary)" />
+                <span>🌐 Personal Hub (mtlg.site)</span>
+              </a>
+
               <a
                 href="https://github.com/alexandrmotologa"
                 target="_blank"
@@ -1231,13 +1252,14 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               <button
                 type="button"
                 onClick={() => {
-                  navigator.clipboard.writeText('mtlg.labs.contact@gmail.com');
-                  toast.success('Email Copied to Clipboard!', 'mtlg.labs.contact@gmail.com');
+                  navigator.clipboard.writeText('contact@mtlglabs.space');
+                  toast.success('Email Copied to Clipboard!', 'contact@mtlglabs.space');
                 }}
                 className="btn btn-secondary btn-sm"
+                title="Click to copy official contact email"
               >
                 <Mail size={14} />
-                <span>mtlg.labs.contact@gmail.com</span>
+                <span>contact@mtlglabs.space</span>
               </button>
 
               <a

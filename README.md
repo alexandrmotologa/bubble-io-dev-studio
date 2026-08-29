@@ -213,5 +213,12 @@ Distributed under the **MIT License**. See [LICENSE](file:///b:/workgit/bubble-i
 ---
 
 <p align="center">
-  <b>Bubble.io Dev Studio</b> • Built with ❤️ for the global Bubble.io Engineering Community
+  <b>Bubble.io Dev Studio</b> • Built with ❤️ by <b><a href="https://mtlg.site">Alexandr Motologa</a></b> | <b><a href="https://mtlglabs.space">MTLG Labs</a></b>
+</p>
+<p align="center">
+  <a href="https://mtlglabs.space">🧪 MTLG Labs Ecosystem</a> • 
+  <a href="https://mtlg.site">🌐 Personal Portfolio</a> • 
+  <a href="https://github.com/alexandrmotologa">🐙 GitHub</a> • 
+  <a href="https://buymeacoffee.com/mtlg">☕ Buy Me a Coffee</a> • 
+  <a href="mailto:contact@mtlglabs.space">✉️ contact@mtlglabs.space</a>
 </p>

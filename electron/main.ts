@@ -69,6 +69,18 @@ function createAppMenu() {
       label: 'Help',
       submenu: [
         {
+          label: 'MTLG Labs (mtlglabs.space)',
+          click: async () => {
+            await shell.openExternal('https://mtlglabs.space');
+          }
+        },
+        {
+          label: 'Author Portfolio (mtlg.site)',
+          click: async () => {
+            await shell.openExternal('https://mtlg.site');
+          }
+        },
+        {
           label: 'Author GitHub (@alexandrmotologa)',
           click: async () => {
             await shell.openExternal('https://github.com/alexandrmotologa');
@@ -81,21 +93,21 @@ function createAppMenu() {
           }
         },
         {
-          label: 'Contact Author via Email (mtlg.labs.contact@gmail.com)',
+          label: 'Contact Support via Email (contact@mtlglabs.space)',
           click: async () => {
-            const authorEmail = 'mtlg.labs.contact@gmail.com';
+            const authorEmail = 'contact@mtlglabs.space';
             clipboard.writeText(authorEmail);
             if (mainWindow) {
               mainWindow.webContents.send('toast:show', {
                 type: 'success',
                 title: 'Email Copied to Clipboard',
-                message: `Author email (${authorEmail}) has been copied to your clipboard.`
+                message: `Contact email (${authorEmail}) has been copied to your clipboard.`
               });
               dialog.showMessageBox(mainWindow, {
                 type: 'info',
                 title: 'Email Copied',
-                message: 'Author Email Copied to Clipboard!',
-                detail: `The contact address "${authorEmail}" was copied to your clipboard.\n\nWould you also like to open your default email client?`,
+                message: 'Contact Email Copied to Clipboard!',
+                detail: `The address "${authorEmail}" was copied to your clipboard.\n\nWould you also like to open your default email client?`,
                 buttons: ['OK (Just Copied)', 'Open Email Client']
               }).then(res => {
                 if (res.response === 1) {
@@ -126,8 +138,8 @@ function createAppMenu() {
               dialog.showMessageBox(mainWindow, {
                 type: 'info',
                 title: 'About Bubble.io Dev Studio',
-                message: 'Bubble.io Dev Studio v1.4.0',
-                detail: 'All-in-one Developer Studio & GUI for Bubble.io (DevOps, Schema, Dead Code Audit, AI Translation, Visual QA)\n\nAuthor: Alexandr Motologa | MTLG Labs\nSupport: https://buymeacoffee.com/mtlg\nEmail: mtlg.labs.contact@gmail.com\nGitHub: https://github.com/alexandrmotologa',
+                message: 'Bubble.io Dev Studio v3.0.0 (Production Stable)',
+                detail: 'All-in-one Developer Studio & GUI for Bubble.io (DevOps, Schema, Dead Code Audit, AI Translation, Visual QA)\n\nAuthor: Alexandr Motologa | MTLG Labs\nStudio: https://mtlglabs.space\nPersonal Hub: https://mtlg.site\nGitHub: https://github.com/alexandrmotologa\nSupport: https://buymeacoffee.com/mtlg\nEmail: contact@mtlglabs.space',
                 buttons: ['OK']
               });
             }

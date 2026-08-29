@@ -28,6 +28,6 @@ The **Settings & Integrations Hub** manages multi-provider AI credentials, Bubbl
 - **Export Diagnostics JSON**: 1-Click download of a diagnostic bundle for troubleshooting and bug reporting.
 
 ### 5. ℹ️ About & Credits (`about`)
-- **Release Edition**: Version `2.7.0-beta` (Enterprise Suite).
-- **Author Credits**: Designed and built by **Alexandr Motologa | MTLG Labs**.
-- **Community Links**: GitHub repository, Buy Me a Coffee, and contact email.
+- **Release Edition**: Version `v3.0.0` (Production Stable Suite).
+- **Author Credits**: Designed and built by **Alexandr Motologa | MTLG Labs** ([mtlglabs.space](https://mtlglabs.space) • [mtlg.site](https://mtlg.site)).
+- **Ecosystem & Support Links**: MTLG Labs Ecosystem, Personal Portfolio Hub, GitHub repository, Buy Me a Coffee, and direct email (`contact@mtlglabs.space`).
