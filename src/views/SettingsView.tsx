@@ -33,12 +33,14 @@ import {
   Sliders,
   Terminal,
   HelpCircle,
-  FileJson
+  FileJson,
+  Pencil
 } from 'lucide-react';
 import { GlobalSettings, ProjectProfile, ThemeMode } from '../types';
 import { DevOpsEngine } from '../core/devops/devopsEngine';
 import { TranslatorEngine } from '../core/translator/translatorEngine';
 import { ConfirmDeleteModal } from '../components/ConfirmDeleteModal';
+import { EditProjectModal } from '../components/EditProjectModal';
 import { AI_PROVIDERS, PROVIDER_MODELS, getProviderForModel, getDefaultModelForProvider, getProviderDisplayName, getModelDisplayName } from '../core/ai/aiProviders';
 import { toast } from '../core/toast/toastManager';
 import { ProjectStore } from '../core/storage/projectStore';
@@ -63,6 +65,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const [formData, setFormData] = useState<GlobalSettings>(settings);
   const [savedSuccess, setSavedSuccess] = useState(false);
   const [projectToDelete, setProjectToDelete] = useState<ProjectProfile | null>(null);
+  const [projectToEdit, setProjectToEdit] = useState<ProjectProfile | null>(null);
 
   // Dynamic AI Provider selection in Settings
   const [selectedProvider, setSelectedProvider] = useState<string>(() => {
@@ -245,6 +248,15 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       }
     };
     reader.readAsText(file);
+  };
+
+  const handleSaveEditedProject = (updatedProject: ProjectProfile) => {
+    ProjectStore.getInstance().updateProject(updatedProject.id, updatedProject);
+    const updatedSettings = ProjectStore.getInstance().getSettings();
+    setFormData(updatedSettings);
+    onSaveSettings(updatedSettings);
+    onLog('system', `Updated configuration for workspace '${updatedProject.name}'.`, 'success');
+    setProjectToEdit(null);
   };
 
   const handleAttachBlueprintToProject = (projId: string, e: React.ChangeEvent<HTMLInputElement>) => {
@@ -889,6 +901,17 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
                         <button
                           type="button"
+                          onClick={() => setProjectToEdit(proj)}
+                          className="btn btn-secondary btn-sm"
+                          style={{ fontSize: '0.725rem', padding: '4px 10px' }}
+                          title="Edit workspace title, endpoints, API tokens and auth"
+                        >
+                          <Pencil size={12} />
+                          <span>Edit Details</span>
+                        </button>
+
+                        <button
+                          type="button"
                           onClick={() => handleTestAppPing(proj)}
                           disabled={isPinging}
                           className="btn btn-secondary btn-sm"
@@ -1237,6 +1260,14 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         project={projectToDelete}
         onClose={() => setProjectToDelete(null)}
         onConfirm={handleConfirmDelete}
+      />
+
+      {/* Manual Workspace Edit Modal */}
+      <EditProjectModal
+        isOpen={Boolean(projectToEdit)}
+        project={projectToEdit}
+        onClose={() => setProjectToEdit(null)}
+        onSave={handleSaveEditedProject}
       />
     </div>
   );
