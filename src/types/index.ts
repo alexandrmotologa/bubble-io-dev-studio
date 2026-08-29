@@ -946,9 +946,12 @@ export interface DocSection {
   id: string;
   title: string;
   icon: string;
-  category: 'overview' | 'database' | 'security' | 'api' | 'workflows' | 'localization' | 'quality';
+  category: 'overview' | 'database' | 'security' | 'api' | 'workflows' | 'localization' | 'quality' | 'custom';
   markdownContent: string;
   badge?: string;
+  enabled?: boolean;
+  isCustom?: boolean;
+  order?: number;
 }
 
 export interface DocBookProject {
