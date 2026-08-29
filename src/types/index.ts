@@ -473,6 +473,37 @@ export interface InsecureEndpointFinding {
   ignoredPrivacyRules: boolean;
 }
 
+export interface ComplianceFrameworkScore {
+  framework: 'GDPR' | 'SOC2' | 'HIPAA' | 'PCI-DSS';
+  score: number; // 0 - 100
+  status: 'COMPLIANT' | 'NEEDS_REVIEW' | 'NON_COMPLIANT';
+  issuesCount: number;
+  description: string;
+}
+
+export interface EveryoneElseRiskItem {
+  dataType: string;
+  riskLevel: 'CRITICAL' | 'WARNING' | 'HARDENED';
+  sensitiveFieldsCount: number;
+  publicSearchAllowed: boolean;
+  publicViewAllFields: boolean;
+  recommendedRule: string;
+  bubbleExpression: string;
+}
+
+export interface SecurityRemediationRule {
+  id: string;
+  dataType: string;
+  ruleName: string;
+  roleTarget: string;
+  bubbleExpression: string;
+  viewAllFields: boolean;
+  findInSearches: boolean;
+  allowedFields: string[];
+  blockedFields: string[];
+  rationale: string;
+}
+
 export interface SecurityAuditReport {
   timestamp: string;
   overallScore: number; // 0-100
@@ -488,6 +519,9 @@ export interface SecurityAuditReport {
     reason: string;
     piiType?: string;
   }[];
+  complianceScores?: ComplianceFrameworkScore[];
+  everyoneElseRisks?: EveryoneElseRiskItem[];
+  remediations?: SecurityRemediationRule[];
 }
 
 // ============================================================================
