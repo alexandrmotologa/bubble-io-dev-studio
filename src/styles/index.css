@@ -681,6 +681,26 @@ input, textarea, select, code, pre {
  * RESPONSIVE BREAKPOINTS & ADAPTIVE OPTIMIZATIONS
  * ========================================================================== */
 
+.webhook-dispatcher-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  background: var(--bg-input);
+  padding: 8px 12px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-subtle);
+}
+
+.webhook-endpoint-input-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: 1;
+  min-width: 240px;
+  overflow: hidden;
+}
+
 @media (max-width: 1300px) {
   :root {
     --sidebar-width: 230px;

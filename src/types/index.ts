@@ -665,29 +665,85 @@ export interface WebhookLogEntry {
   method: 'POST' | 'GET' | 'PUT' | 'DELETE' | 'PATCH';
   endpoint: string;
   status: number;
+  statusText?: string;
   headers: Record<string, string>;
+  queryParams?: Record<string, string>;
   bodyJson: any;
   responseBody: any;
   durationMs: number;
+  origin?: string;
+  replayedFromId?: string;
+}
+
+export interface ApiConnectorParameter {
+  key: string;
+  value: string;
+  isPrivate?: boolean;
+  isOptional?: boolean;
+  isQuerystring?: boolean;
+  isClientSafe?: boolean;
+  description?: string;
+}
+
+export interface ApiConnectorHeader {
+  key: string;
+  value: string;
+  isPrivate?: boolean;
+  description?: string;
 }
 
 export interface ApiConnectorCallConfig {
   id: string;
   name: string;
   url: string;
-  method: 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH';
+  method: 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH' | 'HEAD' | 'OPTIONS';
   useAs: 'data' | 'action';
   dataCategory: 'json' | 'text' | 'image' | 'xml';
-  headers: { key: string; value: string; isPrivate?: boolean }[];
-  parameters: { key: string; value: string; isClientSafe?: boolean; isOptional?: boolean }[];
+  headers: ApiConnectorHeader[];
+  parameters: ApiConnectorParameter[];
   bodyType: 'json' | 'form-data' | 'raw';
   bodyPayload?: string;
+  authType?: 'none' | 'bearer' | 'basic' | 'custom_header' | 'query_param';
+  authConfig?: {
+    username?: string;
+    password?: string;
+    token?: string;
+    headerKey?: string;
+    headerValue?: string;
+  };
+  tag?: string;
+  description?: string;
+}
+
+export interface OpenApiEndpoint {
+  id: string;
+  path: string;
+  method: 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH' | 'HEAD' | 'OPTIONS';
+  summary: string;
+  description?: string;
+  tags: string[];
+  parameters: {
+    name: string;
+    in: 'query' | 'header' | 'path' | 'cookie';
+    required?: boolean;
+    type?: string;
+    description?: string;
+    example?: any;
+  }[];
+  requestBodySchema?: any;
+  responses: Record<string, { description?: string; schema?: any }>;
+  selected?: boolean;
+  callConfig: ApiConnectorCallConfig;
 }
 
 export interface OpenApiImportResult {
   apiTitle: string;
   version: string;
+  description?: string;
+  baseUrl: string;
   callsCount: number;
+  tags: string[];
+  endpoints: OpenApiEndpoint[];
   calls: ApiConnectorCallConfig[];
 }
 
@@ -852,7 +908,7 @@ export interface TypeScriptGeneratorOptions {
 
 export interface PluginParameterDef {
   name: string;
-  type: 'text' | 'number' | 'boolean' | 'date' | 'object' | 'list_text' | 'list_number';
+  type: 'text' | 'number' | 'boolean' | 'date' | 'object' | 'list_text' | 'list_number' | 'file';
   required: boolean;
   description?: string;
   sampleValue?: any;
@@ -865,6 +921,11 @@ export interface PluginSdkActionConfig {
   apiUrl?: string;
   httpMethod?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
   headers?: Record<string, string>;
+  enableRetry?: boolean;
+  maxRetries?: number;
+  timeoutMs?: number;
+  useBubbleContextKeys?: boolean;
+  bubbleApiKeyName?: string;
   parameters: PluginParameterDef[];
   returnsValue: boolean;
   returnFields?: PluginParameterDef[];
