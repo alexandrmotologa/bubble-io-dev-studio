@@ -168,6 +168,7 @@ export const DevOpsView: React.FC<DevOpsViewProps> = ({ activeProject, initialSu
 
   // ERD Subgraph Focus state
   const [erdFocusedTable, setErdFocusedTable] = useState<string>('ALL');
+  const [erdCompactMode, setErdCompactMode] = useState<boolean>(false);
 
   // Schema Explorer state
   const [schemaSortMode, setSchemaSortMode] = useState<'name' | 'fields_desc' | 'fields_asc'>('name');
@@ -203,9 +204,9 @@ export const DevOpsView: React.FC<DevOpsViewProps> = ({ activeProject, initialSu
       setMermaidErd('');
       return;
     }
-    const erd = DevOpsEngine.generateMermaidERD(schema, erdFocusedTable);
+    const erd = DevOpsEngine.generateMermaidERD(schema, erdFocusedTable, { compact: erdCompactMode });
     setMermaidErd(erd);
-  }, [schema, erdFocusedTable]);
+  }, [schema, erdFocusedTable, erdCompactMode]);
 
   const toggleCollapseTable = (id: string) => {
     setCollapsedTables(prev => {
@@ -2060,18 +2061,40 @@ export const DevOpsView: React.FC<DevOpsViewProps> = ({ activeProject, initialSu
                   Reset Focus
                 </button>
               )}
+
+              {/* View Density Mode Toggle */}
+              <div style={{ display: 'flex', background: 'var(--bg-input)', padding: '2px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)', marginLeft: '4px' }}>
+                <button
+                  type="button"
+                  onClick={() => setErdCompactMode(false)}
+                  className={`btn btn-sm ${!erdCompactMode ? 'btn-primary' : 'btn-ghost'}`}
+                  style={{ fontSize: '0.7rem', padding: '3px 8px', height: '24px' }}
+                  title="Show all fields and types inside each table box"
+                >
+                  Full Fields
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setErdCompactMode(true)}
+                  className={`btn btn-sm ${erdCompactMode ? 'btn-primary' : 'btn-ghost'}`}
+                  style={{ fontSize: '0.7rem', padding: '3px 8px', height: '24px' }}
+                  title="Show only table headers and foreign key links (faster for 100+ tables)"
+                >
+                  ⚡ Compact Models
+                </button>
+              </div>
             </div>
 
             <div style={{ fontSize: '0.725rem', color: 'var(--text-muted)' }}>
               {erdFocusedTable === 'ALL' 
-                ? `Showing complete enterprise database schema with all dynamic relations`
+                ? `Showing complete enterprise database schema (${schema?.dataTypes.length || 0} tables)`
                 : `Focused on '${erdFocusedTable}' and all connected parent & child tables`}
             </div>
           </div>
 
           <MermaidViewer 
             chart={mermaidErd} 
-            title={`Entity Relationship Diagram ${erdFocusedTable !== 'ALL' ? `(Focus: ${erdFocusedTable})` : '(Full Schema)'}`}
+            title={`Entity Relationship Diagram ${erdFocusedTable !== 'ALL' ? `(Focus: ${erdFocusedTable})` : `(Full Schema • ${erdCompactMode ? 'Compact' : 'Full Detail'})`}`}
           />
         </div>
       )}

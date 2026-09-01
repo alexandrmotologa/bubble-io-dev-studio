@@ -479,7 +479,7 @@ This developer documentation book provides a complete, authoritative architectur
   </div>
 
   <script>
-    mermaid.initialize({ startOnLoad: false, theme: 'dark' });
+    mermaid.initialize({ startOnLoad: false, maxTextSize: 10000000, maxEdges: 10000, theme: 'dark' });
     const rawMd = ${JSON.stringify(fullMarkdown)};
     document.getElementById('content').innerHTML = marked.parse(rawMd);
     mermaid.run();

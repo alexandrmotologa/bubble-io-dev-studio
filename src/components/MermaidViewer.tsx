@@ -102,6 +102,9 @@ export const MermaidViewer: React.FC<MermaidViewerProps> = ({
 
     mermaid.initialize({
       startOnLoad: false,
+      maxTextSize: 10000000,
+      maxEdges: 10000,
+      suppressErrorRendering: true,
       theme: isLight ? 'default' : 'dark',
       securityLevel: 'loose',
       themeVariables: isLight ? {
@@ -153,7 +156,7 @@ export const MermaidViewer: React.FC<MermaidViewerProps> = ({
 
       try {
         setRenderError(null);
-        const uniqueId = `mermaid_erd_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
+        const uniqueId = `mermaid_erd_${Date.now()}_${Math.floor(Math.random() * 10000)}`;
         const { svg } = await mermaid.render(uniqueId, chart);
         if (isMounted) {
           // Inject custom SVG styling to ensure crisp text & entity boxes in Light and Dark mode
@@ -166,6 +169,10 @@ export const MermaidViewer: React.FC<MermaidViewerProps> = ({
         }
       } catch (err: any) {
         console.error('Mermaid render error:', err);
+        // Clean up any stray error elements created by mermaid in document.body
+        const strayDivs = document.querySelectorAll(`[id^="dmermaid_erd_"]`);
+        strayDivs.forEach(div => div.remove());
+
         if (isMounted) {
           setRenderError(err.message || 'Failed to render Mermaid diagram');
         }

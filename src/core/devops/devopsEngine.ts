@@ -798,13 +798,22 @@ export class DevOpsEngine {
   /**
    * Generates Mermaid ERD Diagram code
    */
-  public static generateMermaidERD(schema: BubbleSchema, focusedTable?: string): string {
+  public static generateMermaidERD(
+    schema: BubbleSchema, 
+    focusedTable?: string,
+    options?: { compact?: boolean }
+  ): string {
     if (!schema || !schema.dataTypes || schema.dataTypes.length === 0) {
       return 'erDiagram\n    App {\n        string id\n    }\n';
     }
 
+    const isCompact = options?.compact ?? false;
+
     const cleanIdentifier = (name: string): string => {
-      let cleaned = (name || 'Unknown').replace(/[^a-zA-Z0-9_]/g, '_');
+      let cleaned = (name || 'Unknown')
+        .trim()
+        .replace(/[^a-zA-Z0-9_]/g, '_')
+        .replace(/^_+|_+$/g, '');
       if (/^[0-9]/.test(cleaned)) {
         cleaned = `f_${cleaned}`;
       }
@@ -881,18 +890,22 @@ export class DevOpsEngine {
       mermaid += `    ${tableName} {\n`;
       const seenFields = new Set<string>();
 
-      for (const field of dt.fields) {
-        let fName = cleanIdentifier(field.name);
-        if (seenFields.has(fName)) {
-          fName = `${fName}_2`;
+      if (isCompact) {
+        mermaid += `        string _id\n`;
+      } else {
+        for (const field of dt.fields) {
+          let fName = cleanIdentifier(field.name);
+          if (seenFields.has(fName)) {
+            fName = `${fName}_2`;
+          }
+          seenFields.add(fName);
+          const fType = cleanFieldType(field.type, field.isList);
+          mermaid += `        ${fType} ${fName}\n`;
         }
-        seenFields.add(fName);
-        const fType = cleanFieldType(field.type, field.isList);
-        mermaid += `        ${fType} ${fName}\n`;
-      }
 
-      if (dt.fields.length === 0) {
-        mermaid += `        string id\n`;
+        if (dt.fields.length === 0) {
+          mermaid += `        string _id\n`;
+        }
       }
       mermaid += `    }\n`;
     }
@@ -927,7 +940,7 @@ export class DevOpsEngine {
             const relKey = `${sourceTable}_${targetClean}_${field.name}`;
             if (!relKeySet.has(relKey)) {
               relKeySet.add(relKey);
-              const label = cleanIdentifier(field.name).slice(0, 24);
+              const label = cleanIdentifier(field.name).slice(0, 24).replace(/["\\]/g, '');
               const isList = field.isList || rawTypeLower.includes('list');
               if (isList) {
                 relations.push(`    ${sourceTable} }o--o{ ${targetClean} : "${label}"`);
