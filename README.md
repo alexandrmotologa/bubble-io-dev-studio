@@ -18,9 +18,9 @@ For developers and teams who want to run the desktop application directly withou
 
 | Platform | Download Link (v3.0.1 Production Stable) | Package Format | Architecture |
 | :--- | :--- | :--- | :--- |
-| **🪟 Windows** | [**Bubble.io.Dev.Studio.Setup.3.0.1.exe**](https://github.com/alexandrmotologa/bubble-io-dev-studio/releases/download/v3.0.1/Bubble.io.Dev.Studio.Setup.3.0.1.exe) • [Portable .exe](https://github.com/alexandrmotologa/bubble-io-dev-studio/releases/download/v3.0.1/Bubble.io.Dev.Studio.3.0.1.exe) | NSIS Setup / Portable | x64 |
-| **🍎 macOS** | [**Bubble.io.Dev.Studio-3.0.1.dmg**](https://github.com/alexandrmotologa/bubble-io-dev-studio/releases/download/v3.0.1/Bubble.io.Dev.Studio-3.0.1.dmg) • [.zip](https://github.com/alexandrmotologa/bubble-io-dev-studio/releases/download/v3.0.1/Bubble.io.Dev.Studio-3.0.1-mac.zip) | Apple Disk Image / ZIP | Apple Silicon (M1/M2/M3/M4) & Intel |
-| **🐧 Linux** | [**Bubble.io.Dev.Studio-3.0.1.AppImage**](https://github.com/alexandrmotologa/bubble-io-dev-studio/releases/download/v3.0.1/Bubble.io.Dev.Studio-3.0.1.AppImage) • [.deb](https://github.com/alexandrmotologa/bubble-io-dev-studio/releases/download/v3.0.1/bubble-io-dev-studio_3.0.1_amd64.deb) | AppImage / Debian package | x64 |
+| **🪟 Windows** | [**Bubble.io-Dev-Studio-Setup-3.0.1.exe**](https://github.com/alexandrmotologa/bubble-io-dev-studio/releases/download/v3.0.1/Bubble.io-Dev-Studio-Setup-3.0.1.exe) • [Portable .exe](https://github.com/alexandrmotologa/bubble-io-dev-studio/releases/download/v3.0.1/Bubble.io-Dev-Studio-3.0.1.exe) | NSIS Setup / Portable | x64 |
+| **🍎 macOS** | [**Bubble.io-Dev-Studio-3.0.1.dmg**](https://github.com/alexandrmotologa/bubble-io-dev-studio/releases/download/v3.0.1/Bubble.io-Dev-Studio-3.0.1.dmg) • [.zip](https://github.com/alexandrmotologa/bubble-io-dev-studio/releases/download/v3.0.1/Bubble.io-Dev-Studio-3.0.1-mac.zip) | Apple Disk Image / ZIP | Apple Silicon (M1/M2/M3/M4) & Intel |
+| **🐧 Linux** | [**Bubble.io-Dev-Studio-3.0.1.AppImage**](https://github.com/alexandrmotologa/bubble-io-dev-studio/releases/download/v3.0.1/Bubble.io-Dev-Studio-3.0.1.AppImage) | AppImage format | x64 |
 
 > 🚀 **GitHub Release Hub**: [**View Official v3.0.1 Release & Changelog on GitHub**](https://github.com/alexandrmotologa/bubble-io-dev-studio/releases/tag/v3.0.1) | [Latest Release](https://github.com/alexandrmotologa/bubble-io-dev-studio/releases/latest)
 >
