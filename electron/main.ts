@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, shell, Menu, MenuItemConstructorOptions, dialog, clipboard } from 'electron';
+import { app, BrowserWindow, ipcMain, shell, Menu, MenuItemConstructorOptions, dialog, clipboard, safeStorage } from 'electron';
 import path from 'path';
 
 let mainWindow: BrowserWindow | null = null;
@@ -213,7 +213,7 @@ app.on('window-all-closed', () => {
 
 // IPC handlers
 ipcMain.handle('shell:open-external', async (_event, url: string) => {
-  if (url && (url.startsWith('https://') || url.startsWith('http://'))) {
+  if (url && (url.startsWith('https://') || url.startsWith('http://') || url.startsWith('mailto:'))) {
     await shell.openExternal(url);
   }
 });
@@ -225,5 +225,79 @@ ipcMain.handle('http:fetch', async (_event, url: string, headers?: Record<string
     return { ok: res.ok, status: res.status, data };
   } catch (err: any) {
     return { ok: false, error: err.message };
+  }
+});
+
+// Issue #4 Fix: Native safeStorage encryption for API tokens & credentials
+ipcMain.handle('secure:encrypt', async (_event, plainText: string) => {
+  if (!plainText || typeof plainText !== 'string') return '';
+  try {
+    if (safeStorage && safeStorage.isEncryptionAvailable()) {
+      const encrypted = safeStorage.encryptString(plainText);
+      return `enc:${encrypted.toString('base64')}`;
+    }
+  } catch (e) {
+    console.warn('safeStorage encryption warning:', e);
+  }
+  return plainText;
+});
+
+ipcMain.handle('secure:decrypt', async (_event, cipherText: string) => {
+  if (!cipherText || typeof cipherText !== 'string') return '';
+  if (cipherText.startsWith('enc:') && safeStorage && safeStorage.isEncryptionAvailable()) {
+    try {
+      const buffer = Buffer.from(cipherText.slice(4), 'base64');
+      return safeStorage.decryptString(buffer);
+    } catch (e) {
+      console.warn('safeStorage decryption warning:', e);
+      return cipherText;
+    }
+  }
+  return cipherText;
+});
+
+ipcMain.handle('secure:is-available', async () => {
+  return safeStorage ? safeStorage.isEncryptionAvailable() : false;
+});
+
+// Issue #3 Fix: Real headless page screenshot capture for Bubble visual testing
+ipcMain.handle('visual:capture-page', async (_event, targetUrl: string, width: number, height: number, customHeaders?: Record<string, string>) => {
+  let captureWin: BrowserWindow | null = null;
+  const targetW = Math.max(320, width || 1920);
+  const targetH = Math.max(240, height || 1080);
+
+  try {
+    captureWin = new BrowserWindow({
+      width: targetW,
+      height: targetH,
+      show: false,
+      useContentSize: true,
+      webPreferences: {
+        offscreen: true,
+        sandbox: true,
+        webSecurity: false
+      }
+    });
+
+    if (customHeaders && Object.keys(customHeaders).length > 0) {
+      captureWin.webContents.session.webRequest.onBeforeSendHeaders((details, callback) => {
+        callback({ requestHeaders: { ...details.requestHeaders, ...customHeaders } });
+      });
+    }
+
+    await captureWin.loadURL(targetUrl);
+    // Allow dynamic UI, fonts, and client workflows 1200ms to paint
+    await new Promise(r => setTimeout(r, 1200));
+
+    const image = await captureWin.webContents.capturePage({ x: 0, y: 0, width: targetW, height: targetH });
+    const dataUrl = image.toDataURL();
+    return { success: true, dataUrl, width: targetW, height: targetH };
+  } catch (err: any) {
+    return { success: false, error: err.message || 'Page capture failed' };
+  } finally {
+    if (captureWin) {
+      captureWin.destroy();
+      captureWin = null;
+    }
   }
 });

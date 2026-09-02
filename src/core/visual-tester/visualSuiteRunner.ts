@@ -3,7 +3,7 @@ import { PixelDiffEngine } from './pixelDiffEngine';
 
 export class VisualSuiteRunner {
   /**
-   * Runs the complete visual test suite with masking, timeout delays, and auth support
+   * Runs the complete visual test suite with live page captures, pixelmatch diffing, and auth support (Issue #3)
    */
   public static async runSuite(
     cases: VisualTestCase[],
@@ -19,13 +19,39 @@ export class VisualSuiteRunner {
       const tc = cases[i];
       onProgress?.(i + 1, cases.length, `${tc.name} (${tc.viewport.name})`);
 
-      // Wait timeout simulation (Repeating groups, dynamic animations)
-      const waitMs = tc.waitForTimeout || 350;
-      await new Promise(r => setTimeout(r, waitMs));
+      let capturedImage: string | undefined = tc.currentImage;
 
+      // 1. Attempt live Electron Headless Page Capture if available and valid URL (Issue #3)
+      if (typeof window !== 'undefined' && window.electronAPI?.capturePage && tc.pageUrl && tc.pageUrl.startsWith('http')) {
+        try {
+          const headers: Record<string, string> = {};
+          if (authSettings?.httpBasicUser && authSettings?.httpBasicPassword) {
+            headers['Authorization'] = `Basic ${btoa(`${authSettings.httpBasicUser}:${authSettings.httpBasicPassword}`)}`;
+          }
+
+          const captureResult = await window.electronAPI.capturePage(
+            tc.pageUrl,
+            tc.viewport.width,
+            tc.viewport.height,
+            headers
+          );
+
+          if (captureResult?.success && captureResult.dataUrl) {
+            capturedImage = captureResult.dataUrl;
+          }
+        } catch (err) {
+          console.warn(`[VisualSuiteRunner] Live capture failed for ${tc.pageUrl}:`, err);
+        }
+      }
+
+      // If no baseline was set yet, treat the first capture as the baseline snapshot
+      const baseline = tc.baselineImage || capturedImage || '';
+      const current = capturedImage || baseline;
+
+      // 2. Real Pixelmatch comparison
       const comparison = await PixelDiffEngine.compareImages(
-        tc.baselineImage || '',
-        tc.currentImage || tc.baselineImage || '',
+        baseline,
+        current,
         diffThreshold / 100,
         tc.maskSelectors
       );
@@ -39,7 +65,8 @@ export class VisualSuiteRunner {
         status: isPassed ? 'passed' : 'failed',
         diffPercentage: comparison.diffPercentage,
         diffPixelsCount: comparison.diffPixelsCount,
-        currentImage: tc.baselineImage, // updated snapshot
+        baselineImage: baseline,
+        currentImage: current,
         lastRun: new Date().toISOString()
       });
     }

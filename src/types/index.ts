@@ -449,6 +449,8 @@ export interface VisualAuthSettings {
   submitButtonSelector?: string;
   username?: string;
   password?: string;
+  httpBasicUser?: string;
+  httpBasicPassword?: string;
   storageStateJson?: string;
 }
 

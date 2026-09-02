@@ -98,18 +98,13 @@ export class VisualEngine {
     for (const page of pageNames.slice(0, 6)) {
       const formattedPageName = page.charAt(0).toUpperCase() + page.slice(1).replace(/_/g, ' ');
       for (const vp of viewports) {
-        const baseline = this.generateMockUiSvg(`${formattedPageName} (Baseline)`, vp.width, vp.height, false);
-        const current = this.generateMockUiSvg(`${formattedPageName} (Current)`, vp.width, vp.height, counter % 2 === 0);
-
         cases.push({
           id: `tc_${counter++}`,
           name: `${formattedPageName} — ${vp.name.split(' ')[0]}`,
           pageUrl: `${baseUrl}/${page}`,
           viewport: vp,
           status: 'untested',
-          diffPercentage: counter % 2 === 0 ? 0.84 : 0.00,
-          baselineImage: baseline,
-          currentImage: current,
+          diffPercentage: 0,
           maskSelectors: ['.timestamp', '.live-ticker']
         });
       }

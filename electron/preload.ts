@@ -11,6 +11,10 @@ export interface ElectronAPI {
   receiveFromMain: (channel: string, func: (...args: any[]) => void) => () => void;
   openExternal: (url: string) => Promise<void>;
   fetchHttp: (url: string, headers?: Record<string, string>) => Promise<{ ok: boolean; status?: number; data?: any; error?: string }>;
+  secureEncrypt: (plainText: string) => Promise<string>;
+  secureDecrypt: (cipherText: string) => Promise<string>;
+  isEncryptionAvailable: () => Promise<boolean>;
+  capturePage: (url: string, width: number, height: number, headers?: Record<string, string>) => Promise<{ success: boolean; dataUrl?: string; error?: string; width?: number; height?: number }>;
 }
 
 const api: ElectronAPI = {
@@ -35,6 +39,18 @@ const api: ElectronAPI = {
   },
   fetchHttp: async (url: string, headers?: Record<string, string>) => {
     return ipcRenderer.invoke('http:fetch', url, headers);
+  },
+  secureEncrypt: async (plainText: string) => {
+    return ipcRenderer.invoke('secure:encrypt', plainText);
+  },
+  secureDecrypt: async (cipherText: string) => {
+    return ipcRenderer.invoke('secure:decrypt', cipherText);
+  },
+  isEncryptionAvailable: async () => {
+    return ipcRenderer.invoke('secure:is-available');
+  },
+  capturePage: async (url: string, width: number, height: number, headers?: Record<string, string>) => {
+    return ipcRenderer.invoke('visual:capture-page', url, width, height, headers);
   }
 };
 

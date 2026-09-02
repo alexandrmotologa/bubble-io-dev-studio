@@ -1,5 +1,6 @@
 import { GlobalSettings, ProjectProfile } from '../../types';
 import { IndexedDbStore } from './indexedDbStore';
+import { CryptoHelper } from './cryptoHelper';
 
 const STORAGE_KEY = 'bubble_dev_studio_settings_v2';
 
@@ -19,7 +20,7 @@ export class ProjectStore {
 
   private constructor() {
     this.settings = this.load();
-    // Kick off background hydration from IndexedDB
+    // Kick off background hydration from IndexedDB with transparent credential decryption
     this.hydrateAsync().catch(err => {
       console.warn('Initial blueprint hydration from IndexedDB failed:', err);
     });
@@ -53,7 +54,9 @@ export class ProjectStore {
     try {
       const data = localStorage.getItem(STORAGE_KEY);
       if (data) {
-        return { ...DEFAULT_SETTINGS, ...JSON.parse(data) };
+        const raw = { ...DEFAULT_SETTINGS, ...JSON.parse(data) };
+        // Synchronous initial return, asynchronous decryption will hydrate immediately in hydrateAsync
+        return raw;
       }
     } catch (e) {
       console.warn('Could not read from localStorage, using defaults', e);
@@ -62,31 +65,33 @@ export class ProjectStore {
   }
 
   /**
-   * Asynchronously hydrates all settings, profiles, and full blueprint ASTs from IndexedDB into memory
+   * Asynchronously hydrates all settings, profiles, and full blueprint ASTs from IndexedDB into memory,
+   * decrypting any safeStorage encrypted credentials.
    */
   public async hydrateAsync(): Promise<GlobalSettings> {
     try {
       // 1. Hydrate full global settings from IndexedDB if available
       const dbSettings = await IndexedDbStore.getGlobalSettings();
-      if (dbSettings && typeof dbSettings === 'object') {
-        this.settings = {
-          ...DEFAULT_SETTINGS,
-          ...this.settings,
-          ...dbSettings,
-          projects: dbSettings.projects && dbSettings.projects.length > 0 
-            ? dbSettings.projects 
-            : this.settings.projects
-        };
+      let merged: GlobalSettings = {
+        ...DEFAULT_SETTINGS,
+        ...this.settings,
+        ...(dbSettings || {})
+      };
+
+      if (dbSettings?.projects && dbSettings.projects.length > 0) {
+        merged.projects = dbSettings.projects;
       }
 
-      // 2. Hydrate heavy blueprint ASTs
+      // 2. Decrypt all credentials securely using safeStorage / crypto
+      merged = await CryptoHelper.decryptSettings(merged);
+      this.settings = merged;
+
+      // 3. Hydrate heavy blueprint ASTs
       const blueprints = await IndexedDbStore.getAllBlueprints();
-      let updated = false;
 
       for (const project of this.settings.projects) {
         if (!project.blueprintExportJson && blueprints[project.id]) {
           project.blueprintExportJson = blueprints[project.id];
-          updated = true;
         }
       }
 
@@ -98,11 +103,14 @@ export class ProjectStore {
     return this.settings;
   }
 
-  public save(settings: GlobalSettings): void {
+  public async save(settings: GlobalSettings): Promise<void> {
     this.settings = settings;
 
-    // 1. Persist 100% full settings into IndexedDB (completely safe from 5MB quota)
-    IndexedDbStore.setGlobalSettings(settings).catch(err => {
+    // Encrypt sensitive fields (tokens, passwords, API keys) before persistence
+    const encryptedSettings = await CryptoHelper.encryptSettings(settings);
+
+    // 1. Persist 100% full encrypted settings into IndexedDB
+    IndexedDbStore.setGlobalSettings(encryptedSettings).catch(err => {
       console.warn('Failed to save settings in IndexedDB:', err);
     });
 
@@ -115,11 +123,10 @@ export class ProjectStore {
       }
     }
 
-    // 3. Prepare lightweight settings for localStorage as immediate synchronous cache
+    // 3. Prepare lightweight encrypted settings for localStorage
     const safeSettings: GlobalSettings = {
-      ...settings,
-      projects: settings.projects.map(p => {
-        // Strip heavy blueprintExportJson from localStorage to stay well below 5MB browser quota
+      ...encryptedSettings,
+      projects: encryptedSettings.projects.map(p => {
         const { blueprintExportJson, ...lightweightProfile } = p;
         return lightweightProfile;
       })
@@ -130,7 +137,6 @@ export class ProjectStore {
     } catch (e) {
       console.warn('Could not save lightweight settings to localStorage, attempting minimal save', e);
       try {
-        // Fallback minimal save
         const minimalSettings = {
           ...safeSettings,
           projects: safeSettings.projects.map(p => ({
