@@ -6,6 +6,7 @@
   "main": "dist-electron/main.js",
   "author": {
     "name": "Alexandr Motologa | MTLG Labs",
+    "email": "alexandr@mtlglabs.space",
     "url": "https://mtlglabs.space"
   },
   "license": "MIT",
@@ -115,6 +116,7 @@
     },
     "linux": {
       "icon": "build/icon.png",
+      "maintainer": "Alexandr Motologa <alexandr@mtlglabs.space>",
       "target": [
         "AppImage",
         "deb"

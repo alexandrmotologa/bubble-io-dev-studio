@@ -35,7 +35,11 @@ export const AiCopilotModal: React.FC<AiCopilotModalProps> = ({
   isOpen,
   onClose,
   onApplyQueryToRepl,
-  availableDataTypes = ['User', 'Product', 'Order', 'PaymentRecord', 'Transaction']
+  availableDataTypes = ['User', 'Product', 'Order', 'PaymentRecord', 'Transaction'],
+  geminiApiKey,
+  openaiApiKey,
+  groqApiKey,
+  xaiApiKey
 }) => {
   const [mode, setMode] = useState<CopilotMode>('query');
   const [targetDataType, setTargetDataType] = useState(availableDataTypes[0] || 'User');
@@ -55,11 +59,13 @@ export const AiCopilotModal: React.FC<AiCopilotModalProps> = ({
 
   if (!isOpen) return null;
 
+  const apiKeys = { geminiApiKey, openaiApiKey, groqApiKey, xaiApiKey };
+
   const handleGenerateQuery = async () => {
     if (!queryPrompt.trim()) return;
     setIsGenerating(true);
     try {
-      const res = await CopilotEngine.generateSearchQuery(queryPrompt);
+      const res = await CopilotEngine.generateSearchQuery(queryPrompt, null, apiKeys);
       setQueryResult(res);
       toast.success('Generated Bubble search query constraints');
     } finally {
@@ -71,7 +77,7 @@ export const AiCopilotModal: React.FC<AiCopilotModalProps> = ({
     if (!regexDesc.trim()) return;
     setIsGenerating(true);
     try {
-      const res = await CopilotEngine.generateRegex(regexDesc);
+      const res = await CopilotEngine.generateRegex(regexDesc, apiKeys);
       setRegexResult(res);
       toast.success('Compiled Bubble Regex formula');
     } finally {
@@ -83,7 +89,7 @@ export const AiCopilotModal: React.FC<AiCopilotModalProps> = ({
     if (!privacyPrompt.trim()) return;
     setIsGenerating(true);
     try {
-      const res = await CopilotEngine.explainPrivacyRule(privacyPrompt);
+      const res = await CopilotEngine.explainPrivacyRule(privacyPrompt, apiKeys);
       setPrivacyResult(res);
       toast.success('Analyzed Privacy Rule access boundaries');
     } finally {

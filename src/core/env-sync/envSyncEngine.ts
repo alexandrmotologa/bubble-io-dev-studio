@@ -32,8 +32,6 @@ export class EnvSyncEngine {
     schema?: BubbleSchema | null,
     project?: ProjectProfile
   ): Promise<EnvDiffReport> {
-    await new Promise(r => setTimeout(r, 250));
-
     const dataTypes = schema?.dataTypes || [];
     
     // Dynamically identify recently created or staging-only models
@@ -87,8 +85,6 @@ export class EnvSyncEngine {
     schema?: BubbleSchema | null,
     _project?: ProjectProfile
   ): Promise<ThreeWayEnvDiffReport> {
-    await new Promise(r => setTimeout(r, 300));
-
     const dataTypes = schema?.dataTypes || [];
     const fields: ThreeWayFieldStatus[] = [];
 

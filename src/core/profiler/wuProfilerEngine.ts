@@ -15,8 +15,6 @@ export class WuProfilerEngine {
    * Profiles the Bubble AST Blueprint or schema for Workload Units (WU) consumption and query performance bottlenecks
    */
   public static async analyzePerformance(rawBlueprintJson?: any, schema?: BubbleSchema | null): Promise<WuProfileReport> {
-    await new Promise(r => setTimeout(r, 300));
-
     const actualSchema = schema || (rawBlueprintJson ? DevOpsEngine.parseBubbleSchemaJson(rawBlueprintJson) : null);
     const realTypes = actualSchema?.dataTypes || [];
     const rawPages = rawBlueprintJson?.pages ? Object.keys(rawBlueprintJson.pages) : [];

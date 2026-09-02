@@ -37,15 +37,84 @@ export interface PrivacyRuleExplanationResult {
   recommendedFixes: string[];
 }
 
+export interface CopilotApiKeys {
+  geminiApiKey?: string;
+  openaiApiKey?: string;
+  groqApiKey?: string;
+  xaiApiKey?: string;
+  anthropicApiKey?: string;
+  ollamaUrl?: string;
+}
+
 export class CopilotEngine {
   /**
-   * Generates a regular expression and Bubble formula from natural language prompt
+   * Generates a regular expression and Bubble formula using Live AI or rule-based heuristics
    */
-  public static async generateRegex(prompt: string): Promise<RegexGenerationResult> {
-    await new Promise(r => setTimeout(r, 400));
+  public static async generateRegex(prompt: string, keys?: CopilotApiKeys): Promise<RegexGenerationResult> {
+    const effectiveKey = keys?.geminiApiKey || keys?.openaiApiKey || keys?.groqApiKey;
+
+    // 1. If live Gemini API key is available, execute real LLM generation
+    if (keys?.geminiApiKey) {
+      try {
+        const sysPrompt = `You are a Regex & Bubble.io Expression Expert. Return ONLY a valid JSON object with:
+{
+  "pattern": "regex pattern without enclosing slashes",
+  "flags": "i or g or empty",
+  "bubbleFormula": "Input's value :extract with Regex (...):first item is not empty",
+  "explanation": "brief plain text explanation",
+  "sampleMatches": ["match1", "match2"],
+  "sampleNonMatches": ["nonmatch1", "nonmatch2"]
+}`;
+
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${keys.geminiApiKey}`;
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 8000);
+
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          signal: controller.signal,
+          body: JSON.stringify({
+            contents: [
+              {
+                role: 'user',
+                parts: [{ text: `${sysPrompt}\n\nTask: Generate a regex pattern for: "${prompt}"` }]
+              }
+            ],
+            generationConfig: {
+              temperature: 0.1,
+              responseMimeType: 'application/json'
+            }
+          })
+        });
+        clearTimeout(timeoutId);
+
+        if (res.ok) {
+          const data = await res.json();
+          const rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+          if (rawText) {
+            const parsed = JSON.parse(rawText);
+            if (parsed.pattern) {
+              return {
+                pattern: parsed.pattern,
+                flags: parsed.flags || '',
+                bubbleFormula: parsed.bubbleFormula || `Input's value :extract with Regex (${parsed.pattern}):first item is not empty`,
+                explanation: parsed.explanation || `Matches patterns for: ${prompt}`,
+                sampleMatches: Array.isArray(parsed.sampleMatches) ? parsed.sampleMatches : [],
+                sampleNonMatches: Array.isArray(parsed.sampleNonMatches) ? parsed.sampleNonMatches : []
+              };
+            }
+          }
+        }
+      } catch (err) {
+        console.warn('[CopilotEngine] Live Gemini regex generation failed, applying heuristic fallback:', err);
+      }
+    }
+
+    // 2. Heuristic rule-based pattern matching (Fast offline mode)
     const p = prompt.toLowerCase();
 
-    if (p.includes('email')) {
+    if (p.includes('email') || p.includes('mail')) {
       return {
         pattern: '^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$',
         flags: 'i',
@@ -56,7 +125,7 @@ export class CopilotEngine {
       };
     }
 
-    if (p.includes('phone') || p.includes('telefon') || p.includes('mobil')) {
+    if (p.includes('phone') || p.includes('telefon') || p.includes('mobil') || p.includes('tel')) {
       return {
         pattern: '^\\+?[1-9]\\d{1,14}$',
         flags: 'g',
@@ -89,12 +158,22 @@ export class CopilotEngine {
       };
     }
 
-    // Generic pattern generator
+    if (p.includes('price') || p.includes('currency') || p.includes('cost') || p.includes('dollar') || p.includes('euro')) {
+      return {
+        pattern: '^[$€£]?\\d+(?:[.,]\\d{1,2})?$',
+        flags: '',
+        bubbleFormula: `Input Price's value :extract with Regex (^[$€£]?\\d+(?:[.,]\\d{1,2})?$):first item is not empty`,
+        explanation: 'Matches monetary amounts with optional currency symbol ($ € £) and up to 2 decimal places.',
+        sampleMatches: ['$99.99', '49.00', '€1200', '15.5'],
+        sampleNonMatches: ['free', '$12.345', 'abc']
+      };
+    }
+
     return {
       pattern: '^[A-Za-z0-9_ -]{3,64}$',
       flags: 'i',
       bubbleFormula: `Input's value :extract with Regex (^[A-Za-z0-9_ -]{3,64}$):first item is not empty`,
-      explanation: `Generated custom pattern for '${prompt}' matching alphanumeric tokens with safe delimiters.`,
+      explanation: `Generated pattern matching alphanumeric tokens with safe delimiters for '${prompt}'.`,
       sampleMatches: ['Valid_Input_123', 'Sample 456', 'CustomToken'],
       sampleNonMatches: ['##Invalid$$', 'x', '<script>alert(1)</script>']
     };
@@ -105,13 +184,12 @@ export class CopilotEngine {
    */
   public static async generateSearchQuery(
     prompt: string,
-    schema?: BubbleSchema | null
+    schema?: BubbleSchema | null,
+    keys?: CopilotApiKeys
   ): Promise<SearchQueryGenerationResult> {
-    await new Promise(r => setTimeout(r, 450));
-    const p = prompt.toLowerCase();
-
     const availableTypes = schema?.dataTypes.map(dt => dt.name) || ['User', 'Order', 'Product', 'Transaction', 'Invoice'];
-    let targetType = availableTypes.find(t => p.includes(t.toLowerCase())) || 'Order';
+    const p = prompt.toLowerCase();
+    let targetType = availableTypes.find(t => p.includes(t.toLowerCase())) || availableTypes[0] || 'Order';
 
     const constraints: SearchQueryConstraint[] = [];
     let sortField = 'Created Date';
@@ -141,7 +219,7 @@ export class CopilotEngine {
 
     if (constraints.length === 0) {
       wuCostImpact = 'high';
-      tips.push('⚠️ Unconstrained Search Warning: Always specify at least one indexed filter (e.g. Created Date or Status) to reduce Workload Units.');
+      tips.push('⚠️ Unconstrained Search Warning: Always specify at least one indexed filter to reduce Workload Units.');
     } else {
       tips.push('✓ Server-side indexed constraints applied to minimize Bubble WU consumption.');
       tips.push('✓ Sorting on timestamp preserves database index performance.');
@@ -166,11 +244,10 @@ export class CopilotEngine {
   /**
    * Explains complex Bubble privacy rules in clear plain language
    */
-  public static async explainPrivacyRule(ruleDescription: string): Promise<PrivacyRuleExplanationResult> {
-    await new Promise(r => setTimeout(r, 400));
+  public static async explainPrivacyRule(ruleDescription: string, _keys?: CopilotApiKeys): Promise<PrivacyRuleExplanationResult> {
     const d = ruleDescription.toLowerCase();
 
-    if (d.includes('current user') || d.includes('logged in') || d.includes('owner')) {
+    if (d.includes('current user') || d.includes('logged in') || d.includes('owner') || d.includes('creator')) {
       return {
         roleName: 'Record Owner & Authenticated Users',
         plainEnglishSummary: 'Only the user whose ID matches the record\'s Created By field can search, view sensitive private fields, and execute write/update operations.',

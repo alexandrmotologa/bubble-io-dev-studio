@@ -14,8 +14,6 @@ export class SecurityEngine {
    * Generates a comprehensive Security, RBAC, and Compliance audit report from a Bubble Schema or Blueprint JSON
    */
   public static async analyzeSecurity(rawBlueprintJson?: any, schema?: BubbleSchema | null): Promise<SecurityAuditReport> {
-    await new Promise(r => setTimeout(r, 150));
-
     const matrix: PrivacyRuleMatrixRow[] = [];
     const insecureEndpoints: InsecureEndpointFinding[] = [];
     const exposedSensitiveFields: { dataType: string; field: string; reason: string; piiType?: string }[] = [];

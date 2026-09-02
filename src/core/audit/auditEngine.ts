@@ -10,8 +10,6 @@ export class AuditEngine {
    * Analyzes raw Bubble App export JSON or runs deep AST inspection
    */
   public static async analyzeApp(rawJson?: any): Promise<AuditHealthReport> {
-    await new Promise(r => setTimeout(r, 450));
-
     // 1. Parse AST
     const parsedApp = BubbleParser.parse(rawJson);
 

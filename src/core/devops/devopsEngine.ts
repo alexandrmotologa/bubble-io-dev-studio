@@ -277,7 +277,7 @@ export class DevOpsEngine {
   }
 
   /**
-   * Health check / ping connectivity to Bubble app API
+   * Health check / ping connectivity to Bubble app API using live HTTP requests
    */
   public static async checkHealth(project: ProjectProfile): Promise<{
     reachable: boolean;
@@ -288,29 +288,97 @@ export class DevOpsEngine {
     details: string;
   }> {
     const start = performance.now();
-    await new Promise(r => setTimeout(r, 450));
-    const latencyMs = Math.round(performance.now() - start);
+    const domain = project.customDomain || (project.appId.includes('.') ? project.appId : `${project.appId}.bubbleapps.io`);
+    const env = project.environment || 'version-test';
+    const metaUrl = `https://${domain}/${env}/api/1.1/meta`;
 
-    const hasToken = Boolean(project.apiToken && project.apiToken.length > 5);
-    const hasAgencyAuth = Boolean(project.httpBasicUser && project.httpBasicPassword);
+    const headers: Record<string, string> = {
+      'Accept': 'application/json'
+    };
 
-    let detailsMsg = `Connected in read-only public mode (Add API key in Settings for full write access)`;
-    if (hasToken && hasAgencyAuth) {
-      detailsMsg = `Authenticated with Private API key & Agency HTTP Basic Auth (${project.httpBasicUser})`;
-    } else if (hasToken) {
-      detailsMsg = `Successfully authenticated with private API key for ${project.appId}.bubbleapps.io`;
-    } else if (hasAgencyAuth) {
-      detailsMsg = `Authenticated via Agency HTTP Basic Auth (${project.httpBasicUser}) for password-protected app`;
+    if (project.apiToken) {
+      headers['Authorization'] = `Bearer ${project.apiToken.trim()}`;
+    } else if (project.httpBasicUser && project.httpBasicPassword) {
+      try {
+        headers['Authorization'] = `Basic ${btoa(`${project.httpBasicUser}:${project.httpBasicPassword}`)}`;
+      } catch {}
     }
 
-    return {
-      reachable: true,
-      dataApiEnabled: true,
-      metaApiEnabled: true,
-      latencyMs,
-      environment: project.environment,
-      details: detailsMsg
-    };
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 6000);
+
+      const res = await fetch(metaUrl, {
+        method: 'GET',
+        headers,
+        signal: controller.signal
+      });
+      clearTimeout(timeoutId);
+      const latencyMs = Math.round(performance.now() - start);
+
+      if (res.ok) {
+        return {
+          reachable: true,
+          dataApiEnabled: true,
+          metaApiEnabled: true,
+          latencyMs,
+          environment: env,
+          details: `Connected to ${domain} (${env}) in ${latencyMs}ms. Meta API & Data API ready.`
+        };
+      }
+
+      if (res.status === 401 || res.status === 403) {
+        return {
+          reachable: true,
+          dataApiEnabled: false,
+          metaApiEnabled: false,
+          latencyMs,
+          environment: env,
+          details: project.apiToken 
+            ? `App reachable at ${domain}, but API Token returned HTTP ${res.status} Unauthorized. Please check your token in Bubble Settings > API.`
+            : `App reachable at ${domain} (${latencyMs}ms). Private Data API requires an API token.`
+        };
+      }
+
+      // If 404 on meta endpoint, ping the app root to check if app exists
+      const rootRes = await fetch(`https://${domain}/${env}/`, {
+        method: 'HEAD',
+        signal: AbortSignal.timeout(4000)
+      }).catch(() => null);
+
+      if (rootRes && (rootRes.status === 200 || rootRes.status === 302 || rootRes.status === 401)) {
+        return {
+          reachable: true,
+          dataApiEnabled: false,
+          metaApiEnabled: false,
+          latencyMs,
+          environment: env,
+          details: `App reachable at ${domain}, but Data/Meta API is not exposed. Enable 'Data API' in Bubble Settings > API.`
+        };
+      }
+
+      return {
+        reachable: false,
+        dataApiEnabled: false,
+        metaApiEnabled: false,
+        latencyMs,
+        environment: env,
+        details: `HTTP ${res.status} when querying https://${domain}/${env}/api/1.1/meta. Verify your App ID.`
+      };
+    } catch (err: any) {
+      const latencyMs = Math.round(performance.now() - start);
+      const isTimeout = err.name === 'AbortError';
+      return {
+        reachable: false,
+        dataApiEnabled: false,
+        metaApiEnabled: false,
+        latencyMs,
+        environment: env,
+        details: isTimeout 
+          ? `Connection timeout after 6000ms trying to reach https://${domain}.`
+          : `Network error: ${err.message || 'Unable to connect to Bubble instance'}`
+      };
+    }
   }
 
   /**
@@ -475,7 +543,7 @@ export class DevOpsEngine {
   }
 
   /**
-   * Triggers a backend workflow via API
+   * Triggers a backend workflow via Bubble Workflow API
    */
   public static async triggerWorkflow(
     project: ProjectProfile,
@@ -483,28 +551,70 @@ export class DevOpsEngine {
     payloadJson: string = '{}'
   ): Promise<{ status: string; httpCode: number; executionTimeMs: number; response: any }> {
     const start = performance.now();
-    await new Promise(r => setTimeout(r, 500));
-    const executionTimeMs = Math.round(performance.now() - start);
+    const domain = project.customDomain || (project.appId.includes('.') ? project.appId : `${project.appId}.bubbleapps.io`);
+    const env = project.environment || 'version-test';
+    const cleanWf = encodeURIComponent(workflowName.trim().replace(/^\/api\/1\.1\/wf\//, ''));
+    const url = `https://${domain}/${env}/api/1.1/wf/${cleanWf}`;
 
     let parsedPayload = {};
     try {
       parsedPayload = JSON.parse(payloadJson || '{}');
     } catch {
-      // ignore
+      parsedPayload = { raw: payloadJson };
     }
 
-    return {
-      status: 'success',
-      httpCode: 200,
-      executionTimeMs,
-      response: {
-        status: 'success',
-        workflow: workflowName,
-        environment: project.environment,
-        receivedParameters: parsedPayload,
-        executedAt: new Date().toISOString()
+    try {
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      };
+
+      if (project.apiToken) {
+        headers['Authorization'] = `Bearer ${project.apiToken.trim()}`;
+      } else if (project.httpBasicUser && project.httpBasicPassword) {
+        try {
+          headers['Authorization'] = `Basic ${btoa(`${project.httpBasicUser}:${project.httpBasicPassword}`)}`;
+        } catch {}
       }
-    };
+
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 12000);
+
+      const res = await fetch(url, {
+        method: 'POST',
+        headers,
+        signal: controller.signal,
+        body: JSON.stringify(parsedPayload)
+      });
+      clearTimeout(timeoutId);
+      const executionTimeMs = Math.round(performance.now() - start);
+
+      let responseData: any = {};
+      try {
+        responseData = await res.json();
+      } catch {
+        responseData = { status: res.statusText, text: await res.text().catch(() => '') };
+      }
+
+      return {
+        status: res.ok ? 'success' : 'error',
+        httpCode: res.status,
+        executionTimeMs,
+        response: responseData
+      };
+    } catch (err: any) {
+      const executionTimeMs = Math.round(performance.now() - start);
+      return {
+        status: 'error',
+        httpCode: 0,
+        executionTimeMs,
+        response: {
+          error: err.name === 'AbortError' ? 'Workflow execution timed out after 12s' : err.message || 'Network error triggering workflow',
+          workflow: workflowName,
+          targetUrl: url
+        }
+      };
+    }
   }
 
   /**
