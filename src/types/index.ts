@@ -371,6 +371,8 @@ export interface TranslationJobConfig {
   useGlossary: boolean;
   useCache: boolean;
   glossary?: Record<string, string>;
+  apiKey?: string;
+  ollamaUrl?: string;
 }
 
 export interface TranslationJobResult {

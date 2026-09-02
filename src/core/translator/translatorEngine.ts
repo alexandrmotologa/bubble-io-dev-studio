@@ -37,7 +37,9 @@ export class TranslatorEngine {
 
     for (let i = 0; i < items.length; i++) {
       const item = items[i];
-      await new Promise(r => setTimeout(r, 180));
+      if (i > 0) {
+        await new Promise(r => setTimeout(r, 40));
+      }
 
       const cacheKey = `${config.targetLang.toLowerCase()}_${item.sourceText}`;
       let resultText = '';
@@ -47,7 +49,7 @@ export class TranslatorEngine {
         resultText = cache[cacheKey];
         cacheHitCount++;
       } else {
-        const res = await AiProvidersEngine.translateText(item.sourceText, config);
+        const res = await AiProvidersEngine.translateText(item.sourceText, config, config.apiKey);
         resultText = res.text;
         tokens = res.tokensUsed;
         totalTokens += tokens;

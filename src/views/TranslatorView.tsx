@@ -175,6 +175,22 @@ export const TranslatorView: React.FC<TranslatorViewProps> = ({
     }
   };
 
+  const getEffectiveApiKey = (prov: TranslationProviderType): string | undefined => {
+    if (activeProject?.aiProvider === prov && activeProject.aiApiKey) {
+      return activeProject.aiApiKey;
+    }
+    switch (prov) {
+      case 'gemini': return geminiApiKey;
+      case 'openai': return openaiApiKey;
+      case 'anthropic': return anthropicApiKey;
+      case 'groq': return groqApiKey;
+      case 'xai': return xaiApiKey;
+      case 'openrouter': return openrouterApiKey;
+      case 'opencode': return opencodeApiKey;
+      default: return undefined;
+    }
+  };
+
   const handleRunTranslation = async () => {
     if (isTranslating || items.length === 0 || selectedTargetLangs.length === 0) return;
     setIsTranslating(true);
@@ -192,7 +208,9 @@ export const TranslatorView: React.FC<TranslatorViewProps> = ({
       tone,
       useGlossary,
       useCache,
-      glossary
+      glossary,
+      apiKey: getEffectiveApiKey(provider),
+      ollamaUrl: ollamaUrl || 'http://localhost:11434'
     };
 
     try {
@@ -232,7 +250,9 @@ export const TranslatorView: React.FC<TranslatorViewProps> = ({
       tone,
       useGlossary,
       useCache,
-      glossary
+      glossary,
+      apiKey: getEffectiveApiKey(provider),
+      ollamaUrl: ollamaUrl || 'http://localhost:11434'
     };
 
     try {
