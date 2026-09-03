@@ -24,8 +24,6 @@ import {
   FileCode,
   AlertCircle,
   Github,
-  Coffee,
-  Mail,
   HardDrive,
   Cpu,
   Download,
@@ -1690,30 +1688,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 <Github size={14} />
                 <span>GitHub @alexandrmotologa</span>
               </a>
-
-              <a
-                href="https://buymeacoffee.com/mtlg"
-                target="_blank"
-                rel="noreferrer"
-                className="btn btn-secondary btn-sm"
-                style={{ color: '#fbbf24' }}
-              >
-                <Coffee size={14} />
-                <span>Buy Me a Coffee</span>
-              </a>
-
-              <button
-                type="button"
-                onClick={() => {
-                  navigator.clipboard.writeText('contact@mtlglabs.space');
-                  toast.success('Email Copied to Clipboard!', 'contact@mtlglabs.space');
-                }}
-                className="btn btn-secondary btn-sm"
-                title="Click to copy official contact email"
-              >
-                <Mail size={14} />
-                <span>contact@mtlglabs.space</span>
-              </button>
 
               <a
                 href="https://github.com/alexandrmotologa/bubble-io-dev-studio"

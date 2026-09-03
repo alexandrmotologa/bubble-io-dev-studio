@@ -88,37 +88,6 @@ function createAppMenu() {
             await shell.openExternal('https://github.com/alexandrmotologa');
           }
         },
-        {
-          label: 'Buy Me a Coffee (Support Project)',
-          click: async () => {
-            await shell.openExternal('https://buymeacoffee.com/mtlg');
-          }
-        },
-        {
-          label: 'Contact Support via Email (contact@mtlglabs.space)',
-          click: async () => {
-            const authorEmail = 'contact@mtlglabs.space';
-            clipboard.writeText(authorEmail);
-            if (mainWindow) {
-              mainWindow.webContents.send('toast:show', {
-                type: 'success',
-                title: 'Email Copied to Clipboard',
-                message: `Contact email (${authorEmail}) has been copied to your clipboard.`
-              });
-              dialog.showMessageBox(mainWindow, {
-                type: 'info',
-                title: 'Email Copied',
-                message: 'Contact Email Copied to Clipboard!',
-                detail: `The address "${authorEmail}" was copied to your clipboard.\n\nWould you also like to open your default email client?`,
-                buttons: ['OK (Just Copied)', 'Open Email Client']
-              }).then(res => {
-                if (res.response === 1) {
-                  shell.openExternal(`mailto:${authorEmail}?subject=Bubble.io%20Dev%20Studio%20Inquiry`);
-                }
-              });
-            }
-          }
-        },
         { type: 'separator' },
         {
           label: 'GitHub Repository',
@@ -169,8 +138,8 @@ function createAppMenu() {
               dialog.showMessageBox(mainWindow, {
                 type: 'info',
                 title: 'About Bubble.io Dev Studio',
-                message: 'Bubble.io Dev Studio v3.0.0 (Production Stable)',
-                detail: 'All-in-one Developer Studio & GUI for Bubble.io (DevOps, Schema, Dead Code Audit, AI Translation, Visual QA)\n\nAuthor: Alexandr Motologa | MTLG Labs\nStudio: https://mtlglabs.space\nPersonal Hub: https://mtlg.site\nGitHub: https://github.com/alexandrmotologa\nSupport: https://buymeacoffee.com/mtlg\nEmail: contact@mtlglabs.space',
+                message: `Bubble.io Dev Studio v${app.getVersion()} (Production Stable)`,
+                detail: `All-in-one Developer Studio & GUI for Bubble.io (DevOps, Schema, Dead Code Audit, AI Translation, Visual QA)\n\nAuthor: Alexandr Motologa | MTLG Labs\nStudio: https://mtlglabs.space\nPersonal Hub: https://mtlg.site\nGitHub: https://github.com/alexandrmotologa`,
                 buttons: ['OK']
               });
             }
@@ -705,10 +674,26 @@ ipcMain.handle('bubbleSync:fetchApp', async (_event, appId: string) => {
       }
     });
 
+    let resolved = false;
+
     const timeout = setTimeout(() => {
-      if (!syncWin.isDestroyed()) syncWin.destroy();
-      resolve({ success: false, error: 'Timed out waiting for Bubble Editor to respond' });
-    }, 35000);
+      if (!resolved) {
+        resolved = true;
+        if (!syncWin.isDestroyed()) syncWin.destroy();
+        resolve({ success: false, error: 'Timed out waiting for Bubble Editor to respond' });
+      }
+    }, 45000);
+
+    // Suppress modal alerts from freezing background window
+    syncWin.webContents.on('dom-ready', () => {
+      syncWin.webContents.executeJavaScript(`
+        window.alert = function(msg) {
+          window.__bubble_intercepted_alert = String(msg || '');
+          console.warn('[Bubble Sync Alert Intercepted]', msg);
+        };
+        window.confirm = function() { return true; };
+      `).catch(() => {});
+    });
 
     syncWin.loadURL(`https://bubble.io/page?id=${encodeURIComponent(appId)}&tab=App`);
 
@@ -719,6 +704,26 @@ ipcMain.handle('bubbleSync:fetchApp', async (_event, appId: string) => {
             let attempts = 0;
             const interval = setInterval(() => {
               attempts++;
+
+              // Check if Bubble popped an alert or permission error
+              const alertMsg = window.__bubble_intercepted_alert || '';
+              if (alertMsg.includes('permission') || alertMsg.includes('does not have permission')) {
+                clearInterval(interval);
+                return res({
+                  success: false,
+                  error: 'Access Denied: Your currently logged-in Bubble account does not have permission to view app "' + ${JSON.stringify(appId)} + '". Please verify the App ID or sign into the owner account.'
+                });
+              }
+
+              // Check if redirected to login
+              if (window.location.href.includes('/login') || window.location.href.includes('/signup')) {
+                clearInterval(interval);
+                return res({
+                  success: false,
+                  error: 'Not authenticated with Bubble.io. Please log in first using the "Sign in to Bubble.io" button.'
+                });
+              }
+
               if (window.app) {
                 clearInterval(interval);
                 try {
@@ -744,38 +749,54 @@ ipcMain.handle('bubbleSync:fetchApp', async (_event, appId: string) => {
                 }
               } else if (attempts > 35) {
                 clearInterval(interval);
-                res({ success: false, error: 'Editor application data not accessible. Please ensure you are logged into an account with access to this application.' });
+                const finalAlert = window.__bubble_intercepted_alert || '';
+                res({
+                  success: false,
+                  error: finalAlert || 'Editor data not accessible. Please ensure you are logged into the Bubble account that owns app "' + ${JSON.stringify(appId)} + '".'
+                });
               }
             }, 600);
           });
         `;
         const result: any = await syncWin.webContents.executeJavaScript(script);
         clearTimeout(timeout);
-        if (!syncWin.isDestroyed()) syncWin.destroy();
+        if (!resolved) {
+          resolved = true;
+          if (!syncWin.isDestroyed()) syncWin.destroy();
 
-        if (result && result.success && result.app) {
-          resolve({
-            success: true,
-            fileName: `${appId}_synced_${Date.now()}.bubble`,
-            data: result.app
-          });
-        } else {
-          resolve({
-            success: false,
-            error: result?.error || 'Could not extract application structure from Bubble Editor'
-          });
+          if (result && result.success && result.app) {
+            resolve({
+              success: true,
+              fileName: `${appId}_synced_${Date.now()}.bubble`,
+              data: result.app
+            });
+          } else {
+            resolve({
+              success: false,
+              error: result?.error || 'Could not extract application structure from Bubble Editor'
+            });
+          }
         }
       } catch (err: any) {
         clearTimeout(timeout);
-        if (!syncWin.isDestroyed()) syncWin.destroy();
-        resolve({ success: false, error: err.message || 'Execution error during app sync' });
+        if (!resolved) {
+          resolved = true;
+          if (!syncWin.isDestroyed()) syncWin.destroy();
+          resolve({ success: false, error: err.message || 'Execution error during app sync' });
+        }
       }
     });
 
-    syncWin.webContents.on('did-fail-load', (_event, errorCode, errorDescription) => {
+    syncWin.webContents.on('did-fail-load', (_event, errorCode, errorDescription, _validatedURL, isMainFrame) => {
+      // Ignore ERR_ABORTED (-3) and non-mainframe failures which happen during redirects
+      if (errorCode === -3 || !isMainFrame) return;
+
       clearTimeout(timeout);
-      if (!syncWin.isDestroyed()) syncWin.destroy();
-      resolve({ success: false, error: `Failed to load Bubble Editor (${errorCode}: ${errorDescription})` });
+      if (!resolved) {
+        resolved = true;
+        if (!syncWin.isDestroyed()) syncWin.destroy();
+        resolve({ success: false, error: `Failed to load Bubble Editor (${errorCode}: ${errorDescription})` });
+      }
     });
   });
 });
