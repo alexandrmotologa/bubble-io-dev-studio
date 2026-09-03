@@ -81,18 +81,21 @@ export const Sidebar: React.FC<SidebarProps> = ({
       }}>
       {/* App Branding */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '0 8px' }}>
-        <div style={{
-          width: '38px',
-          height: '38px',
-          borderRadius: '10px',
-          background: 'linear-gradient(135deg, #6366f1 0%, #06b6d4 100%)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          boxShadow: '0 4px 12px rgba(99, 102, 241, 0.4)'
-        }}>
-          <Layers size={22} color="#ffffff" />
-        </div>
+        <img 
+          src="/icon.png" 
+          alt="Bubble Studio Logo" 
+          style={{
+            width: '38px',
+            height: '38px',
+            borderRadius: '10px',
+            objectFit: 'contain',
+            boxShadow: '0 4px 14px rgba(6, 182, 212, 0.45)',
+            transition: 'transform 0.2s ease',
+            cursor: 'default'
+          }}
+          onMouseEnter={e => (e.currentTarget.style.transform = 'scale(1.08)')}
+          onMouseLeave={e => (e.currentTarget.style.transform = 'scale(1)')}
+        />
         <div>
           <h1 style={{ fontSize: '1rem', fontWeight: 800, letterSpacing: '-0.02em', color: 'var(--text-primary)', margin: 0 }}>
             Bubble Studio

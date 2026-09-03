@@ -1,4 +1,4 @@
-# 📚 1-Click Developer Documentation Book (DocGen) Guide (v3.1.1)
+# 📚 1-Click Developer Documentation Book (DocGen) Guide (v3.1.2)
 
 The **DocGen Engine** compiles full-scale technical documentation books for clients, development agencies, and internal engineering teams with a single click.
 

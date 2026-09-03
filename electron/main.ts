@@ -765,9 +765,21 @@ ipcMain.handle('bubbleSync:fetchApp', async (_event, appId: string) => {
           if (!syncWin.isDestroyed()) syncWin.destroy();
 
           if (result && result.success && result.app) {
+            const fileName = `${appId}_synced_${Date.now()}.bubble`;
+            let savedFilePath = '';
+            try {
+              const downloadsDir = app.getPath('downloads');
+              savedFilePath = path.join(downloadsDir, fileName);
+              fs.writeFileSync(savedFilePath, JSON.stringify(result.app, null, 2), 'utf8');
+              console.log('[BubbleSync] Auto-saved physical .bubble file to:', savedFilePath);
+            } catch (saveErr) {
+              console.warn('[BubbleSync] Could not save physical file to downloads:', saveErr);
+            }
+
             resolve({
               success: true,
-              fileName: `${appId}_synced_${Date.now()}.bubble`,
+              fileName,
+              filePath: savedFilePath,
               data: result.app
             });
           } else {
@@ -800,5 +812,27 @@ ipcMain.handle('bubbleSync:fetchApp', async (_event, appId: string) => {
     });
   });
 });
+
+ipcMain.handle('bubbleSync:showInFolder', async (_event, filePath: string) => {
+  if (filePath && fs.existsSync(filePath)) {
+    shell.showItemInFolder(filePath);
+    return true;
+  }
+  return false;
+});
+
+ipcMain.handle('bubbleSync:exportBlueprintToDisk', async (_event, { fileName, data }: { fileName: string; data: any }) => {
+  try {
+    const downloadsDir = app.getPath('downloads');
+    const safeName = fileName || `bubble_export_${Date.now()}.bubble`;
+    const targetPath = path.join(downloadsDir, safeName);
+    fs.writeFileSync(targetPath, JSON.stringify(data, null, 2), 'utf8');
+    shell.showItemInFolder(targetPath);
+    return { success: true, filePath: targetPath };
+  } catch (err: any) {
+    return { success: false, error: err.message };
+  }
+});
+
 
 

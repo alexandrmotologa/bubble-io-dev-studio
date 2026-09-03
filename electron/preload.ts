@@ -22,8 +22,10 @@ export interface ElectronAPI {
   bubbleSyncLogin: () => Promise<{ isAuthenticated: boolean; userEmail?: string }>;
   bubbleSyncLogout: () => Promise<boolean>;
   bubbleSyncCheckAuth: () => Promise<{ isAuthenticated: boolean; userEmail?: string }>;
-  bubbleSyncFetchApp: (appId: string) => Promise<{ success: boolean; fileName?: string; data?: any; error?: string }>;
+  bubbleSyncFetchApp: (appId: string) => Promise<{ success: boolean; fileName?: string; filePath?: string; data?: any; error?: string }>;
   bubbleSyncSetDownloadsWatcher: (enabled: boolean) => Promise<boolean>;
+  bubbleSyncShowInFolder: (filePath: string) => Promise<boolean>;
+  bubbleSyncExportBlueprintToDisk: (fileName: string, data: any) => Promise<{ success: boolean; filePath?: string; error?: string }>;
   onBubbleFileDetected: (callback: (data: { fileName: string; content: any }) => void) => () => void;
 }
 
@@ -88,6 +90,12 @@ const api: ElectronAPI = {
   },
   bubbleSyncSetDownloadsWatcher: async (enabled: boolean) => {
     return ipcRenderer.invoke('bubbleSync:setDownloadsWatcher', enabled);
+  },
+  bubbleSyncShowInFolder: async (filePath: string) => {
+    return ipcRenderer.invoke('bubbleSync:showInFolder', filePath);
+  },
+  bubbleSyncExportBlueprintToDisk: async (fileName: string, data: any) => {
+    return ipcRenderer.invoke('bubbleSync:exportBlueprintToDisk', { fileName, data });
   },
   onBubbleFileDetected: (callback: (data: { fileName: string; content: any }) => void) => {
     const subscription = (_event: any, data: any) => callback(data);
