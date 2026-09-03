@@ -721,7 +721,27 @@ ipcMain.handle('bubbleSync:fetchApp', async (_event, appId: string) => {
               attempts++;
               if (window.app) {
                 clearInterval(interval);
-                res({ success: true, app: window.app });
+                try {
+                  if (typeof window.app.get_json_for_export === 'function') {
+                    return res({ success: true, app: window.app.get_json_for_export() });
+                  }
+                  if (typeof window.app.to_json === 'function') {
+                    return res({ success: true, app: window.app.to_json() });
+                  }
+                  const a = window.app;
+                  const clean = {
+                    pages: a.pages || a.pages_dict || {},
+                    user_types: a.user_types || a.custom_types || a.types || {},
+                    custom_types: a.custom_types || a.user_types || a.types || {},
+                    option_sets: a.option_sets || a.option_sets_dict || {},
+                    workflows: a.workflows || {},
+                    api_connectors: a.api_connectors || a.plugins || {},
+                    app_version: a.app_version || 'live'
+                  };
+                  res({ success: true, app: clean });
+                } catch (err) {
+                  res({ success: false, error: 'Serialization error: ' + (err && err.message) });
+                }
               } else if (attempts > 35) {
                 clearInterval(interval);
                 res({ success: false, error: 'Editor application data not accessible. Please ensure you are logged into an account with access to this application.' });
