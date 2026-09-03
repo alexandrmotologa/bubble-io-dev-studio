@@ -41,6 +41,8 @@ export class BubbleSyncEngine {
     const result = await window.electronAPI.bubbleSyncLogin();
     if (result.isAuthenticated) {
       toast.success('Successfully authenticated with Bubble.io!');
+    } else {
+      toast.info('Bubble.io login was cancelled or closed');
     }
     return result;
   }

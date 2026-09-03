@@ -177,12 +177,13 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
   const handleCheckForUpdates = async () => {
     if (!window.electronAPI?.checkForUpdates) {
-      toast.info('Browser Mode', 'In-app auto-update is active in the desktop Electron build.');
+      toast.info('In-app auto-update is active in the desktop Electron build.');
       return;
     }
     setIsCheckingUpdate(true);
     setLastCheckTime(new Date().toLocaleTimeString());
     setUpdaterStatus(prev => ({ ...prev, status: 'checking', error: undefined }));
+    toast.info('Checking for updates on GitHub Releases...');
     try {
       const res = await window.electronAPI.checkForUpdates();
       if (res?.status === 'dev-mode') {
@@ -192,10 +193,12 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           message: 'Running in development mode. Updates check GitHub releases when running the packaged build.'
         }));
         setIsCheckingUpdate(false);
+        toast.info('Development Mode: Auto-updates query GitHub releases in the packaged/installed desktop build.');
       }
     } catch (e: any) {
       setUpdaterStatus(prev => ({ ...prev, status: 'error', error: e.message || 'Update check failed' }));
       setIsCheckingUpdate(false);
+      toast.error('Update check failed: ' + (e.message || 'Network error'));
     }
   };
 

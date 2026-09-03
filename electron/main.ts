@@ -381,6 +381,13 @@ function initAutoUpdater() {
       status: 'not-available',
       version: info?.version || app.getVersion()
     });
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('toast:show', {
+        type: 'success',
+        title: 'Up to Date',
+        message: `Bubble.io Dev Studio v${app.getVersion()} is currently the latest version.`
+      });
+    }
   });
 
   autoUpdater.on('download-progress', (progressObj) => {
@@ -414,6 +421,13 @@ function initAutoUpdater() {
       status: 'error',
       error: errorMsg
     });
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('toast:show', {
+        type: 'error',
+        title: 'Update Check Issue',
+        message: errorMsg
+      });
+    }
   });
 }
 
@@ -532,8 +546,19 @@ ipcMain.handle('bubbleSync:checkAuth', async () => {
   try {
     const authSession = session.fromPartition('persist:bubble_session');
     const cookies = await authSession.cookies.get({ domain: 'bubble.io' });
-    const hasSession = cookies.some(c => c.name.includes('session') || c.name === 'uid' || c.name.includes('auth'));
-    return { isAuthenticated: hasSession };
+    if (!cookies || cookies.length === 0) {
+      return { isAuthenticated: false };
+    }
+    // Verify session by probing bubble.io/home with the stored cookies
+    const res = await authSession.fetch('https://bubble.io/home', {
+      method: 'GET',
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+      }
+    });
+    const finalUrl = res.url || '';
+    const isAuthenticated = !finalUrl.includes('/login') && !finalUrl.includes('/signup') && (finalUrl.includes('/home') || res.status === 200);
+    return { isAuthenticated };
   } catch (err) {
     return { isAuthenticated: false };
   }
@@ -553,11 +578,12 @@ ipcMain.handle('bubbleSync:login', async () => {
   return new Promise((resolve) => {
     const authSession = session.fromPartition('persist:bubble_session');
     const authWin = new BrowserWindow({
-      width: 900,
-      height: 750,
+      width: 960,
+      height: 780,
       parent: mainWindow || undefined,
       modal: true,
-      title: 'Sign in to Bubble.io',
+      autoHideMenuBar: false,
+      title: 'Sign in to Bubble.io (Press Escape or Alt+Left to return)',
       webPreferences: {
         partition: 'persist:bubble_session',
         nodeIntegration: false,
@@ -565,38 +591,100 @@ ipcMain.handle('bubbleSync:login', async () => {
       }
     });
 
+    // Provide explicit navigation toolbar in native window menu
+    const authMenu = Menu.buildFromTemplate([
+      {
+        label: '⬅ Back to Bubble Login',
+        accelerator: 'Alt+Left',
+        click: () => {
+          if (!authWin.isDestroyed()) {
+            if (authWin.webContents.canGoBack()) {
+              authWin.webContents.goBack();
+            } else {
+              authWin.loadURL('https://bubble.io/login');
+            }
+          }
+        }
+      },
+      {
+        label: '🏠 Reset to Login',
+        click: () => {
+          if (!authWin.isDestroyed()) {
+            authWin.loadURL('https://bubble.io/login');
+          }
+        }
+      },
+      {
+        label: '🔄 Reload',
+        accelerator: 'F5',
+        click: () => {
+          if (!authWin.isDestroyed()) {
+            authWin.webContents.reload();
+          }
+        }
+      }
+    ]);
+    authWin.setMenu(authMenu);
+
+    // Keyboard navigation helper
+    authWin.webContents.on('before-input-event', (event, input) => {
+      if (input.type === 'keyDown' && !authWin.isDestroyed()) {
+        if (input.alt && input.key === 'ArrowLeft') {
+          if (authWin.webContents.canGoBack()) {
+            event.preventDefault();
+            authWin.webContents.goBack();
+          } else {
+            authWin.loadURL('https://bubble.io/login');
+          }
+        }
+        if (input.key === 'Escape') {
+          const currentUrl = authWin.webContents.getURL();
+          if (!currentUrl.includes('bubble.io/login')) {
+            event.preventDefault();
+            authWin.loadURL('https://bubble.io/login');
+          }
+        }
+      }
+    });
+
     authWin.loadURL('https://bubble.io/login');
 
     let resolved = false;
 
-    const checkCookies = async () => {
-      try {
-        const cookies = await authSession.cookies.get({ domain: 'bubble.io' });
-        const hasSession = cookies.some(c => c.name.includes('session') || c.name === 'uid' || c.name.includes('auth'));
-        if (hasSession && !resolved) {
-          resolved = true;
-          resolve({ isAuthenticated: true });
-          setTimeout(() => {
-            if (!authWin.isDestroyed()) authWin.close();
-          }, 1200);
-        }
-      } catch (err) {
-        // ignore
-      }
-    };
-
+    // Detect actual authenticated destination
     authWin.webContents.on('did-navigate', async (_event, url) => {
-      if (url.includes('bubble.io/home') || url.includes('bubble.io/page') || url.includes('bubble.io/agency') || url.includes('bubble.io/apps')) {
-        await checkCookies();
+      const isAuthDestination = (url.includes('bubble.io/home') ||
+                                 url.includes('bubble.io/agency') ||
+                                 url.includes('bubble.io/apps') ||
+                                 url.includes('bubble.io/page?id=')) &&
+                                !url.includes('/login') &&
+                                !url.includes('/signup');
+      if (isAuthDestination && !resolved) {
+        resolved = true;
+        resolve({ isAuthenticated: true });
+        setTimeout(() => {
+          if (!authWin.isDestroyed()) authWin.close();
+        }, 1000);
       }
     });
 
+    // If user closes the window manually with X without completing login
     authWin.on('close', async () => {
       if (!resolved) {
         resolved = true;
-        const cookies = await authSession.cookies.get({ domain: 'bubble.io' });
-        const hasSession = cookies.some(c => c.name.includes('session') || c.name === 'uid');
-        resolve({ isAuthenticated: hasSession });
+        try {
+          const res = await authSession.fetch('https://bubble.io/home', {
+            method: 'GET',
+            headers: {
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+            }
+          });
+          const finalUrl = res.url || '';
+          const isAuthed = !finalUrl.includes('/login') && !finalUrl.includes('/signup') && (finalUrl.includes('/home') || res.status === 200);
+          resolve({ isAuthenticated: isAuthed });
+        } catch {
+          resolve({ isAuthenticated: false });
+        }
       }
     });
   });
