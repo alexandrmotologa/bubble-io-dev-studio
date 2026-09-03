@@ -34,9 +34,11 @@ import {
   Terminal,
   HelpCircle,
   FileJson,
-  Pencil
+  Pencil,
+  Package,
+  Zap
 } from 'lucide-react';
-import { GlobalSettings, ProjectProfile, ThemeMode } from '../types';
+import { GlobalSettings, ProjectProfile, ThemeMode, UpdaterStatusData } from '../types';
 import { DevOpsEngine } from '../core/devops/devopsEngine';
 import { TranslatorEngine } from '../core/translator/translatorEngine';
 import { ConfirmDeleteModal } from '../components/ConfirmDeleteModal';
@@ -44,6 +46,7 @@ import { EditProjectModal } from '../components/EditProjectModal';
 import { AI_PROVIDERS, PROVIDER_MODELS, getProviderForModel, getDefaultModelForProvider, getProviderDisplayName, getModelDisplayName } from '../core/ai/aiProviders';
 import { toast } from '../core/toast/toastManager';
 import { ProjectStore } from '../core/storage/projectStore';
+import { BubbleSyncEngine } from '../core/bubble-sync/bubbleSyncEngine';
 import { APP_VERSION, APP_VERSION_LABEL, APP_NAME, APP_EDITION } from '../version';
 
 interface SettingsViewProps {
@@ -81,6 +84,135 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   // App connectivity test state
   const [testingAppId, setTestingAppId] = useState<string | null>(null);
   const [appTestResults, setAppTestResults] = useState<Record<string, any>>({});
+
+  // Community Feature #1: Native In-App Auto-Updater state
+  const [updaterStatus, setUpdaterStatus] = useState<UpdaterStatusData>({
+    status: 'idle',
+    currentVersion: APP_VERSION
+  });
+  const [isCheckingUpdate, setIsCheckingUpdate] = useState(false);
+  const [lastCheckTime, setLastCheckTime] = useState<string | null>(null);
+  const [appRuntimeInfo, setAppRuntimeInfo] = useState<{ isPackaged: boolean; platform: string }>({
+    isPackaged: false,
+    platform: 'unknown'
+  });
+
+  // Community Feature #2: In-App Bubble Sync & Watcher State
+  const [isBubbleAuthenticated, setIsBubbleAuthenticated] = useState(false);
+  const [isDownloadsWatcherActive, setIsDownloadsWatcherActive] = useState(false);
+  const [isSyncingBubble, setIsSyncingBubble] = useState(false);
+
+  // Listen to autoUpdater and BubbleSync events from Electron
+  useEffect(() => {
+    BubbleSyncEngine.checkAuthStatus().then(status => {
+      setIsBubbleAuthenticated(status.isAuthenticated);
+    });
+    setIsDownloadsWatcherActive(BubbleSyncEngine.isDownloadsWatcherActive());
+
+    if (typeof window !== 'undefined' && window.electronAPI?.receiveFromMain) {
+      const unsub = window.electronAPI.receiveFromMain('updater:status', (data: UpdaterStatusData) => {
+        setUpdaterStatus(prev => ({ ...prev, ...data }));
+        if (data.status !== 'checking') {
+          setIsCheckingUpdate(false);
+        }
+      });
+
+      if (window.electronAPI.getAppInfo) {
+        window.electronAPI.getAppInfo().then(info => {
+          if (info) {
+            setAppRuntimeInfo({ isPackaged: info.isPackaged, platform: info.platform });
+            if (info.currentVersion) {
+              setUpdaterStatus(prev => ({ ...prev, currentVersion: info.currentVersion }));
+            }
+          }
+        }).catch(() => {});
+      }
+
+      return () => {
+        unsub && unsub();
+      };
+    }
+  }, []);
+
+  const handleBubbleLogin = async () => {
+    const res = await BubbleSyncEngine.login();
+    setIsBubbleAuthenticated(res.isAuthenticated);
+  };
+
+  const handleBubbleLogout = async () => {
+    await BubbleSyncEngine.logout();
+    setIsBubbleAuthenticated(false);
+  };
+
+  const handleToggleDownloadsWatcher = async () => {
+    const nextState = !isDownloadsWatcherActive;
+    const ok = await BubbleSyncEngine.toggleDownloadsWatcher(nextState, (fileName, content) => {
+      const activeProj = ProjectStore.getInstance().getActiveProject();
+      if (activeProj) {
+        ProjectStore.getInstance().updateProject(activeProj.id, {
+          blueprintFileName: fileName,
+          blueprintExportJson: content,
+          lastActiveAt: new Date().toISOString()
+        });
+        onLog('system', `Auto-synced new application file ${fileName} to ${activeProj.name}`, 'success');
+      }
+    });
+    if (ok !== false) {
+      setIsDownloadsWatcherActive(nextState);
+      toast.info(nextState ? 'Downloads folder watcher activated' : 'Downloads folder watcher deactivated');
+    }
+  };
+
+  const handle1ClickSyncProject = async (proj: ProjectProfile) => {
+    setIsSyncingBubble(true);
+    try {
+      const res = await BubbleSyncEngine.syncAppFile(proj);
+      if (res.success) {
+        onLog('system', `Successfully 1-click synced ${res.fileName} for ${proj.name}`, 'success');
+      }
+    } finally {
+      setIsSyncingBubble(false);
+    }
+  };
+
+  const handleCheckForUpdates = async () => {
+    if (!window.electronAPI?.checkForUpdates) {
+      toast.info('Browser Mode', 'In-app auto-update is active in the desktop Electron build.');
+      return;
+    }
+    setIsCheckingUpdate(true);
+    setLastCheckTime(new Date().toLocaleTimeString());
+    setUpdaterStatus(prev => ({ ...prev, status: 'checking', error: undefined }));
+    try {
+      const res = await window.electronAPI.checkForUpdates();
+      if (res?.status === 'dev-mode') {
+        setUpdaterStatus(prev => ({
+          ...prev,
+          status: 'dev-mode',
+          message: 'Running in development mode. Updates check GitHub releases when running the packaged build.'
+        }));
+        setIsCheckingUpdate(false);
+      }
+    } catch (e: any) {
+      setUpdaterStatus(prev => ({ ...prev, status: 'error', error: e.message || 'Update check failed' }));
+      setIsCheckingUpdate(false);
+    }
+  };
+
+  const handleDownloadUpdate = async () => {
+    if (!window.electronAPI?.downloadUpdate) return;
+    setUpdaterStatus(prev => ({ ...prev, status: 'downloading', percent: 0 }));
+    try {
+      await window.electronAPI.downloadUpdate();
+    } catch (e: any) {
+      toast.error('Download Failed', e.message);
+    }
+  };
+
+  const handleInstallUpdate = async () => {
+    if (!window.electronAPI?.installUpdate) return;
+    await window.electronAPI.installUpdate();
+  };
 
   // Sync formData whenever settings prop changes
   useEffect(() => {
@@ -796,6 +928,85 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             </div>
           </div>
 
+          {/* Community Feature #2: Bubble Cloud Sync & Downloads Watcher Hub */}
+          <div style={{
+            background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.08) 0%, rgba(6, 182, 212, 0.05) 100%)',
+            border: '1px solid var(--border-active)',
+            borderRadius: 'var(--radius-md)',
+            padding: '16px 20px',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            flexWrap: 'wrap',
+            gap: '16px',
+            marginBottom: '16px'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+              <div style={{
+                width: '40px',
+                height: '40px',
+                borderRadius: '10px',
+                background: 'linear-gradient(135deg, #6366f1 0%, #06b6d4 100%)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#fff',
+                boxShadow: '0 4px 14px -2px rgba(6, 182, 212, 0.4)'
+              }}>
+                <Zap size={20} />
+              </div>
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <h4 style={{ fontSize: '0.95rem', fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>
+                    Bubble.io Direct Sync Hub
+                  </h4>
+                  <span className={`badge ${isBubbleAuthenticated ? 'badge-emerald' : 'badge-amber'}`} style={{ fontSize: '0.65rem' }}>
+                    {isBubbleAuthenticated ? '● Session Active' : '○ Not Connected'}
+                  </span>
+                </div>
+                <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
+                  1-Click direct <code>.bubble</code> file extraction from Bubble Editor & real-time Downloads folder auto-watcher.
+                </div>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+              {/* Downloads Watcher Toggle */}
+              <button
+                type="button"
+                onClick={handleToggleDownloadsWatcher}
+                className={`btn btn-sm ${isDownloadsWatcherActive ? 'btn-primary' : 'btn-secondary'}`}
+                style={{ fontSize: '0.75rem', padding: '6px 12px', gap: '6px' }}
+                title="Monitors your local Downloads folder and automatically syncs newly exported .bubble files"
+              >
+                <HardDrive size={13} color={isDownloadsWatcherActive ? '#fff' : 'var(--accent-cyan)'} />
+                <span>Auto-Detect Downloads: {isDownloadsWatcherActive ? 'ON' : 'OFF'}</span>
+              </button>
+
+              {/* Bubble Login/Logout Button */}
+              {isBubbleAuthenticated ? (
+                <button
+                  type="button"
+                  onClick={handleBubbleLogout}
+                  className="btn btn-secondary btn-sm"
+                  style={{ fontSize: '0.75rem', padding: '6px 12px' }}
+                >
+                  Disconnect Bubble
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleBubbleLogin}
+                  className="btn btn-primary btn-sm"
+                  style={{ fontSize: '0.75rem', padding: '6px 12px', gap: '6px' }}
+                >
+                  <Zap size={13} />
+                  <span>Sign in to Bubble.io</span>
+                </button>
+              )}
+            </div>
+          </div>
+
           {/* Existing projects list with rich details */}
           {formData.projects.length === 0 ? (
             <div style={{ padding: '36px', textAlign: 'center', color: 'var(--text-muted)' }}>
@@ -1012,17 +1223,30 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                         )}
                       </div>
 
-                      {/* Inline Upload/Replace Blueprint Button */}
-                      <label className="btn btn-secondary btn-sm" style={{ cursor: 'pointer', margin: 0, fontSize: '0.7rem', padding: '3px 8px' }}>
-                        <Upload size={11} />
-                        <span>{proj.blueprintFileName ? 'Replace .bubble File' : '+ Attach .bubble File'}</span>
-                        <input
-                          type="file"
-                          accept=".json,.bubble"
-                          onChange={(e) => handleAttachBlueprintToProject(proj.id, e)}
-                          style={{ display: 'none' }}
-                        />
-                      </label>
+                      {/* Inline 1-Click Sync & Upload/Replace Blueprint Buttons */}
+                      <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                        <button
+                          type="button"
+                          onClick={() => handle1ClickSyncProject(proj)}
+                          disabled={isSyncingBubble}
+                          className="btn btn-primary btn-sm"
+                          style={{ cursor: 'pointer', margin: 0, fontSize: '0.7rem', padding: '3px 8px', gap: '4px' }}
+                          title="1-Click fetch .bubble file directly from Bubble.io"
+                        >
+                          <Zap size={11} className={isSyncingBubble ? 'spin' : ''} />
+                          <span>{isSyncingBubble ? 'Syncing...' : '1-Click Sync'}</span>
+                        </button>
+                        <label className="btn btn-secondary btn-sm" style={{ cursor: 'pointer', margin: 0, fontSize: '0.7rem', padding: '3px 8px' }}>
+                          <Upload size={11} />
+                          <span>{proj.blueprintFileName ? 'Replace .bubble File' : '+ Attach .bubble File'}</span>
+                          <input
+                            type="file"
+                            accept=".json,.bubble"
+                            onChange={(e) => handleAttachBlueprintToProject(proj.id, e)}
+                            style={{ display: 'none' }}
+                          />
+                        </label>
+                      </div>
                     </div>
                   </div>
                 );
@@ -1177,6 +1401,232 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           ===================================================================== */}
       {subTab === 'about' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          {/* =====================================================================
+              APPLICATION UPDATES & RELEASES (Community Request #1)
+              ===================================================================== */}
+          <div className="card" style={{ border: '1px solid var(--border-active)', background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.08) 0%, rgba(6, 182, 212, 0.04) 100%)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px', marginBottom: '16px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                <div style={{
+                  width: '44px',
+                  height: '44px',
+                  borderRadius: '12px',
+                  background: 'linear-gradient(135deg, #10b981 0%, #06b6d4 100%)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: '#fff',
+                  boxShadow: '0 8px 20px -4px rgba(16, 185, 129, 0.4)'
+                }}>
+                  <RefreshCw size={22} className={isCheckingUpdate ? 'animate-spin' : ''} />
+                </div>
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <h3 style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
+                      Application Updates & Releases
+                    </h3>
+                    <span className="badge badge-indigo">Auto-Updater</span>
+                  </div>
+                  <div style={{ fontSize: '0.825rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
+                    Seamless in-app delta updates powered by GitHub Releases & electron-updater
+                  </div>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                {updaterStatus.status === 'downloaded' ? (
+                  <button
+                    onClick={handleInstallUpdate}
+                    className="btn btn-primary"
+                    style={{ background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)', border: 'none', color: '#fff', fontWeight: 600 }}
+                  >
+                    <CheckCircle2 size={16} />
+                    <span>Restart & Install v{updaterStatus.version || ''}</span>
+                  </button>
+                ) : updaterStatus.status === 'available' && !updaterStatus.percent ? (
+                  <button
+                    onClick={handleDownloadUpdate}
+                    className="btn btn-primary"
+                  >
+                    <Download size={15} />
+                    <span>Download Update v{updaterStatus.version}</span>
+                  </button>
+                ) : (
+                  <button
+                    onClick={handleCheckForUpdates}
+                    disabled={isCheckingUpdate}
+                    className="btn btn-secondary"
+                  >
+                    <RefreshCw size={14} className={isCheckingUpdate ? 'animate-spin' : ''} />
+                    <span>{isCheckingUpdate ? 'Checking Releases...' : 'Check for Updates'}</span>
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Version & Runtime Status Pills */}
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+              gap: '12px',
+              marginBottom: '16px'
+            }}>
+              <div style={{ background: 'var(--bg-input)', padding: '12px 14px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-subtle)' }}>
+                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Installed Version</div>
+                <div style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text-primary)', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span>v{updaterStatus.currentVersion || APP_VERSION}</span>
+                  <span className="badge badge-cyan" style={{ fontSize: '0.65rem' }}>{APP_EDITION}</span>
+                </div>
+              </div>
+
+              <div style={{ background: 'var(--bg-input)', padding: '12px 14px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-subtle)' }}>
+                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Environment & Target</div>
+                <div style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--text-primary)', marginTop: '4px' }}>
+                  {appRuntimeInfo.isPackaged ? `Packaged (${appRuntimeInfo.platform})` : 'Desktop Dev Environment'}
+                </div>
+              </div>
+
+              <div style={{ background: 'var(--bg-input)', padding: '12px 14px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-subtle)' }}>
+                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Update Channel</div>
+                <div style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--accent-emerald)', marginTop: '4px' }}>
+                  GitHub Official Releases (Stable)
+                </div>
+              </div>
+
+              <div style={{ background: 'var(--bg-input)', padding: '12px 14px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-subtle)' }}>
+                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Last Checked</div>
+                <div style={{ fontSize: '0.9rem', fontWeight: 500, color: 'var(--text-secondary)', marginTop: '4px' }}>
+                  {lastCheckTime ? lastCheckTime : 'On Application Launch'}
+                </div>
+              </div>
+            </div>
+
+            {/* Live Progress Bar when downloading */}
+            {updaterStatus.status === 'downloading' && (
+              <div style={{
+                background: 'rgba(99, 102, 241, 0.08)',
+                border: '1px solid var(--border-active)',
+                borderRadius: 'var(--radius-md)',
+                padding: '14px 16px',
+                marginBottom: '16px'
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <Download size={15} color="var(--accent-cyan)" />
+                    <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-primary)' }}>
+                      Downloading update package...
+                    </span>
+                  </div>
+                  <span style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--accent-cyan)' }}>
+                    {updaterStatus.percent || 0}%
+                  </span>
+                </div>
+                <div style={{ width: '100%', height: '8px', background: 'var(--bg-input)', borderRadius: '999px', overflow: 'hidden' }}>
+                  <div style={{
+                    width: `${updaterStatus.percent || 0}%`,
+                    height: '100%',
+                    background: 'linear-gradient(90deg, #6366f1 0%, #06b6d4 100%)',
+                    borderRadius: '999px',
+                    transition: 'width 0.3s ease'
+                  }} />
+                </div>
+                {Boolean(updaterStatus.bytesPerSecond) && (
+                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '6px' }}>
+                    Speed: {((updaterStatus.bytesPerSecond || 0) / (1024 * 1024)).toFixed(1)} MB/s • Transferred: {((updaterStatus.transferred || 0) / (1024 * 1024)).toFixed(1)} MB / {((updaterStatus.total || 0) / (1024 * 1024)).toFixed(1)} MB
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Status Messages */}
+            {updaterStatus.status === 'downloaded' && (
+              <div style={{
+                background: 'rgba(16, 185, 129, 0.12)',
+                border: '1px solid rgba(16, 185, 129, 0.4)',
+                borderRadius: 'var(--radius-md)',
+                padding: '12px 16px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px',
+                color: 'var(--accent-emerald)'
+              }}>
+                <CheckCircle2 size={18} />
+                <span style={{ fontSize: '0.875rem', fontWeight: 500 }}>
+                  Update <strong>v{updaterStatus.version}</strong> downloaded successfully! Click <strong>Restart & Install</strong> above to apply the update immediately, or it will install automatically on exit.
+                </span>
+              </div>
+            )}
+
+            {updaterStatus.status === 'available' && (
+              <div style={{
+                background: 'rgba(6, 182, 212, 0.1)',
+                border: '1px solid rgba(6, 182, 212, 0.3)',
+                borderRadius: 'var(--radius-md)',
+                padding: '12px 16px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px',
+                color: 'var(--accent-cyan)'
+              }}>
+                <Sparkles size={18} />
+                <span style={{ fontSize: '0.875rem', fontWeight: 500 }}>
+                  A newer version <strong>v{updaterStatus.version}</strong> is available on GitHub Releases. Downloading delta payload in the background.
+                </span>
+              </div>
+            )}
+
+            {updaterStatus.status === 'not-available' && (
+              <div style={{
+                background: 'rgba(255, 255, 255, 0.03)',
+                border: '1px solid var(--border-subtle)',
+                borderRadius: 'var(--radius-md)',
+                padding: '10px 14px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                color: 'var(--text-secondary)',
+                fontSize: '0.85rem'
+              }}>
+                <Check size={16} color="var(--accent-emerald)" />
+                <span>You are currently running the latest official version of Bubble.io Dev Studio.</span>
+              </div>
+            )}
+
+            {updaterStatus.status === 'dev-mode' && (
+              <div style={{
+                background: 'rgba(245, 158, 11, 0.08)',
+                border: '1px solid rgba(245, 158, 11, 0.25)',
+                borderRadius: 'var(--radius-md)',
+                padding: '10px 14px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                color: '#fbbf24',
+                fontSize: '0.825rem'
+              }}>
+                <AlertCircle size={16} />
+                <span>Development environment detected. Live auto-download & installation are activated in packaged production releases (Windows NSIS/Portable, macOS DMG, Linux AppImage).</span>
+              </div>
+            )}
+
+            {updaterStatus.status === 'error' && (
+              <div style={{
+                background: 'rgba(244, 63, 94, 0.08)',
+                border: '1px solid rgba(244, 63, 94, 0.3)',
+                borderRadius: 'var(--radius-md)',
+                padding: '10px 14px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                color: 'var(--accent-rose)',
+                fontSize: '0.85rem'
+              }}>
+                <AlertCircle size={16} />
+                <span>Update verification issue: {updaterStatus.error || 'Network error or repository unreachable'}.</span>
+              </div>
+            )}
+          </div>
+
           <div className="card">
             <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '16px' }}>
               <div style={{

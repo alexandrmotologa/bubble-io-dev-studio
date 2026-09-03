@@ -1,18 +1,5 @@
 import { GlobalSettings, ProjectProfile } from '../../types';
 
-declare global {
-  interface Window {
-    electronAPI?: {
-      secureEncrypt: (plainText: string) => Promise<string>;
-      secureDecrypt: (cipherText: string) => Promise<string>;
-      isEncryptionAvailable: () => Promise<boolean>;
-      capturePage: (url: string, width: number, height: number, headers?: Record<string, string>) => Promise<{ success: boolean; dataUrl?: string; error?: string; width?: number; height?: number }>;
-      openExternal: (url: string) => Promise<void>;
-      fetchHttp: (url: string, headers?: Record<string, string>) => Promise<{ ok: boolean; status?: number; data?: any; error?: string }>;
-    };
-  }
-}
-
 /**
  * Enterprise Secure Storage Engine (Issue #4 Resolution)
  * Uses native OS Keychain / DPAPI / SecretService via Electron safeStorage

@@ -1024,3 +1024,61 @@ export interface RollbackExecutionResult {
   failedCount: number;
   logs: string[];
 }
+
+export interface UpdaterStatusData {
+  status: 'idle' | 'checking' | 'available' | 'not-available' | 'downloading' | 'downloaded' | 'error' | 'dev-mode';
+  version?: string;
+  releaseDate?: string;
+  releaseNotes?: string;
+  percent?: number;
+  transferred?: number;
+  total?: number;
+  bytesPerSecond?: number;
+  error?: string;
+  message?: string;
+  currentVersion?: string;
+}
+
+export interface BubbleAuthStatus {
+  isAuthenticated: boolean;
+  userEmail?: string;
+}
+
+export interface BubbleSyncResult {
+  success: boolean;
+  fileName?: string;
+  data?: any;
+  error?: string;
+}
+
+declare global {
+  interface Window {
+    electronAPI?: {
+      platform: string;
+      versions: {
+        node: string;
+        chrome: string;
+        electron: string;
+      };
+      sendToMain: (channel: string, data: any) => void;
+      receiveFromMain: (channel: string, func: (...args: any[]) => void) => () => void;
+      openExternal: (url: string) => Promise<void>;
+      fetchHttp: (url: string, headers?: Record<string, string>) => Promise<{ ok: boolean; status?: number; data?: any; error?: string }>;
+      secureEncrypt: (plainText: string) => Promise<string>;
+      secureDecrypt: (cipherText: string) => Promise<string>;
+      isEncryptionAvailable: () => Promise<boolean>;
+      capturePage: (url: string, width: number, height: number, headers?: Record<string, string>) => Promise<{ success: boolean; dataUrl?: string; error?: string; width?: number; height?: number }>;
+      checkForUpdates: () => Promise<any>;
+      downloadUpdate: () => Promise<{ success: boolean; error?: string }>;
+      installUpdate: () => Promise<void>;
+      getAppInfo: () => Promise<{ currentVersion: string; isPackaged: boolean; platform: string }>;
+      bubbleSyncLogin: () => Promise<BubbleAuthStatus>;
+      bubbleSyncLogout: () => Promise<boolean>;
+      bubbleSyncCheckAuth: () => Promise<BubbleAuthStatus>;
+      bubbleSyncFetchApp: (appId: string) => Promise<BubbleSyncResult>;
+      bubbleSyncSetDownloadsWatcher: (enabled: boolean) => Promise<boolean>;
+      onBubbleFileDetected: (callback: (data: { fileName: string; content: any }) => void) => () => void;
+    };
+  }
+}
+

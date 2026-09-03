@@ -1,4 +1,4 @@
-# 🛠️ DevOps & Database Studio Guide (v3.0.0)
+# 🛠️ DevOps & Database Studio Guide (v3.1.0)
 
 The **DevOps & Database Studio** is an enterprise-grade toolchain for managing Bubble.io database schemas, live records, TypeScript bindings, automated backups, and environment releases.
 
@@ -14,10 +14,11 @@ To provide a clean, distraction-free workflow, the module is organized into **4 
 ├────────────────────┬────────────────────┬────────────────────┬─────────────────────────┤
 │ 📊 Data Studio     │ 📑 Schema & Flow   │ 💾 Backups & DevOps│ 🛠️ Dev Tools & CI/CD   │
 │   • Live Data Grid │   • Schema Explorer│   • Selective Back │   • 4x CI/CD Presets    │
-│   • REPL Query     │   • Interactive ERD│   • SHA-256 Hashes │   • Multi-SQL Migration │
-│   • Relational Seed│   • Step Flowchart │   • Snapshots Diff │   • SDK Scaffolder      │
-│   • CSV/JSON Import│   • TypeScript/Zod │   • Down Rollbacks │   • Mock API & Trigger  │
-│                    │   • API Client SDK │   • Dev vs Live    │                         │
+│   • REPL Query     │   • 1-Click Sync   │   • SHA-256 Hashes │   • Multi-SQL Migration │
+│   • Relational Seed│   • Interactive ERD│   • Snapshots Diff │   • SDK Scaffolder      │
+│   • CSV/JSON Import│   • Step Flowchart │   • Down Rollbacks │   • Mock API & Trigger  │
+│                    │   • TypeScript/Zod │   • Dev vs Live    │                         │
+│                    │   • API Client SDK │                    │                         │
 └────────────────────┴────────────────────┴────────────────────┴─────────────────────────┘
 ```
 
@@ -41,6 +42,11 @@ To provide a clean, distraction-free workflow, the module is organized into **4 
 ---
 
 ## 2. Domain 2: Schema & Flow (`Architecture & Types`)
+
+### ⚡ 1-Click Cloud Sync & Downloads Watcher
+* **⚡ 1-Click Sync from Bubble.io**: Directly pulls the application AST from your active Bubble Editor session without leaving Dev Studio. Automatically parses all custom data types, option sets, and fields.
+* **Downloads Auto-Watcher**: When toggled on, Dev Studio automatically catches `.bubble` files exported from your browser and attaches them to the active project in real time.
+* **Manual Import**: Still allows drag-and-drop or file picker selection of `.bubble` and `.json` files.
 
 ### 📑 Schema Explorer & Option Sets
 * Inspect custom data types, fields, nullability, list relations, and Option Sets with clean visual badges.

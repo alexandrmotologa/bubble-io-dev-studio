@@ -3,6 +3,7 @@ import { DevOpsEngine } from '../devops/devopsEngine';
 import { BubbleExtractor } from '../translator/bubbleExtractor';
 import { WorkflowGraphEngine } from '../workflows/workflowGraphEngine';
 import { APP_VERSION_LABEL } from '../../version';
+import { AiDocNarrativeEngine, AiNarrativeConfig, AiEnhanceProgress } from './aiDocNarrativeEngine';
 
 export class DocGenEngine {
   /**
@@ -291,6 +292,108 @@ This developer documentation book provides a complete, authoritative architectur
         languagesCount: 1
       }
     };
+  }
+
+  /**
+   * Generates a comprehensive AI-Enhanced Technical Architecture Book with domain narratives (Community Feature #3)
+   */
+  public static async generateAiDocumentationBook(
+    project: ProjectProfile,
+    schema?: BubbleSchema | null,
+    auditReport?: AuditHealthReport | null,
+    securityReport?: SecurityAuditReport | null,
+    customSections?: DocSection[],
+    config?: AiNarrativeConfig,
+    onProgress?: (progress: AiEnhanceProgress) => void
+  ): Promise<DocBookProject> {
+    const rawBlueprint = project.blueprintExportJson;
+    const actualSchema = schema || (rawBlueprint ? DevOpsEngine.parseBubbleSchemaJson(rawBlueprint, project) : null);
+    const extractedWorkflows = WorkflowGraphEngine.extractAllWorkflows(rawBlueprint);
+
+    // Call AiDocNarrativeEngine to generate deep narrative chapters
+    const aiBook = await AiDocNarrativeEngine.generateFullAiBook(
+      project,
+      actualSchema,
+      extractedWorkflows,
+      auditReport,
+      securityReport,
+      customSections,
+      config,
+      onProgress
+    );
+
+    const dataTypes = actualSchema?.dataTypes || [];
+
+    // ERD Chapter
+    let erdMd = `## 5. Entity-Relationship Diagram (ERD)\n\nVisual relational mapping of foreign keys, lists of things, and linked references:\n\n\`\`\`mermaid\n`;
+    if (actualSchema && dataTypes.length > 0) {
+      erdMd += DevOpsEngine.generateMermaidERD(actualSchema);
+    } else {
+      erdMd += `erDiagram\n    USER ||--o{ ORDER : places\n    USER {\n        string email\n        string name\n    }\n    ORDER {\n        string order_id\n        number amount\n    }`;
+    }
+    erdMd += `\n\`\`\`\n`;
+
+    // API Catalog Chapter
+    let apiMd = `## 6. API Endpoints & Webhook Architecture\n\n`;
+    const apiBaseUrl = `https://${project.customDomain || `${project.appId}.bubbleapps.io`}/${project.environment}`;
+    apiMd += `Base Data API Endpoint: \`${apiBaseUrl}/api/1.1/obj/\`\n`;
+    apiMd += `Base Webhook Endpoint: \`${apiBaseUrl}/api/1.1/wf/\`\n\n`;
+    apiMd += `| HTTP Route | Target Entity | Access Level | Description |\n`;
+    apiMd += `| :--- | :--- | :---: | :--- |\n`;
+    for (const dt of dataTypes) {
+      apiMd += `| \`/api/1.1/obj/${dt.name.toLowerCase()}\` | \`${dt.name}\` | Authenticated | REST CRUD operations for ${dt.name} records |\n`;
+    }
+
+    // AST Health Chapter
+    let auditMd = `## 7. AST Code Health & Quality Scorecard\n\n`;
+    if (auditReport) {
+      auditMd += `- **Overall Quality Health Score**: **${auditReport.score}% (Grade ${auditReport.grade})**\n`;
+      auditMd += `- **Detected Debt Items**: **${auditReport.deadItems.length}**\n\n`;
+      if (auditReport.deadItems.length > 0) {
+        auditMd += `| Type | Target Element | Severity | Optimization Recommendation |\n`;
+        auditMd += `| :--- | :--- | :---: | :--- |\n`;
+        for (const item of auditReport.deadItems) {
+          auditMd += `| \`${item.type}\` | **${item.name}** | \`${item.severity}\` | ${item.reason} |\n`;
+        }
+      } else {
+        auditMd += `✓ **Zero dead code items detected**. The application maintains pristine AST cleanliness.\n`;
+      }
+    } else {
+      auditMd += `*Run an AST audit in Dead Code Health to calculate quality scorecards.*\n`;
+    }
+
+    aiBook.sections.push(
+      {
+        id: 'sec_erd',
+        title: '5. Visual Entity-Relationship (ERD)',
+        icon: 'GitBranch',
+        category: 'database',
+        enabled: true,
+        order: 5,
+        markdownContent: erdMd
+      },
+      {
+        id: 'sec_api',
+        title: '6. API & Webhook Catalogs',
+        icon: 'Radio',
+        category: 'api',
+        enabled: true,
+        order: 6,
+        markdownContent: apiMd
+      },
+      {
+        id: 'sec_audit',
+        title: '7. AST Health & Audit Score',
+        icon: 'Stethoscope',
+        category: 'quality',
+        badge: auditReport ? `${auditReport.score}%` : undefined,
+        enabled: true,
+        order: 7,
+        markdownContent: auditMd
+      }
+    );
+
+    return aiBook;
   }
 
   /**

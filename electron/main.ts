@@ -1,5 +1,7 @@
-import { app, BrowserWindow, ipcMain, shell, Menu, MenuItemConstructorOptions, dialog, clipboard, safeStorage } from 'electron';
+import { app, BrowserWindow, ipcMain, shell, Menu, MenuItemConstructorOptions, dialog, clipboard, safeStorage, session } from 'electron';
 import path from 'path';
+import fs from 'fs';
+import { autoUpdater } from 'electron-updater';
 
 let mainWindow: BrowserWindow | null = null;
 
@@ -130,6 +132,35 @@ function createAppMenu() {
             await shell.openExternal('https://github.com/alexandrmotologa/bubble-io-dev-studio#readme');
           }
         },
+        {
+          label: 'Check for Updates...',
+          click: async () => {
+            if (mainWindow) {
+              if (isDev) {
+                dialog.showMessageBox(mainWindow, {
+                  type: 'info',
+                  title: 'Development Mode',
+                  message: 'Update Check Skipped in Dev Mode',
+                  detail: `Current App Version: v${app.getVersion()}\nRunning in development environment with local Vite server. In production release builds, this automatically checks GitHub releases for new packages.`,
+                  buttons: ['OK']
+                });
+                return;
+              }
+              try {
+                mainWindow.webContents.send('updater:status', { status: 'checking' });
+                await autoUpdater.checkForUpdates();
+              } catch (e: any) {
+                dialog.showMessageBox(mainWindow, {
+                  type: 'error',
+                  title: 'Update Check Failed',
+                  message: 'Could not check for updates',
+                  detail: e.message || 'Please verify your network connection or GitHub repository availability.',
+                  buttons: ['OK']
+                });
+              }
+            }
+          }
+        },
         { type: 'separator' },
         {
           label: 'About Bubble.io Dev Studio',
@@ -185,6 +216,17 @@ function createWindow() {
   mainWindow.on('closed', () => {
     mainWindow = null;
   });
+
+  // Initialize in-app auto-update notifications and listeners
+  initAutoUpdater();
+
+  if (!isDev) {
+    setTimeout(() => {
+      autoUpdater.checkForUpdates().catch((err: any) => {
+        console.warn('Silent auto-update check on startup failed:', err?.message || err);
+      });
+    }, 10000);
+  }
 
   // Handle external links opening in user's default browser
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
@@ -301,3 +343,333 @@ ipcMain.handle('visual:capture-page', async (_event, targetUrl: string, width: n
     }
   }
 });
+
+// Community Feature #1: Native In-App Auto-Updater
+function sendUpdaterStatus(statusData: any) {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('updater:status', statusData);
+  }
+}
+
+function initAutoUpdater() {
+  autoUpdater.logger = console;
+  autoUpdater.autoDownload = true;
+  autoUpdater.autoInstallOnAppQuit = true;
+
+  autoUpdater.on('checking-for-update', () => {
+    sendUpdaterStatus({ status: 'checking' });
+  });
+
+  autoUpdater.on('update-available', (info) => {
+    sendUpdaterStatus({
+      status: 'available',
+      version: info.version,
+      releaseDate: info.releaseDate,
+      releaseNotes: info.releaseNotes
+    });
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('toast:show', {
+        type: 'info',
+        title: 'New Update Available',
+        message: `Bubble.io Dev Studio v${info.version} is available. Downloading update in background...`
+      });
+    }
+  });
+
+  autoUpdater.on('update-not-available', (info) => {
+    sendUpdaterStatus({
+      status: 'not-available',
+      version: info?.version || app.getVersion()
+    });
+  });
+
+  autoUpdater.on('download-progress', (progressObj) => {
+    sendUpdaterStatus({
+      status: 'downloading',
+      percent: Math.round(progressObj.percent),
+      transferred: progressObj.transferred,
+      total: progressObj.total,
+      bytesPerSecond: progressObj.bytesPerSecond
+    });
+  });
+
+  autoUpdater.on('update-downloaded', (info) => {
+    sendUpdaterStatus({
+      status: 'downloaded',
+      version: info.version
+    });
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('toast:show', {
+        type: 'success',
+        title: 'Update Ready to Install',
+        message: `Version v${info.version} has been downloaded. Restart the application to apply.`
+      });
+    }
+  });
+
+  autoUpdater.on('error', (err) => {
+    const errorMsg = err == null ? 'unknown' : (err.message || err.toString());
+    console.warn('autoUpdater error:', errorMsg);
+    sendUpdaterStatus({
+      status: 'error',
+      error: errorMsg
+    });
+  });
+}
+
+ipcMain.handle('updater:check', async () => {
+  if (isDev) {
+    return {
+      status: 'dev-mode',
+      currentVersion: app.getVersion(),
+      message: 'Auto-update is disabled in development mode'
+    };
+  }
+  try {
+    const result = await autoUpdater.checkForUpdates();
+    return {
+      status: 'checked',
+      currentVersion: app.getVersion(),
+      updateInfo: result?.updateInfo
+    };
+  } catch (err: any) {
+    return {
+      status: 'error',
+      currentVersion: app.getVersion(),
+      error: err.message || 'Failed to check for updates'
+    };
+  }
+});
+
+ipcMain.handle('updater:download', async () => {
+  try {
+    await autoUpdater.downloadUpdate();
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err.message };
+  }
+});
+
+ipcMain.handle('updater:install', async () => {
+  autoUpdater.quitAndInstall(false, true);
+});
+
+ipcMain.handle('updater:get-info', async () => {
+  return {
+    currentVersion: app.getVersion(),
+    isPackaged: app.isPackaged,
+    platform: process.platform
+  };
+});
+
+// ============================================================================
+// Community Feature #2: In-App .bubble Auto-Download & Direct Sync
+// ============================================================================
+
+let downloadsWatcher: fs.FSWatcher | null = null;
+let isDownloadsWatcherActive = false;
+
+function initDownloadsWatcher(enable: boolean): boolean {
+  if (downloadsWatcher) {
+    try {
+      downloadsWatcher.close();
+    } catch (e) {
+      // ignore
+    }
+    downloadsWatcher = null;
+  }
+  isDownloadsWatcherActive = enable;
+  if (!enable) return true;
+
+  try {
+    const downloadsPath = app.getPath('downloads');
+    if (!fs.existsSync(downloadsPath)) return false;
+
+    let debounceTimer: NodeJS.Timeout | null = null;
+
+    downloadsWatcher = fs.watch(downloadsPath, (_eventType, filename) => {
+      if (!filename) return;
+      const lower = filename.toLowerCase();
+      if (!lower.endsWith('.bubble') && !lower.endsWith('.json')) return;
+
+      if (debounceTimer) clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => {
+        try {
+          const fullPath = path.join(downloadsPath, filename);
+          if (!fs.existsSync(fullPath)) return;
+          const stat = fs.statSync(fullPath);
+          if (stat.size < 100) return;
+
+          const raw = fs.readFileSync(fullPath, 'utf-8');
+          const data = JSON.parse(raw);
+          if (data && (data.pages || data.workflows || data.types || data.schema || data.app_version)) {
+            if (mainWindow && !mainWindow.isDestroyed()) {
+              mainWindow.webContents.send('bubbleSync:fileDetected', {
+                fileName: filename,
+                filePath: fullPath,
+                content: data
+              });
+            }
+          }
+        } catch (e) {
+          // ignore incomplete writes or non-Bubble JSON
+        }
+      }, 800);
+    });
+
+    return true;
+  } catch (err) {
+    console.warn('Failed to initialize downloads watcher:', err);
+    return false;
+  }
+}
+
+ipcMain.handle('bubbleSync:setDownloadsWatcher', async (_event, enabled: boolean) => {
+  return initDownloadsWatcher(enabled);
+});
+
+ipcMain.handle('bubbleSync:checkAuth', async () => {
+  try {
+    const authSession = session.fromPartition('persist:bubble_session');
+    const cookies = await authSession.cookies.get({ domain: 'bubble.io' });
+    const hasSession = cookies.some(c => c.name.includes('session') || c.name === 'uid' || c.name.includes('auth'));
+    return { isAuthenticated: hasSession };
+  } catch (err) {
+    return { isAuthenticated: false };
+  }
+});
+
+ipcMain.handle('bubbleSync:logout', async () => {
+  try {
+    const authSession = session.fromPartition('persist:bubble_session');
+    await authSession.clearStorageData();
+    return true;
+  } catch (err) {
+    return false;
+  }
+});
+
+ipcMain.handle('bubbleSync:login', async () => {
+  return new Promise((resolve) => {
+    const authSession = session.fromPartition('persist:bubble_session');
+    const authWin = new BrowserWindow({
+      width: 900,
+      height: 750,
+      parent: mainWindow || undefined,
+      modal: true,
+      title: 'Sign in to Bubble.io',
+      webPreferences: {
+        partition: 'persist:bubble_session',
+        nodeIntegration: false,
+        contextIsolation: true
+      }
+    });
+
+    authWin.loadURL('https://bubble.io/login');
+
+    let resolved = false;
+
+    const checkCookies = async () => {
+      try {
+        const cookies = await authSession.cookies.get({ domain: 'bubble.io' });
+        const hasSession = cookies.some(c => c.name.includes('session') || c.name === 'uid' || c.name.includes('auth'));
+        if (hasSession && !resolved) {
+          resolved = true;
+          resolve({ isAuthenticated: true });
+          setTimeout(() => {
+            if (!authWin.isDestroyed()) authWin.close();
+          }, 1200);
+        }
+      } catch (err) {
+        // ignore
+      }
+    };
+
+    authWin.webContents.on('did-navigate', async (_event, url) => {
+      if (url.includes('bubble.io/home') || url.includes('bubble.io/page') || url.includes('bubble.io/agency') || url.includes('bubble.io/apps')) {
+        await checkCookies();
+      }
+    });
+
+    authWin.on('close', async () => {
+      if (!resolved) {
+        resolved = true;
+        const cookies = await authSession.cookies.get({ domain: 'bubble.io' });
+        const hasSession = cookies.some(c => c.name.includes('session') || c.name === 'uid');
+        resolve({ isAuthenticated: hasSession });
+      }
+    });
+  });
+});
+
+ipcMain.handle('bubbleSync:fetchApp', async (_event, appId: string) => {
+  if (!appId) return { success: false, error: 'Application ID is required' };
+
+  return new Promise((resolve) => {
+    const syncWin = new BrowserWindow({
+      width: 1024,
+      height: 768,
+      show: false,
+      webPreferences: {
+        partition: 'persist:bubble_session',
+        nodeIntegration: false,
+        contextIsolation: true
+      }
+    });
+
+    const timeout = setTimeout(() => {
+      if (!syncWin.isDestroyed()) syncWin.destroy();
+      resolve({ success: false, error: 'Timed out waiting for Bubble Editor to respond' });
+    }, 35000);
+
+    syncWin.loadURL(`https://bubble.io/page?id=${encodeURIComponent(appId)}&tab=App`);
+
+    syncWin.webContents.on('did-finish-load', async () => {
+      try {
+        const script = `
+          new Promise((res) => {
+            let attempts = 0;
+            const interval = setInterval(() => {
+              attempts++;
+              if (window.app) {
+                clearInterval(interval);
+                res({ success: true, app: window.app });
+              } else if (attempts > 35) {
+                clearInterval(interval);
+                res({ success: false, error: 'Editor application data not accessible. Please ensure you are logged into an account with access to this application.' });
+              }
+            }, 600);
+          });
+        `;
+        const result: any = await syncWin.webContents.executeJavaScript(script);
+        clearTimeout(timeout);
+        if (!syncWin.isDestroyed()) syncWin.destroy();
+
+        if (result && result.success && result.app) {
+          resolve({
+            success: true,
+            fileName: `${appId}_synced_${Date.now()}.bubble`,
+            data: result.app
+          });
+        } else {
+          resolve({
+            success: false,
+            error: result?.error || 'Could not extract application structure from Bubble Editor'
+          });
+        }
+      } catch (err: any) {
+        clearTimeout(timeout);
+        if (!syncWin.isDestroyed()) syncWin.destroy();
+        resolve({ success: false, error: err.message || 'Execution error during app sync' });
+      }
+    });
+
+    syncWin.webContents.on('did-fail-load', (_event, errorCode, errorDescription) => {
+      clearTimeout(timeout);
+      if (!syncWin.isDestroyed()) syncWin.destroy();
+      resolve({ success: false, error: `Failed to load Bubble Editor (${errorCode}: ${errorDescription})` });
+    });
+  });
+});
+
+

@@ -46,7 +46,8 @@ import {
   CheckCheck,
   RotateCcw,
   UploadCloud,
-  X
+  X,
+  Zap
 } from 'lucide-react';
 import { 
   BackupResult, 
@@ -63,6 +64,7 @@ import {
   SeedExecutionPlan 
 } from '../types';
 import { DevOpsEngine } from '../core/devops/devopsEngine';
+import { BubbleSyncEngine } from '../core/bubble-sync/bubbleSyncEngine';
 import { PiiScanner } from '../core/devops/piiScanner';
 import { SchemaMigrationsEngine } from '../core/devops/schemaMigrations';
 import { RelationalSeederEngine } from '../core/devops/relationalSeeder';
@@ -337,6 +339,41 @@ export const DevOpsView: React.FC<DevOpsViewProps> = ({ activeProject, initialSu
   const [isSyncingEnv, setIsSyncingEnv] = useState(false);
 
   const [isFetchingSchema, setIsFetchingSchema] = useState(false);
+  const [isSyncingBubble, setIsSyncingBubble] = useState(false);
+
+  const handle1ClickBubbleSync = async () => {
+    if (!activeProject) return;
+    setIsSyncingBubble(true);
+    onLog('devops', `Initiating 1-Click Sync from Bubble.io for ${activeProject.name}...`);
+    try {
+      const auth = await BubbleSyncEngine.checkAuthStatus();
+      if (!auth.isAuthenticated) {
+        onLog('devops', 'Authenticating with Bubble.io in secure session...', 'info');
+        const loginRes = await BubbleSyncEngine.login();
+        if (!loginRes.isAuthenticated) {
+          onLog('devops', 'Bubble authentication cancelled or failed', 'warn');
+          return;
+        }
+      }
+
+      const res = await BubbleSyncEngine.syncAppFile(activeProject, (msg) => onLog('devops', msg));
+      if (res.success && res.data) {
+        onLog('devops', `Successfully synced ${res.fileName} from Bubble.io! Parsing schema...`, 'success');
+        const parsedSchema = DevOpsEngine.parseBubbleSchemaJson(res.data, activeProject);
+        setSchema(parsedSchema);
+        setCollapsedTables(new Set(parsedSchema.dataTypes.map(d => d.id || d.name)));
+        setCollapsedOptionSets(new Set(parsedSchema.optionSets.map(os => os.name)));
+        MockServerEngine.initFromSchema(parsedSchema);
+        const ts = DevOpsEngine.generateTypeScriptDefinitions(parsedSchema);
+        setTsDefinitions(ts);
+        const erd = DevOpsEngine.generateMermaidERD(parsedSchema);
+        setMermaidErd(erd);
+        toast.success(`Synced & loaded ${parsedSchema.dataTypes.length} tables from Bubble.io!`);
+      }
+    } finally {
+      setIsSyncingBubble(false);
+    }
+  };
 
   const loadEnvSync = async () => {
     setIsSyncingEnv(true);
@@ -1467,7 +1504,18 @@ export const DevOpsView: React.FC<DevOpsViewProps> = ({ activeProject, initialSu
                 )}
               </div>
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+              <button
+                type="button"
+                onClick={handle1ClickBubbleSync}
+                disabled={isSyncingBubble}
+                className="btn btn-primary btn-sm"
+                title="Directly fetch the latest .bubble file from your Bubble Editor session"
+              >
+                <Zap size={12} className={isSyncingBubble ? 'spin' : ''} />
+                <span>{isSyncingBubble ? 'Syncing...' : '⚡ 1-Click Sync from Bubble.io'}</span>
+              </button>
+
               <button
                 type="button"
                 onClick={loadSchema}
@@ -1479,9 +1527,9 @@ export const DevOpsView: React.FC<DevOpsViewProps> = ({ activeProject, initialSu
                 <span>{isFetchingSchema ? 'Fetching...' : 'Fetch Schema from Data API'}</span>
               </button>
 
-              <label className="btn btn-primary btn-sm" style={{ cursor: 'pointer', margin: 0 }}>
+              <label className="btn btn-secondary btn-sm" style={{ cursor: 'pointer', margin: 0 }}>
                 <Upload size={12} />
-                <span>Import Schema JSON</span>
+                <span>Import .bubble File</span>
                 <input
                   type="file"
                   accept=".json,.bubble"
@@ -1511,22 +1559,34 @@ export const DevOpsView: React.FC<DevOpsViewProps> = ({ activeProject, initialSu
                 No Database Schema Loaded for {activeProject?.name || 'Workspace'}
               </h3>
               <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', maxWidth: '520px', margin: '0 auto 16px', lineHeight: 1.5 }}>
-                Bubble Data API endpoints require <strong>"Enable Data API"</strong> in your Bubble app's <code>Settings ➔ API</code>, or you can import your exported <code>.bubble</code> file directly.
+                Sync your application file directly from your Bubble.io account with 1-click, or import an exported <code>.bubble</code> file.
               </p>
 
               {/* Instructions Pill Banner */}
               <div style={{ maxWidth: '540px', margin: '0 auto 20px', padding: '12px 16px', background: 'var(--bg-input)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)', textAlign: 'left', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-                <div style={{ fontWeight: 600, color: 'var(--text-primary)', marginBottom: '4px' }}>💡 How to enable schema extraction:</div>
+                <div style={{ fontWeight: 600, color: 'var(--text-primary)', marginBottom: '4px' }}>💡 How to load your application schema:</div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                  <span>1. <strong>Option A (Offline / Instant)</strong>: In Bubble Editor, go to <em>Settings ➔ General ➔ Export application</em> and import your <code>.bubble</code> file below.</span>
-                  <span>2. <strong>Option B (Live API)</strong>: In Bubble Editor ➔ <em>Settings ➔ API</em>, check <em>"Enable Data API"</em> and select the data types you want to expose.</span>
+                  <span>1. <strong>⚡ 1-Click Direct Sync</strong>: Click <em>"1-Click Sync from Bubble.io"</em> below to automatically fetch your app file.</span>
+                  <span>2. <strong>Option B (Offline / Manual)</strong>: In Bubble Editor, go to <em>Settings ➔ General ➔ Export application</em> and import your <code>.bubble</code> file.</span>
+                  <span>3. <strong>Option C (Live API)</strong>: In Bubble Editor ➔ <em>Settings ➔ API</em>, check <em>"Enable Data API"</em>.</span>
                 </div>
               </div>
 
               <div style={{ display: 'flex', justifyContent: 'center', gap: '10px', flexWrap: 'wrap' }}>
-                <label className="btn btn-primary btn-sm" style={{ cursor: 'pointer', margin: 0 }}>
+                <button
+                  type="button"
+                  onClick={handle1ClickBubbleSync}
+                  disabled={isSyncingBubble}
+                  className="btn btn-primary btn-sm"
+                  style={{ gap: '6px' }}
+                >
+                  <Zap size={13} className={isSyncingBubble ? 'spin' : ''} />
+                  <span>{isSyncingBubble ? 'Syncing...' : '⚡ 1-Click Sync from Bubble.io'}</span>
+                </button>
+
+                <label className="btn btn-secondary btn-sm" style={{ cursor: 'pointer', margin: 0 }}>
                   <Upload size={13} />
-                  <span>Import .bubble / Blueprint JSON</span>
+                  <span>Import .bubble File</span>
                   <input
                     type="file"
                     accept=".json,.bubble"

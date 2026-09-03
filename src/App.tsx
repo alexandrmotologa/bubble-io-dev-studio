@@ -401,6 +401,7 @@ export const App: React.FC = () => {
             {currentTab === 'doc-gen' && (
               <DocGenView
                 activeProject={activeProject}
+                settings={settings}
                 onLog={addLog}
               />
             )}

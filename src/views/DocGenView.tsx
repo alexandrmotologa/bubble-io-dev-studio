@@ -29,28 +29,35 @@ import {
   Activity,
   Maximize2
 } from 'lucide-react';
-import { BubbleSchema, DocBookProject, DocSection, ProjectProfile } from '../types';
+import { BubbleSchema, DocBookProject, DocSection, ProjectProfile, GlobalSettings } from '../types';
 import { toast } from '../core/toast/toastManager';
 import { DocGenEngine } from '../core/doc-gen/docGenEngine';
 import { DevOpsEngine } from '../core/devops/devopsEngine';
 import { AuditEngine } from '../core/audit/auditEngine';
 import { SecurityEngine } from '../core/security/securityEngine';
 import { MermaidViewer } from '../components/MermaidViewer';
+import { getProviderForModel, getDefaultModelForProvider } from '../core/ai/aiProviders';
+import { AiEnhanceProgress } from '../core/doc-gen/aiDocNarrativeEngine';
 
 interface DocGenViewProps {
   activeProject?: ProjectProfile;
+  settings?: GlobalSettings;
   onLog: (module: 'system', message: string, level?: 'info' | 'success' | 'warn' | 'error') => void;
 }
 
 type DocGenSubTab = 'book_reader' | 'custom_builder' | 'diagram_studio' | 'export_center';
 
-export const DocGenView: React.FC<DocGenViewProps> = ({ activeProject, onLog }) => {
+export const DocGenView: React.FC<DocGenViewProps> = ({ activeProject, settings, onLog }) => {
   const [subTab, setSubTab] = useState<DocGenSubTab>('book_reader');
   const [docBook, setDocBook] = useState<DocBookProject | null>(null);
   const [selectedSectionId, setSelectedSectionId] = useState<string>('sec_overview');
   const [isGenerating, setIsGenerating] = useState(false);
   const [copied, setCopied] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+
+  // Community Feature #3: AI Narrative vs Compact Technical mode
+  const [docMode, setDocMode] = useState<'narrative' | 'technical'>('narrative');
+  const [aiProgress, setAiProgress] = useState<AiEnhanceProgress | null>(null);
 
   // Custom Sections State
   const [customSections, setCustomSections] = useState<DocSection[]>([
@@ -80,22 +87,62 @@ export const DocGenView: React.FC<DocGenViewProps> = ({ activeProject, onLog }) 
     }
   }, [activeProject?.id, activeProject?.blueprintFileName]);
 
-  const compileDocumentation = async () => {
+  const getEffectiveAiConfig = () => {
+    const provider = activeProject?.aiProvider || (settings?.defaultAiModel ? getProviderForModel(settings.defaultAiModel) : 'gemini');
+    let apiKey = activeProject?.aiApiKey;
+    if (!apiKey && settings) {
+      if (provider === 'gemini') apiKey = settings.geminiApiKey;
+      else if (provider === 'openai') apiKey = settings.openaiApiKey;
+      else if (provider === 'anthropic') apiKey = settings.anthropicApiKey;
+      else if (provider === 'groq') apiKey = settings.groqApiKey;
+      else if (provider === 'xai') apiKey = settings.xaiApiKey;
+      else if (provider === 'openrouter') apiKey = settings.openrouterApiKey;
+      else if (provider === 'opencode') apiKey = settings.opencodeApiKey;
+    }
+    const model = activeProject?.aiModel || settings?.defaultAiModel || getDefaultModelForProvider(provider);
+    return {
+      provider,
+      apiKey,
+      model,
+      ollamaUrl: settings?.ollamaUrl
+    };
+  };
+
+  const compileDocumentation = async (forceMode?: 'narrative' | 'technical') => {
     if (!activeProject) return;
+    const mode = forceMode || docMode;
     setIsGenerating(true);
-    onLog('system', `Compiling Developer Documentation Book for ${activeProject.name}...`);
+    setAiProgress(null);
+    onLog('system', `Compiling ${mode === 'narrative' ? 'AI Architecture Narrative Book' : 'Technical Data Dictionary'} for ${activeProject.name}...`);
     try {
       const schema = await DevOpsEngine.fetchSchema(activeProject);
       setLoadedSchema(schema);
       const auditRep = activeProject.blueprintExportJson ? await AuditEngine.analyzeApp(activeProject.blueprintExportJson) : null;
       const secRep = await SecurityEngine.analyzeSecurity(activeProject.blueprintExportJson, schema);
 
-      const book = DocGenEngine.generateDocumentationBook(activeProject, schema, auditRep, secRep, customSections);
-      setDocBook(book);
-      onLog('system', `Documentation book generated with ${book.sections.length} comprehensive technical chapters.`, 'success');
-      toast.success(`Generated Architecture Book with ${book.sections.length} chapters`);
+      if (mode === 'narrative') {
+        const aiConfig = getEffectiveAiConfig();
+        const book = await DocGenEngine.generateAiDocumentationBook(
+          activeProject,
+          schema,
+          auditRep,
+          secRep,
+          customSections,
+          aiConfig,
+          (prog) => setAiProgress(prog)
+        );
+        setDocBook(book);
+        onLog('system', `Generated AI Narrative Architecture Book (${book.sections.length} chapters) for ${activeProject.name}.`, 'success');
+        toast.success(`Generated AI Architecture Book with ${book.sections.length} chapters`);
+      } else {
+        const book = DocGenEngine.generateDocumentationBook(activeProject, schema, auditRep, secRep, customSections);
+        setDocBook(book);
+        onLog('system', `Documentation book generated with ${book.sections.length} comprehensive technical chapters.`, 'success');
+        toast.success(`Generated Architecture Book with ${book.sections.length} chapters`);
+      }
     } finally {
       setIsGenerating(false);
+      setAiProgress(null);
     }
   };
 
@@ -256,10 +303,47 @@ export const DocGenView: React.FC<DocGenViewProps> = ({ activeProject, onLog }) 
             </div>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <button onClick={compileDocumentation} disabled={isGenerating} className="btn btn-secondary btn-sm">
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+            {/* Community Feature #3: Mode Switcher (Narrative AI vs Raw Technical Dictionary) */}
+            <div style={{
+              display: 'flex',
+              background: 'var(--bg-input)',
+              padding: '2px',
+              borderRadius: 'var(--radius-sm)',
+              border: '1px solid var(--border-subtle)',
+              marginRight: '6px'
+            }}>
+              <button
+                type="button"
+                onClick={() => {
+                  setDocMode('narrative');
+                  compileDocumentation('narrative');
+                }}
+                className={`btn btn-xs ${docMode === 'narrative' ? 'btn-primary' : 'btn-secondary'}`}
+                style={{ border: 'none', fontSize: '0.75rem', gap: '4px' }}
+                title="Generates meaningful narrative text, domain roles, and user journeys"
+              >
+                <Sparkles size={12} color={docMode === 'narrative' ? '#fff' : 'var(--accent-cyan)'} />
+                <span>AI Narrative Book</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setDocMode('technical');
+                  compileDocumentation('technical');
+                }}
+                className={`btn btn-xs ${docMode === 'technical' ? 'btn-primary' : 'btn-secondary'}`}
+                style={{ border: 'none', fontSize: '0.75rem', gap: '4px' }}
+                title="Standard compact technical tables and field listings"
+              >
+                <Database size={12} />
+                <span>Raw Data Dictionary</span>
+              </button>
+            </div>
+
+            <button onClick={() => compileDocumentation()} disabled={isGenerating} className="btn btn-secondary btn-sm">
               <RefreshCw size={13} className={isGenerating ? 'spin' : ''} />
-              <span>{isGenerating ? 'Compiling...' : 'Recompile Book'}</span>
+              <span>{isGenerating ? 'Synthesizing...' : 'Recompile Book'}</span>
             </button>
             <button onClick={handleExportMarkdown} className="btn btn-secondary btn-sm">
               <Download size={13} />
@@ -275,6 +359,40 @@ export const DocGenView: React.FC<DocGenViewProps> = ({ activeProject, onLog }) 
           </div>
         </div>
       </div>
+
+      {/* AI Synthesis Progress Notification Banner */}
+      {isGenerating && aiProgress && (
+        <div style={{
+          background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.12) 0%, rgba(6, 182, 212, 0.08) 100%)',
+          border: '1px solid var(--border-active)',
+          borderRadius: 'var(--radius-md)',
+          padding: '12px 16px',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '8px'
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Sparkles size={16} color="var(--accent-cyan)" className="spin" />
+              <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-primary)' }}>
+                {aiProgress.step}
+              </span>
+            </div>
+            <span style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--accent-cyan)' }}>
+              {aiProgress.percent}%
+            </span>
+          </div>
+          <div style={{ width: '100%', height: '6px', background: 'var(--bg-input)', borderRadius: '999px', overflow: 'hidden' }}>
+            <div style={{
+              width: `${aiProgress.percent}%`,
+              height: '100%',
+              background: 'linear-gradient(90deg, #6366f1 0%, #06b6d4 100%)',
+              borderRadius: '999px',
+              transition: 'width 0.4s ease'
+            }} />
+          </div>
+        </div>
+      )}
 
       {/* Subtab Navigation */}
       <div style={{

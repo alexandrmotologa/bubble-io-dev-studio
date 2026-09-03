@@ -15,6 +15,16 @@ export interface ElectronAPI {
   secureDecrypt: (cipherText: string) => Promise<string>;
   isEncryptionAvailable: () => Promise<boolean>;
   capturePage: (url: string, width: number, height: number, headers?: Record<string, string>) => Promise<{ success: boolean; dataUrl?: string; error?: string; width?: number; height?: number }>;
+  checkForUpdates: () => Promise<any>;
+  downloadUpdate: () => Promise<{ success: boolean; error?: string }>;
+  installUpdate: () => Promise<void>;
+  getAppInfo: () => Promise<{ currentVersion: string; isPackaged: boolean; platform: string }>;
+  bubbleSyncLogin: () => Promise<{ isAuthenticated: boolean; userEmail?: string }>;
+  bubbleSyncLogout: () => Promise<boolean>;
+  bubbleSyncCheckAuth: () => Promise<{ isAuthenticated: boolean; userEmail?: string }>;
+  bubbleSyncFetchApp: (appId: string) => Promise<{ success: boolean; fileName?: string; data?: any; error?: string }>;
+  bubbleSyncSetDownloadsWatcher: (enabled: boolean) => Promise<boolean>;
+  onBubbleFileDetected: (callback: (data: { fileName: string; content: any }) => void) => () => void;
 }
 
 const api: ElectronAPI = {
@@ -51,7 +61,42 @@ const api: ElectronAPI = {
   },
   capturePage: async (url: string, width: number, height: number, headers?: Record<string, string>) => {
     return ipcRenderer.invoke('visual:capture-page', url, width, height, headers);
+  },
+  checkForUpdates: async () => {
+    return ipcRenderer.invoke('updater:check');
+  },
+  downloadUpdate: async () => {
+    return ipcRenderer.invoke('updater:download');
+  },
+  installUpdate: async () => {
+    return ipcRenderer.invoke('updater:install');
+  },
+  getAppInfo: async () => {
+    return ipcRenderer.invoke('updater:get-info');
+  },
+  bubbleSyncLogin: async () => {
+    return ipcRenderer.invoke('bubbleSync:login');
+  },
+  bubbleSyncLogout: async () => {
+    return ipcRenderer.invoke('bubbleSync:logout');
+  },
+  bubbleSyncCheckAuth: async () => {
+    return ipcRenderer.invoke('bubbleSync:checkAuth');
+  },
+  bubbleSyncFetchApp: async (appId: string) => {
+    return ipcRenderer.invoke('bubbleSync:fetchApp', appId);
+  },
+  bubbleSyncSetDownloadsWatcher: async (enabled: boolean) => {
+    return ipcRenderer.invoke('bubbleSync:setDownloadsWatcher', enabled);
+  },
+  onBubbleFileDetected: (callback: (data: { fileName: string; content: any }) => void) => {
+    const subscription = (_event: any, data: any) => callback(data);
+    ipcRenderer.on('bubbleSync:fileDetected', subscription);
+    return () => {
+      ipcRenderer.removeListener('bubbleSync:fileDetected', subscription);
+    };
   }
 };
 
 contextBridge.exposeInMainWorld('electronAPI', api);
+

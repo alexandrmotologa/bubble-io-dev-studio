@@ -1,6 +1,6 @@
 # 🚀 Bubble.io Dev Studio
 
-[![Version](https://img.shields.io/badge/Version-3.0.3-brightgreen.svg)]()
+[![Version](https://img.shields.io/badge/Version-3.1.0-brightgreen.svg)]()
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.7-blue.svg?style=flat&logo=typescript)](https://www.typescriptlang.org/)
 [![Electron](https://img.shields.io/badge/Electron-34-47848F.svg?style=flat&logo=electron)](https://www.electronjs.org/)
 [![React](https://img.shields.io/badge/React-18-61DAFB.svg?style=flat&logo=react)](https://react.dev/)
@@ -12,17 +12,17 @@
 
 ---
 
-## 📥 Download Desktop App (v3.0.3 Pre-Built Binaries)
+## 📥 Download Desktop App (v3.1.0 Pre-Built Binaries)
 
 For developers and teams who want to run the desktop application directly without compiling from source:
 
-| Platform | Download Link (v3.0.3 Production Stable) | Package Format | Architecture |
+| Platform | Download Link (v3.1.0 Production Stable) | Package Format | Architecture |
 | :--- | :--- | :--- | :--- |
-| **🪟 Windows** | [**Bubble.io-Dev-Studio-Setup-3.0.3.exe**](https://github.com/alexandrmotologa/bubble-io-dev-studio/releases/download/v3.0.3/Bubble.io-Dev-Studio-Setup-3.0.3.exe) • [Portable .exe](https://github.com/alexandrmotologa/bubble-io-dev-studio/releases/download/v3.0.3/Bubble.io-Dev-Studio-3.0.3.exe) | NSIS Setup / Portable | x64 |
-| **🍎 macOS** | [**Bubble.io-Dev-Studio-3.0.3.dmg**](https://github.com/alexandrmotologa/bubble-io-dev-studio/releases/download/v3.0.3/Bubble.io-Dev-Studio-3.0.3.dmg) • [.zip](https://github.com/alexandrmotologa/bubble-io-dev-studio/releases/download/v3.0.3/Bubble.io-Dev-Studio-3.0.3-mac.zip) | Apple Disk Image / ZIP | Apple Silicon (M1/M2/M3/M4) & Intel |
-| **🐧 Linux** | [**Bubble.io-Dev-Studio-3.0.3.AppImage**](https://github.com/alexandrmotologa/bubble-io-dev-studio/releases/download/v3.0.3/Bubble.io-Dev-Studio-3.0.3.AppImage) | AppImage format | x64 |
+| **🪟 Windows** | [**Bubble.io-Dev-Studio-Setup-3.1.0.exe**](https://github.com/alexandrmotologa/bubble-io-dev-studio/releases/download/v3.1.0/Bubble.io-Dev-Studio-Setup-3.1.0.exe) • [Portable .exe](https://github.com/alexandrmotologa/bubble-io-dev-studio/releases/download/v3.1.0/Bubble.io-Dev-Studio-3.1.0.exe) | NSIS Setup / Portable | x64 |
+| **🍎 macOS** | [**Bubble.io-Dev-Studio-3.1.0.dmg**](https://github.com/alexandrmotologa/bubble-io-dev-studio/releases/download/v3.1.0/Bubble.io-Dev-Studio-3.1.0.dmg) • [.zip](https://github.com/alexandrmotologa/bubble-io-dev-studio/releases/download/v3.1.0/Bubble.io-Dev-Studio-3.1.0-mac.zip) | Apple Disk Image / ZIP | Apple Silicon (M1/M2/M3/M4) & Intel |
+| **🐧 Linux** | [**Bubble.io-Dev-Studio-3.1.0.AppImage**](https://github.com/alexandrmotologa/bubble-io-dev-studio/releases/download/v3.1.0/Bubble.io-Dev-Studio-3.1.0.AppImage) | AppImage format | x64 |
 
-> 🚀 **GitHub Release Hub**: [**View Official v3.0.3 Release & Changelog on GitHub**](https://github.com/alexandrmotologa/bubble-io-dev-studio/releases/tag/v3.0.3) | [Latest Release](https://github.com/alexandrmotologa/bubble-io-dev-studio/releases/latest)
+> 🚀 **GitHub Release Hub**: [**View Official v3.1.0 Release & Changelog on GitHub**](https://github.com/alexandrmotologa/bubble-io-dev-studio/releases/tag/v3.1.0) | [Latest Release](https://github.com/alexandrmotologa/bubble-io-dev-studio/releases/latest)
 >
 > 💡 **First-Time Windows Installation Note**: Because this is an open-source/indie release that is not signed with an expensive enterprise EV certificate, Windows SmartScreen may show a blue prompt saying *"Windows protected your PC"*. Simply click **"More info"** ➔ **"Run anyway"** to launch the installer.
 
@@ -40,7 +40,9 @@ For developers and teams who want to run the desktop application directly withou
   - [6. AI Localization Studio (7x Providers)](#6-ai-localization-studio-7x-providers)
   - [7. Visual QA & Multi-Viewport Suite](#7-visual-qa--multi-viewport-suite)
   - [8. Webhooks, cURL & Plugin Action SDK Builder](#8-webhooks-curl--plugin-action-sdk-builder)
-  - [9. 1-Click Developer Documentation Book (DocGen)](#9-1-click-developer-documentation-book-docgen)
+  - [9. 1-Click Developer Documentation Book (DocGen) with AI Narratives](#9-1-click-developer-documentation-book-docgen-with-ai-narratives)
+  - [10. In-App .bubble Auto-Download & Direct Cloud Sync](#10-in-app-bubble-auto-download--direct-cloud-sync)
+  - [11. In-App Auto-Update System](#11-in-app-auto-update-system)
 - [⌨️ Global Keyboard Shortcuts](#️-global-keyboard-shortcuts)
 - [📖 In-Depth Documentation Guides (`docs/`)](#-in-depth-documentation-guides-docs)
 - [💻 Tech Stack](#-tech-stack)
@@ -130,9 +132,25 @@ For developers and teams who want to run the desktop application directly withou
 * **cURL ➔ Bubble Connector Parser**: Convert standard curl snippets into Bubble API Connector configurations.
 * **Plugin Action SDK Generator**: Generates typed Server-Side Actions (SSA), Client-Side Actions (CSA), TypeScript types, and `package.json` for Bubble Plugin Builder.
 
-### 9. 1-Click Developer Documentation Book (DocGen)
-* **Comprehensive Chapters**: Generates Executive Summary, Data Dictionary, ERD Diagram, Privacy Rules Matrix, API Catalog, Localization Status, and AST Quality Scorecard.
-* **Multi-Format Export**: Searchable in-app reader, **Markdown (.md)**, **Standalone HTML Manual**, and **Print-to-PDF**.
+### 9. 1-Click Developer Documentation Book (DocGen) with AI Narratives
+* **Dual-Mode Documentation**: Switch seamlessly between **[✨ AI Narrative Book]** (meaningful, business-oriented architectural manual) and **[📋 Raw Data Dictionary]** (concise table/field specs).
+* **Semantic Domain Classifier**: Automatically classifies applications (*E-Commerce*, *B2B SaaS*, *CRM*, *Social Communities*) and deduces business missions and primary actor personas.
+* **Narrative Architecture Chapters**:
+  1. *Executive Summary & Architectural Vision*
+  2. *Data Architecture, Entity Lifecycles & State Machines*
+  3. *User Journeys & Workflow Automation Chains*
+  4. *Zero-Trust Security Governance & Privacy Boundaries*
+* **Multi-Provider AI or Offline**: Compatible with **Google Gemini**, **OpenAI**, **Anthropic Claude**, **Groq**, local **Ollama** (`llama3:8b`), plus a built-in semantic heuristic engine for 100% offline generation.
+* **Multi-Format Export**: Searchable in-app reader, **Markdown (.md)**, **Standalone HTML Manual** with embedded Mermaid ERD, and **Print-to-PDF**.
+
+### 10. In-App .bubble Auto-Download & Direct Cloud Sync
+* **⚡ 1-Click Cloud Sync**: Directly extracts the latest application file (`.bubble` / JSON AST) from your active Bubble Editor session—no manual browser downloading or file hunting needed.
+* **Downloads Folder Auto-Watcher**: Monitors your operating system's `Downloads` folder in the background. As soon as you click *Export application* in any browser, Dev Studio instantly catches, verifies, and auto-syncs the new file to your active workspace.
+* **Isolated Security Session**: Native persistent session partition (`persist:bubble_session`) keeps your Bubble credentials safe and separate.
+
+### 11. In-App Auto-Update System
+* **Seamless Distribution**: Powered by `electron-updater` and connected to official GitHub Releases (`alexandrmotologa/bubble-io-dev-studio`).
+* **Background Check & Download**: Notifies you of new versions automatically, downloads releases with real-time transfer progress, and provides a 1-click "Restart & Install" experience.
 
 ---
 

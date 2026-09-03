@@ -24,13 +24,17 @@ import {
   Bot,
   Upload,
   FileCode,
-  CheckSquare
+  CheckSquare,
+  RefreshCw
 } from 'lucide-react';
 import { ProjectProfile } from '../types';
 import { DevOpsEngine } from '../core/devops/devopsEngine';
 import { TranslatorEngine } from '../core/translator/translatorEngine';
 import { AI_PROVIDERS, PROVIDER_MODELS, getDefaultModelForProvider } from '../core/ai/aiProviders';
 import { ProjectStore } from '../core/storage/projectStore';
+import { BubbleSyncEngine } from '../core/bubble-sync/bubbleSyncEngine';
+import { WorkflowGraphEngine } from '../core/workflows/workflowGraphEngine';
+import { toast } from '../core/toast/toastManager';
 
 interface ConnectAppModalProps {
   isOpen: boolean;
@@ -125,7 +129,49 @@ export const ConnectAppModal: React.FC<ConnectAppModalProps> = ({
     dataTypesCount: number;
     appTextsCount: number;
   } | null>(null);
+  const [isSyncingBubble, setIsSyncingBubble] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handle1ClickBubbleSync = async () => {
+    if (!appId) {
+      toast.error('Please enter an Application ID in Step 1 first');
+      return;
+    }
+    setIsSyncingBubble(true);
+    try {
+      const auth = await BubbleSyncEngine.checkAuthStatus();
+      if (!auth.isAuthenticated) {
+        const loginRes = await BubbleSyncEngine.login();
+        if (!loginRes.isAuthenticated) return;
+      }
+
+      const tempProject: ProjectProfile = {
+        id: 'temp',
+        name: name || appId,
+        appId,
+        environment,
+        createdAt: new Date().toISOString()
+      };
+
+      const res = await BubbleSyncEngine.syncAppFile(tempProject);
+      if (res.success && res.data) {
+        setBlueprintFileName(res.fileName || `${appId}_live.bubble`);
+        setBlueprintJson(res.data);
+        setBlueprintFileSize(JSON.stringify(res.data).length);
+        const parsedSchema = DevOpsEngine.parseBubbleSchemaJson(res.data, tempProject);
+        const workflows = WorkflowGraphEngine.extractAllWorkflows(res.data);
+        setBlueprintStats({
+          pagesCount: Object.keys(res.data.pages || {}).length || 1,
+          workflowsCount: workflows.length,
+          elementsCount: 0,
+          dataTypesCount: parsedSchema.dataTypes.length,
+          appTextsCount: 0
+        });
+      }
+    } finally {
+      setIsSyncingBubble(false);
+    }
+  };
 
   const formatDisplayName = (slug: string): string => {
     if (!slug) return '';
@@ -1146,6 +1192,53 @@ export const ConnectAppModal: React.FC<ConnectAppModalProps> = ({
                 <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', margin: 0, marginTop: '3px', lineHeight: 1.5 }}>
                   Importing your <code>.bubble</code> file or application JSON provides full AST indexing for Dead Code Detection, workflow coverage, and AI Localization.
                 </p>
+              </div>
+
+              {/* Community Feature #2: 1-Click Direct Cloud Sync */}
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '12px 16px',
+                background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.12) 0%, rgba(6, 182, 212, 0.08) 100%)',
+                border: '1px solid var(--border-active)',
+                borderRadius: 'var(--radius-md)',
+                gap: '12px',
+                flexWrap: 'wrap'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <div style={{
+                    width: '32px',
+                    height: '32px',
+                    borderRadius: '8px',
+                    background: 'linear-gradient(135deg, #6366f1 0%, #06b6d4 100%)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: '#fff'
+                  }}>
+                    <Zap size={16} />
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                      Direct Bubble.io Cloud Sync
+                    </div>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                      Automatically fetch the <code>.bubble</code> file directly from your Bubble Editor session
+                    </div>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handle1ClickBubbleSync}
+                  disabled={isSyncingBubble || !appId}
+                  className="btn btn-primary btn-sm"
+                  style={{ gap: '6px', whiteSpace: 'nowrap' }}
+                >
+                  <RefreshCw size={13} className={isSyncingBubble ? 'spin' : ''} />
+                  <span>{isSyncingBubble ? 'Syncing...' : '⚡ 1-Click Sync'}</span>
+                </button>
               </div>
 
               {/* Upload Dropzone */}

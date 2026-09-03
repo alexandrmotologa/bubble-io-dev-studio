@@ -1,10 +1,28 @@
-# 📚 1-Click Developer Documentation Book (DocGen) Guide (v3.0.0)
+# 📚 1-Click Developer Documentation Book (DocGen) Guide (v3.1.0)
 
 The **DocGen Engine** compiles full-scale technical documentation books for clients, development agencies, and internal engineering teams with a single click.
 
 ---
 
-## 1. Subtabs & Module Structure
+## 1. Dual-Mode Documentation: AI Narrative vs Raw Data Dictionary
+
+In v3.1.0, DocGen offers a top toolbar mode switcher:
+
+1. **✨ AI Narrative Book (Recommended)**:
+   - Transforms dry schema columns into an engaging, cohesive architectural book.
+   - **Semantic Domain Classification**: Automatically classifies the application (*E-Commerce*, *B2B Multi-Tenant SaaS*, *CRM & Operations*, *Social Communities*) based on AST entities and workflows, determining business missions and key actor personas.
+   - **Chapter 1 — Executive Summary & Architectural Vision**: Explains the platform purpose, client/server hybrid boundaries, and reliability baselines.
+   - **Chapter 2 — Data Architecture & Entity Lifecycles**: Details each database entity's business role, mutation lifecycles, foreign key graphs, and global Option Set state machines.
+   - **Chapter 3 — User Journeys & Workflow Automation Chains**: Groups isolated workflows into coherent user stories (*Identity & Authentication Journey*, *Operational Domain Mutations*, *External Integrations & Webhooks*).
+   - **Chapter 4 — Zero-Trust Security & Privacy Governance**: Clarifies Bubble's client-pull data risks and documents the server-side Privacy Rules policy.
+   - **Multi-Provider AI & Offline Engine**: Supports **Google Gemini**, **OpenAI**, **Anthropic Claude**, **Groq**, local **Ollama** (`llama3:8b`), plus an intelligent heuristic synthesizer for 100% offline generation.
+
+2. **📋 Raw Data Dictionary**:
+   - The classic, compact mechanical reference listing tables, field matrices, types, constraints, and raw Option Set values.
+
+---
+
+## 2. Subtabs & Module Structure
 
 The **DocGen Book** suite provides 4 specialized subtabs:
 
@@ -32,7 +50,7 @@ The **DocGen Book** suite provides 4 specialized subtabs:
 
 ---
 
-## 2. Generated Technical Chapters
+## 3. Generated Technical Chapters
 
 The engine aggregates data across all studio modules into comprehensive chapters:
 
