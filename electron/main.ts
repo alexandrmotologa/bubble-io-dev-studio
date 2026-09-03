@@ -1,6 +1,7 @@
 import { app, BrowserWindow, ipcMain, shell, Menu, MenuItemConstructorOptions, dialog, clipboard, safeStorage, session } from 'electron';
 import path from 'path';
 import fs from 'fs';
+import http from 'http';
 import { autoUpdater } from 'electron-updater';
 
 let mainWindow: BrowserWindow | null = null;
@@ -176,11 +177,23 @@ function createWindow() {
   createAppMenu();
 
   if (isDev) {
-    mainWindow.loadURL('http://localhost:5173');
+    const devPort = process.env.PORT || '5180';
+    mainWindow.loadURL(`http://127.0.0.1:${devPort}`);
+    mainWindow.webContents.on('did-fail-load', (_event, errorCode, errorDescription, validatedURL) => {
+      console.warn(`[Electron] Failed to load ${validatedURL}: [${errorCode}] ${errorDescription}, falling back to built dist...`);
+      const distIndex = path.join(__dirname, '../dist/index.html');
+      if (fs.existsSync(distIndex)) {
+        mainWindow?.loadFile(distIndex);
+      }
+    });
     // mainWindow.webContents.openDevTools({ mode: 'detach' });
   } else {
     mainWindow.loadFile(path.join(__dirname, '../dist/index.html'));
   }
+
+  mainWindow.webContents.on('console-message', (_event, level, message, line, sourceId) => {
+    console.log(`[Renderer L${level}] ${message} (${sourceId}:${line})`);
+  });
 
   mainWindow.on('closed', () => {
     mainWindow = null;
@@ -190,11 +203,14 @@ function createWindow() {
   initAutoUpdater();
 
   if (!isDev) {
-    setTimeout(() => {
-      autoUpdater.checkForUpdates().catch((err: any) => {
-        console.warn('Silent auto-update check on startup failed:', err?.message || err);
-      });
-    }, 10000);
+    const updateConfigPath = path.join(process.resourcesPath, 'app-update.yml');
+    if (fs.existsSync(updateConfigPath)) {
+      setTimeout(() => {
+        autoUpdater.checkForUpdates().catch((err: any) => {
+          console.warn('Silent auto-update check on startup failed:', err?.message || err);
+        });
+      }, 10000);
+    }
   }
 
   // Handle external links opening in user's default browser
@@ -208,6 +224,7 @@ function createWindow() {
 
 app.whenReady().then(() => {
   createWindow();
+  startLocalBridgeServer();
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
@@ -518,16 +535,22 @@ ipcMain.handle('bubbleSync:checkAuth', async () => {
     if (!cookies || cookies.length === 0) {
       return { isAuthenticated: false };
     }
-    // Verify session by probing bubble.io/home with the stored cookies
+    // Verify session by probing bubble.io/home with manual redirect
     const res = await authSession.fetch('https://bubble.io/home', {
       method: 'GET',
+      redirect: 'manual',
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
       }
     });
-    const finalUrl = res.url || '';
-    const isAuthenticated = !finalUrl.includes('/login') && !finalUrl.includes('/signup') && (finalUrl.includes('/home') || res.status === 200);
-    return { isAuthenticated };
+    const location = res.headers.get('location') || '';
+    if (res.status === 302 && location.includes('/login')) {
+      return { isAuthenticated: false };
+    }
+    if (res.status === 200 && !res.url.includes('/login')) {
+      return { isAuthenticated: true };
+    }
+    return { isAuthenticated: false };
   } catch (err) {
     return { isAuthenticated: false };
   }
@@ -546,18 +569,71 @@ ipcMain.handle('bubbleSync:logout', async () => {
 ipcMain.handle('bubbleSync:login', async () => {
   return new Promise((resolve) => {
     const authSession = session.fromPartition('persist:bubble_session');
+
+    // Desktop Firefox User-Agent across Windows, macOS, and Linux
+    // Crucial: Google OAuth actively blocks Chromium embedded webviews (Electron/CEF),
+    // but permits Firefox without triggering the "This browser or app may not be secure" block.
+    const FIREFOX_UA = process.platform === 'darwin'
+      ? 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:133.0) Gecko/20100101 Firefox/133.0'
+      : process.platform === 'linux'
+      ? 'Mozilla/5.0 (X11; Linux x86_64; rv:133.0) Gecko/20100101 Firefox/133.0'
+      : 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:133.0) Gecko/20100101 Firefox/133.0';
+
+    authSession.setUserAgent(FIREFOX_UA);
+
+    // Strip Chromium Client Hints that Google uses to detect and block Electron
+    authSession.webRequest.onBeforeSendHeaders((details, callback) => {
+      details.requestHeaders['User-Agent'] = FIREFOX_UA;
+      delete details.requestHeaders['sec-ch-ua'];
+      delete details.requestHeaders['sec-ch-ua-mobile'];
+      delete details.requestHeaders['sec-ch-ua-platform'];
+      delete details.requestHeaders['sec-ch-ua-model'];
+      delete details.requestHeaders['sec-ch-ua-arch'];
+      delete details.requestHeaders['sec-ch-ua-bitness'];
+      delete details.requestHeaders['sec-ch-ua-full-version-list'];
+      callback({ cancel: false, requestHeaders: details.requestHeaders });
+    });
+
+    const authPreloadPath = path.join(__dirname, 'authPreload.js');
+
     const authWin = new BrowserWindow({
-      width: 960,
-      height: 780,
-      parent: mainWindow || undefined,
-      modal: true,
+      width: 1000,
+      height: 800,
+      minWidth: 800,
+      minHeight: 600,
+      center: true,
+      show: false,
+      modal: false, // Independent top-level window so macOS sheets or Linux WM modals don't trap OAuth popups
       autoHideMenuBar: false,
-      title: 'Sign in to Bubble.io (Press Escape or Alt+Left to return)',
+      title: 'Sign in to Bubble.io (Bubble Email/Password or SSO)',
       webPreferences: {
+        preload: fs.existsSync(authPreloadPath) ? authPreloadPath : undefined,
         partition: 'persist:bubble_session',
         nodeIntegration: false,
         contextIsolation: true
       }
+    });
+
+    authWin.webContents.setUserAgent(FIREFOX_UA);
+
+    // Support OAuth popups (e.g. Google Sign-In, Microsoft, Apple) within the same session
+    authWin.webContents.setWindowOpenHandler(({ url }) => {
+      return {
+        action: 'allow',
+        overrideBrowserWindowOptions: {
+          width: 600,
+          height: 720,
+          parent: authWin,
+          modal: false,
+          autoHideMenuBar: true,
+          webPreferences: {
+            preload: fs.existsSync(authPreloadPath) ? authPreloadPath : undefined,
+            partition: 'persist:bubble_session',
+            nodeIntegration: false,
+            contextIsolation: true
+          }
+        }
+      };
     });
 
     // Provide explicit navigation toolbar in native window menu
@@ -591,6 +667,12 @@ ipcMain.handle('bubbleSync:login', async () => {
             authWin.webContents.reload();
           }
         }
+      },
+      {
+        label: '🌐 Open in Default Browser (Google accounts)',
+        click: () => {
+          shell.openExternal('https://bubble.io/login');
+        }
       }
     ]);
     authWin.setMenu(authMenu);
@@ -616,12 +698,9 @@ ipcMain.handle('bubbleSync:login', async () => {
       }
     });
 
-    authWin.loadURL('https://bubble.io/login');
-
     let resolved = false;
 
-    // Detect actual authenticated destination
-    authWin.webContents.on('did-navigate', async (_event, url) => {
+    const checkAuthSuccess = (url: string) => {
       const isAuthDestination = (url.includes('bubble.io/home') ||
                                  url.includes('bubble.io/agency') ||
                                  url.includes('bubble.io/apps') ||
@@ -630,32 +709,43 @@ ipcMain.handle('bubbleSync:login', async () => {
                                 !url.includes('/signup');
       if (isAuthDestination && !resolved) {
         resolved = true;
+        clearInterval(authInterval);
         resolve({ isAuthenticated: true });
         setTimeout(() => {
           if (!authWin.isDestroyed()) authWin.close();
-        }, 1000);
+        }, 800);
+      }
+    };
+
+    authWin.webContents.on('did-navigate', (_event, url) => checkAuthSuccess(url));
+    authWin.webContents.on('did-navigate-in-page', (_event, url) => checkAuthSuccess(url));
+
+    const authInterval = setInterval(() => {
+      if (resolved || authWin.isDestroyed()) {
+        clearInterval(authInterval);
+        return;
+      }
+      checkAuthSuccess(authWin.webContents.getURL());
+    }, 600);
+
+    // If user closes the window manually with X without completing login
+    authWin.on('close', () => {
+      clearInterval(authInterval);
+      if (!resolved) {
+        resolved = true;
+        resolve({ isAuthenticated: false });
       }
     });
 
-    // If user closes the window manually with X without completing login
-    authWin.on('close', async () => {
-      if (!resolved) {
-        resolved = true;
-        try {
-          const res = await authSession.fetch('https://bubble.io/home', {
-            method: 'GET',
-            headers: {
-              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-            }
-          });
-          const finalUrl = res.url || '';
-          const isAuthed = !finalUrl.includes('/login') && !finalUrl.includes('/signup') && (finalUrl.includes('/home') || res.status === 200);
-          resolve({ isAuthenticated: isAuthed });
-        } catch {
-          resolve({ isAuthenticated: false });
-        }
+    authWin.once('ready-to-show', () => {
+      authWin.show();
+      authWin.focus();
+      if (process.platform === 'darwin') {
+        app.dock?.show();
       }
     });
+
+    authWin.loadURL('https://bubble.io/login');
   });
 });
 
@@ -670,7 +760,8 @@ ipcMain.handle('bubbleSync:fetchApp', async (_event, appId: string) => {
       webPreferences: {
         partition: 'persist:bubble_session',
         nodeIntegration: false,
-        contextIsolation: true
+        contextIsolation: true,
+        preload: path.join(__dirname, 'syncPreload.js')
       }
     });
 
@@ -684,17 +775,6 @@ ipcMain.handle('bubbleSync:fetchApp', async (_event, appId: string) => {
       }
     }, 45000);
 
-    // Suppress modal alerts from freezing background window
-    syncWin.webContents.on('dom-ready', () => {
-      syncWin.webContents.executeJavaScript(`
-        window.alert = function(msg) {
-          window.__bubble_intercepted_alert = String(msg || '');
-          console.warn('[Bubble Sync Alert Intercepted]', msg);
-        };
-        window.confirm = function() { return true; };
-      `).catch(() => {});
-    });
-
     syncWin.loadURL(`https://bubble.io/page?id=${encodeURIComponent(appId)}&tab=App`);
 
     syncWin.webContents.on('did-finish-load', async () => {
@@ -707,7 +787,7 @@ ipcMain.handle('bubbleSync:fetchApp', async (_event, appId: string) => {
 
               // Check if Bubble popped an alert or permission error
               const alertMsg = window.__bubble_intercepted_alert || '';
-              if (alertMsg.includes('permission') || alertMsg.includes('does not have permission')) {
+              if (window.__bubble_has_permission_error || alertMsg.includes('permission') || alertMsg.includes('does not have permission')) {
                 clearInterval(interval);
                 return res({
                   success: false,
@@ -725,29 +805,41 @@ ipcMain.handle('bubbleSync:fetchApp', async (_event, appId: string) => {
               }
 
               if (window.app) {
-                clearInterval(interval);
+                let appData = null;
                 try {
                   if (typeof window.app.get_json_for_export === 'function') {
-                    return res({ success: true, app: window.app.get_json_for_export() });
+                    appData = window.app.get_json_for_export();
+                  } else if (typeof window.app.to_json === 'function') {
+                    appData = window.app.to_json();
+                  } else if (window.app.pages || window.app.user_types || window.app.custom_types) {
+                    const a = window.app;
+                    appData = {
+                      pages: a.pages || a.pages_dict || {},
+                      user_types: a.user_types || a.custom_types || a.types || {},
+                      custom_types: a.custom_types || a.user_types || a.types || {},
+                      option_sets: a.option_sets || a.option_sets_dict || {},
+                      workflows: a.workflows || {},
+                      api_connectors: a.api_connectors || a.plugins || {},
+                      app_version: a.app_version || 'live'
+                    };
                   }
-                  if (typeof window.app.to_json === 'function') {
-                    return res({ success: true, app: window.app.to_json() });
+
+                  const hasPages = appData && appData.pages && Object.keys(appData.pages).length > 0;
+                  const hasTypes = appData && (
+                    (appData.user_types && Object.keys(appData.user_types).length > 0) ||
+                    (appData.custom_types && Object.keys(appData.custom_types).length > 0)
+                  );
+
+                  if (hasPages || hasTypes) {
+                    clearInterval(interval);
+                    return res({ success: true, app: appData });
                   }
-                  const a = window.app;
-                  const clean = {
-                    pages: a.pages || a.pages_dict || {},
-                    user_types: a.user_types || a.custom_types || a.types || {},
-                    custom_types: a.custom_types || a.user_types || a.types || {},
-                    option_sets: a.option_sets || a.option_sets_dict || {},
-                    workflows: a.workflows || {},
-                    api_connectors: a.api_connectors || a.plugins || {},
-                    app_version: a.app_version || 'live'
-                  };
-                  res({ success: true, app: clean });
                 } catch (err) {
-                  res({ success: false, error: 'Serialization error: ' + (err && err.message) });
+                  // Continue waiting
                 }
-              } else if (attempts > 35) {
+              }
+
+              if (attempts > 35) {
                 clearInterval(interval);
                 const finalAlert = window.__bubble_intercepted_alert || '';
                 res({
@@ -833,6 +925,79 @@ ipcMain.handle('bubbleSync:exportBlueprintToDisk', async (_event, { fileName, da
     return { success: false, error: err.message };
   }
 });
+
+// Local HTTP Bridge Server for Default Browser Sync (Chrome, Edge, Brave, Safari, Firefox)
+let localBridgeServer: http.Server | null = null;
+const BRIDGE_PORT = 41890;
+
+function startLocalBridgeServer() {
+  if (localBridgeServer) return;
+
+  localBridgeServer = http.createServer((req, res) => {
+    // Enable CORS from any browser origin
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
+
+    if (req.method === 'OPTIONS') {
+      res.writeHead(200);
+      res.end();
+      return;
+    }
+
+    if (req.method === 'POST' && (req.url === '/sync' || req.url === '/api/sync')) {
+      let body = '';
+      req.on('data', chunk => {
+        body += chunk;
+        if (body.length > 250 * 1024 * 1024) { // 250MB limit
+          req.destroy();
+        }
+      });
+
+      req.on('end', () => {
+        try {
+          const payload = JSON.parse(body);
+          const appData = payload.data || payload.app || payload;
+          const originUrl = payload.origin || '';
+
+          if (mainWindow && !mainWindow.isDestroyed()) {
+            mainWindow.webContents.send('bubbleSync:browserAppReceived', {
+              data: appData,
+              originUrl
+            });
+            if (mainWindow.isMinimized()) mainWindow.restore();
+            mainWindow.focus();
+          }
+
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ success: true, message: 'Received by Bubble Dev Studio' }));
+        } catch (err: any) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ success: false, error: err?.message || 'Invalid JSON' }));
+        }
+      });
+      return;
+    }
+
+    if (req.method === 'GET' && req.url === '/status') {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ status: 'ready', port: BRIDGE_PORT, app: 'Bubble.io Dev Studio' }));
+      return;
+    }
+
+    res.writeHead(404);
+    res.end('Not found');
+  });
+
+  localBridgeServer.on('error', (err: any) => {
+    console.warn('[BridgeServer] Port conflict or error on 41890:', err?.message);
+  });
+
+  localBridgeServer.listen(BRIDGE_PORT, '127.0.0.1', () => {
+    console.log(`[BridgeServer] Listening on http://127.0.0.1:${BRIDGE_PORT} for default browser sync`);
+  });
+}
+
 
 
 

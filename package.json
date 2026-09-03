@@ -1,7 +1,7 @@
 {
   "name": "bubble-io-dev-studio",
   "private": true,
-  "version": "3.1.2",
+  "version": "3.2.0",
   "description": "All-in-one Developer Studio & GUI for Bubble.io (DevOps, Schema, Dead Code Audit, AI Translation, Visual QA)",
   "main": "dist-electron/main.js",
   "author": {
@@ -26,7 +26,7 @@
   "scripts": {
     "dev": "concurrently -k \"npm run dev:vite\" \"npm run dev:electron\"",
     "dev:vite": "vite",
-    "dev:electron": "wait-on tcp:5173 && tsc -p tsconfig.node.json && electron .",
+    "dev:electron": "wait-on tcp:127.0.0.1:5180 && tsc -p tsconfig.node.json && electron .",
     "build": "tsc && vite build && tsc -p tsconfig.node.json",
     "build:vite": "vite build",
     "build:electron": "tsc -p tsconfig.node.json",

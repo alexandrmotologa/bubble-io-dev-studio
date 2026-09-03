@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { 
   Settings, 
   Key, 
@@ -73,11 +73,44 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     const active = settings.projects.find(p => p.id === settings.activeProjectId);
     if (active?.aiProvider) return active.aiProvider;
     if (settings.defaultAiModel) return getProviderForModel(settings.defaultAiModel);
-    return 'gemini';
+    return 'ollama';
   });
   const [showApiKey, setShowApiKey] = useState(false);
   const [isTestingProvider, setIsTestingProvider] = useState(false);
   const [providerTestResult, setProviderTestResult] = useState<{ success: boolean; latency: number; message: string } | null>(null);
+
+  // Ollama local model detection & custom models
+  const [localOllamaModels, setLocalOllamaModels] = useState<string[]>([]);
+  const [isDetectingOllama, setIsDetectingOllama] = useState(false);
+  const [isCustomOllamaModel, setIsCustomOllamaModel] = useState(false);
+
+  const detectOllamaModels = useCallback(async (hostUrl = formData.ollamaUrl || 'http://localhost:11434', notify = false) => {
+    setIsDetectingOllama(true);
+    try {
+      const endpoint = `${hostUrl.replace(/\/+$/, '')}/api/tags`;
+      const res = await fetch(endpoint);
+      if (res.ok) {
+        const data = await res.json();
+        if (data && Array.isArray(data.models)) {
+          const names = data.models.map((m: any) => m.name || m.model).filter(Boolean);
+          setLocalOllamaModels(names);
+          if (notify && names.length > 0) {
+            toast.success(`Found ${names.length} local Ollama model(s): ${names.join(', ')}`);
+          }
+        }
+      }
+    } catch {
+      // Ollama offline or unreachable
+    } finally {
+      setIsDetectingOllama(false);
+    }
+  }, [formData.ollamaUrl]);
+
+  useEffect(() => {
+    if (selectedProvider === 'ollama') {
+      detectOllamaModels(formData.ollamaUrl, false);
+    }
+  }, [selectedProvider, detectOllamaModels, formData.ollamaUrl]);
 
   // App connectivity test state
   const [testingAppId, setTestingAppId] = useState<string | null>(null);
@@ -164,9 +197,20 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const handle1ClickSyncProject = async (proj: ProjectProfile) => {
     setIsSyncingBubble(true);
     try {
-      const res = await BubbleSyncEngine.syncAppFile(proj);
-      if (res.success) {
-        onLog('system', `Successfully 1-click synced ${res.fileName} for ${proj.name}`, 'success');
+      if (proj.apiToken) {
+        const res = await BubbleSyncEngine.generateBlueprintFromApi(proj);
+        if (res.success) {
+          onLog('system', `Successfully generated ${res.fileName} from Data API for ${proj.name}`, 'success');
+        }
+      } else {
+        await BubbleSyncEngine.openBubbleExportInBrowser(proj.appId, (fileName, content) => {
+          ProjectStore.getInstance().updateProject(proj.id, {
+            blueprintFileName: fileName,
+            blueprintExportJson: content,
+            lastActiveAt: new Date().toISOString()
+          });
+          onLog('system', `Auto-synced new application file ${fileName} to ${proj.name}`, 'success');
+        });
       }
     } finally {
       setIsSyncingBubble(false);
@@ -493,7 +537,24 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     toast.success('Exported System Diagnostics Bundle');
   };
 
-  const currentModels = PROVIDER_MODELS[selectedProvider] || [];
+  const currentModels = useMemo(() => {
+    const base = PROVIDER_MODELS[selectedProvider] || [];
+    if (selectedProvider === 'ollama') {
+      const detectedItems = localOllamaModels.map(name => ({
+        id: name,
+        name: `${name} (Installed Locally ✓)`
+      }));
+      const existingIds = new Set(detectedItems.map(d => d.id));
+      const combined = [...detectedItems];
+      for (const m of base) {
+        if (!existingIds.has(m.id)) {
+          combined.push(m);
+        }
+      }
+      return combined;
+    }
+    return base;
+  }, [selectedProvider, localOllamaModels]);
 
   return (
     <div className="view-container">
@@ -624,25 +685,59 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               <div>
                 <label className="input-label">Default LLM Model for {selectedProvider.toUpperCase()}</label>
                 <select
-                  value={formData.defaultAiModel}
+                  value={isCustomOllamaModel ? '__custom__' : formData.defaultAiModel}
                   onChange={(e) => {
-                    const newModel = e.target.value;
-                    const updated: GlobalSettings = {
-                      ...formData,
-                      defaultAiModel: newModel,
-                      projects: formData.projects.map(p => 
-                        p.id === formData.activeProjectId ? { ...p, aiProvider: selectedProvider, aiModel: newModel } : p
-                      )
-                    };
-                    setFormData(updated);
-                    onSaveSettings(updated);
+                    if (e.target.value === '__custom__') {
+                      setIsCustomOllamaModel(true);
+                    } else {
+                      setIsCustomOllamaModel(false);
+                      const newModel = e.target.value;
+                      const updated: GlobalSettings = {
+                        ...formData,
+                        defaultAiModel: newModel,
+                        projects: formData.projects.map(p => 
+                          p.id === formData.activeProjectId ? { ...p, aiProvider: selectedProvider, aiModel: newModel } : p
+                        )
+                      };
+                      setFormData(updated);
+                      onSaveSettings(updated);
+                    }
                   }}
                   className="select select-premium"
                 >
                   {currentModels.map(m => (
                     <option key={m.id} value={m.id}>{m.name}</option>
                   ))}
+                  {selectedProvider === 'ollama' && (
+                    <option value="__custom__">➕ Custom Model Name / Tag...</option>
+                  )}
                 </select>
+
+                {selectedProvider === 'ollama' && (isCustomOllamaModel || (!currentModels.some(m => m.id === formData.defaultAiModel) && formData.defaultAiModel)) && (
+                  <div style={{ marginTop: '8px' }}>
+                    <label className="input-label" style={{ fontSize: '0.75rem', color: 'var(--accent-cyan)' }}>
+                      Type Custom Ollama Model Name or Tag
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. llama3:8b, mistral:instruct, deepseek-r1:8b"
+                      value={formData.defaultAiModel === '__custom__' ? '' : formData.defaultAiModel}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        const updated: GlobalSettings = {
+                          ...formData,
+                          defaultAiModel: val,
+                          projects: formData.projects.map(p =>
+                            p.id === formData.activeProjectId ? { ...p, aiProvider: 'ollama', aiModel: val } : p
+                          )
+                        };
+                        setFormData(updated);
+                        onSaveSettings(updated);
+                      }}
+                      className="input"
+                    />
+                  </div>
+                )}
               </div>
 
               {/* Dynamic API Key Input for selected provider */}
@@ -810,15 +905,35 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               )}
 
               {selectedProvider === 'ollama' && (
-                <div>
-                  <label className="input-label">Ollama Host URL (Local / Offline LLM)</label>
-                  <input
-                    type="text"
-                    placeholder="http://localhost:11434"
-                    value={formData.ollamaUrl || 'http://localhost:11434'}
-                    onChange={(e) => setFormData({ ...formData, ollamaUrl: e.target.value })}
-                    className="input"
-                  />
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <div>
+                    <label className="input-label" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span>Ollama Host URL (Local / Offline LLM)</span>
+                      <button
+                        type="button"
+                        onClick={() => detectOllamaModels()}
+                        disabled={isDetectingOllama}
+                        className="btn btn-secondary btn-sm"
+                        style={{ fontSize: '0.7rem', padding: '2px 8px', gap: '4px' }}
+                      >
+                        <RefreshCw size={11} className={isDetectingOllama ? 'spin' : ''} />
+                        <span>{isDetectingOllama ? 'Scanning...' : 'Detect Local Models'}</span>
+                      </button>
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="http://localhost:11434"
+                      value={formData.ollamaUrl || 'http://localhost:11434'}
+                      onChange={(e) => setFormData({ ...formData, ollamaUrl: e.target.value })}
+                      className="input"
+                    />
+                  </div>
+                  {localOllamaModels.length > 0 && (
+                    <div style={{ fontSize: '0.72rem', color: 'var(--accent-emerald)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <CheckCircle2 size={12} />
+                      <span>Detected {localOllamaModels.length} installed model(s): <strong>{localOllamaModels.join(', ')}</strong></span>
+                    </div>
+                  )}
                 </div>
               )}
 

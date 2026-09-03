@@ -18,14 +18,34 @@ export interface AiProviderDefinition {
 
 export const AI_PROVIDERS: AiProviderDefinition[] = [
   {
+    id: 'ollama',
+    name: 'Ollama (Local / Free)',
+    displayName: 'Ollama (Local Offline / 0 Cloud Cost)',
+    description: 'Self-hosted local AI inference running directly on your machine with 0 cloud cost & zero latency',
+    docsUrl: 'https://ollama.com/',
+    keyPlaceholder: 'http://127.0.0.1:11434',
+    isLocal: true,
+    models: [
+      { id: 'llama3:8b', name: 'Llama 3 8B (Recommended Local)', isRecommended: true },
+      { id: 'llama3', name: 'Llama 3 (Default)' },
+      { id: 'llama3.1:8b', name: 'Llama 3.1 8B' },
+      { id: 'mistral', name: 'Mistral 7B (Local Offline)' },
+      { id: 'qwen2.5-coder:7b', name: 'Qwen 2.5 Coder 7B' },
+      { id: 'deepseek-coder:6.7b', name: 'DeepSeek Coder 6.7B' },
+      { id: 'codellama:7b', name: 'CodeLlama 7B' },
+      { id: 'phi3', name: 'Phi-3 Mini' },
+      { id: 'gemma2:9b', name: 'Gemma 2 9B' }
+    ]
+  },
+  {
     id: 'gemini',
     name: 'Google Gemini',
     displayName: 'Google Gemini (Gemini 2.0 Flash / Pro)',
-    description: 'Fast multimodal reasoning, massive context window & recommended default',
+    description: 'Fast multimodal reasoning, massive context window & cloud intelligence',
     docsUrl: 'https://aistudio.google.com/app/apikey',
     keyPlaceholder: 'AIzaSy...',
     models: [
-      { id: 'gemini-2.0-flash', name: 'Gemini 2.0 Flash (Recommended & Fast)', isRecommended: true },
+      { id: 'gemini-2.0-flash', name: 'Gemini 2.0 Flash (Cloud Fast)', isRecommended: true },
       { id: 'gemini-2.0-pro-exp-02-05', name: 'Gemini 2.0 Pro Experimental' },
       { id: 'gemini-1.5-pro', name: 'Gemini 1.5 Pro' },
       { id: 'gemini-1.5-flash', name: 'Gemini 1.5 Flash' }
@@ -114,21 +134,7 @@ export const AI_PROVIDERS: AiProviderDefinition[] = [
       { id: 'google/gemini-2.0-flash-001', name: 'Gemini 2.0 Flash (OpenRouter)' }
     ]
   },
-  {
-    id: 'ollama',
-    name: 'Ollama (Local / Free)',
-    displayName: 'Ollama (Local Offline)',
-    description: 'Self-hosted local AI inference running directly on your machine with 0 cloud cost',
-    docsUrl: 'https://ollama.com/',
-    keyPlaceholder: 'http://127.0.0.1:11434',
-    isLocal: true,
-    models: [
-      { id: 'llama3', name: 'Llama 3 (Local Offline)', isRecommended: true },
-      { id: 'mistral', name: 'Mistral 7B (Local Offline)' },
-      { id: 'qwen2.5', name: 'Qwen 2.5 (Local Offline)' },
-      { id: 'phi3', name: 'Phi-3 Mini (Local Offline)' }
-    ]
-  },
+
   {
     id: 'mock',
     name: 'Offline Studio Engine',
@@ -154,7 +160,7 @@ export const getProviderForModel = (modelId: string): string => {
       return p.id;
     }
   }
-  return 'gemini';
+  return 'ollama';
 };
 
 export const getDefaultModelForProvider = (providerId: string): string => {
@@ -163,7 +169,7 @@ export const getDefaultModelForProvider = (providerId: string): string => {
     const rec = prov.models.find(m => m.isRecommended);
     return rec ? rec.id : prov.models[0].id;
   }
-  return 'gemini-2.0-flash';
+  return 'llama3:8b';
 };
 
 export const getModelDisplayName = (modelId: string): string => {

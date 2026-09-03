@@ -1077,7 +1077,10 @@ declare global {
       bubbleSyncCheckAuth: () => Promise<BubbleAuthStatus>;
       bubbleSyncFetchApp: (appId: string) => Promise<BubbleSyncResult>;
       bubbleSyncSetDownloadsWatcher: (enabled: boolean) => Promise<boolean>;
+      bubbleSyncShowInFolder: (filePath: string) => Promise<boolean>;
+      bubbleSyncExportBlueprintToDisk: (fileName: string, data: any) => Promise<{ success: boolean; filePath?: string; error?: string }>;
       onBubbleFileDetected: (callback: (data: { fileName: string; content: any }) => void) => () => void;
+      onBrowserAppReceived?: (callback: (data: { data: any; originUrl?: string }) => void) => () => void;
     };
   }
 }

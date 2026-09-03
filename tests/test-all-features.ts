@@ -9,6 +9,7 @@
 import { AiDocNarrativeEngine } from '../src/core/doc-gen/aiDocNarrativeEngine';
 import { DocGenEngine } from '../src/core/doc-gen/docGenEngine';
 import { BubbleSyncEngine } from '../src/core/bubble-sync/bubbleSyncEngine';
+import { DevOpsEngine } from '../src/core/devops/devopsEngine';
 import { BubbleSchema, ProjectProfile, WorkflowDefinition } from '../src/types';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -482,6 +483,79 @@ async function runTests() {
       passedCount++;
     } else {
       logFail('BubbleSyncEngine.syncAppFile did not return expected sync result', syncRes);
+      failedCount++;
+    }
+
+    // 3.5 Test Swagger 2.0 definitions parsing in DevOpsEngine.parseBubbleSchemaJson
+    const sampleSwagger = {
+      swagger: '2.0',
+      info: { title: 'Test App', version: 'version-test' },
+      definitions: {
+        'custom.deal': {
+          type: 'object',
+          required: ['title', 'amount'],
+          properties: {
+            title: { type: 'string' },
+            amount: { type: 'number' },
+            close_date: { type: 'string', format: 'date-time' },
+            is_won: { type: 'boolean' }
+          }
+        },
+        'custom.contact': {
+          type: 'object',
+          properties: {
+            first_name: { type: 'string' },
+            deal: { $ref: '#/definitions/custom.deal' }
+          }
+        }
+      }
+    };
+    const parsedSwaggerSchema = DevOpsEngine.parseBubbleSchemaJson(sampleSwagger);
+    if (parsedSwaggerSchema.dataTypes.length === 2 &&
+        parsedSwaggerSchema.dataTypes.some(d => d.name === 'Deal') &&
+        parsedSwaggerSchema.dataTypes.some(d => d.name === 'Contact')) {
+      logPass(`DevOpsEngine.parseBubbleSchemaJson successfully parsed Swagger 2.0 definitions`);
+      passedCount++;
+    } else {
+      logFail('DevOpsEngine.parseBubbleSchemaJson failed to parse Swagger 2.0 definitions', parsedSwaggerSchema);
+      failedCount++;
+    }
+
+    // 3.6 Test DevOpsEngine.synthesizeBubbleBlueprint
+    const synthesizedBlueprint = DevOpsEngine.synthesizeBubbleBlueprint(mockSchema, mockProject);
+    if (synthesizedBlueprint &&
+        synthesizedBlueprint.pages &&
+        synthesizedBlueprint.user_types &&
+        synthesizedBlueprint.custom_types &&
+        synthesizedBlueprint.option_sets &&
+        synthesizedBlueprint.workflows) {
+      logPass(`DevOpsEngine.synthesizeBubbleBlueprint created fully indexed .bubble AST structure`);
+      passedCount++;
+    } else {
+      logFail('DevOpsEngine.synthesizeBubbleBlueprint failed to create complete blueprint object', synthesizedBlueprint);
+      failedCount++;
+    }
+
+    // 3.7 Test BubbleSyncEngine.generateBlueprintFromApi
+    const apiGenRes = await BubbleSyncEngine.generateBlueprintFromApi(mockProject);
+    if (apiGenRes && apiGenRes.success && apiGenRes.fileName?.includes('nexus-mart_api_generated.bubble')) {
+      logPass(`BubbleSyncEngine.generateBlueprintFromApi successfully generated blueprint from schema`);
+      passedCount++;
+    } else {
+      logFail('BubbleSyncEngine.generateBlueprintFromApi failed', apiGenRes);
+      failedCount++;
+    }
+
+    // 3.8 Test BubbleSyncEngine.getBookmarkletCode
+    const bookmarkletCode = BubbleSyncEngine.getBookmarkletCode();
+    if (typeof bookmarkletCode === 'string' &&
+        bookmarkletCode.startsWith('javascript:') &&
+        bookmarkletCode.includes('41890') &&
+        bookmarkletCode.includes('get_json_for_export')) {
+      logPass(`BubbleSyncEngine.getBookmarkletCode generated valid 1-click sync script`);
+      passedCount++;
+    } else {
+      logFail('BubbleSyncEngine.getBookmarkletCode failed to generate valid bookmarklet', bookmarkletCode);
       failedCount++;
     }
   } catch (err) {

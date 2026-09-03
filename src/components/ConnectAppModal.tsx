@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { 
   Layers, 
   Key, 
@@ -25,7 +25,8 @@ import {
   Upload,
   FileCode,
   CheckSquare,
-  RefreshCw
+  RefreshCw,
+  Copy
 } from 'lucide-react';
 import { ProjectProfile } from '../types';
 import { DevOpsEngine } from '../core/devops/devopsEngine';
@@ -89,14 +90,44 @@ export const ConnectAppModal: React.FC<ConnectAppModalProps> = ({
   const [httpBasicUser, setHttpBasicUser] = useState('');
   const [httpBasicPassword, setHttpBasicPassword] = useState('');
 
-  // Step 3: Localization & AI Setup
-  const [aiProvider, setAiProvider] = useState('gemini');
-  const [aiModel, setAiModel] = useState('gemini-2.0-flash');
+  // Step 3: Localization & AI Setup (Ollama Default)
+  const [aiProvider, setAiProvider] = useState('ollama');
+  const [aiModel, setAiModel] = useState('llama3:8b');
   const [aiApiKey, setAiApiKey] = useState('');
   const [ollamaUrl, setOllamaUrl] = useState('http://localhost:11434');
   const [showAiKey, setShowAiKey] = useState(false);
   const [useGlobalKey, setUseGlobalKey] = useState(true);
   const [saveToGlobalSettings, setSaveToGlobalSettings] = useState(true);
+
+  // Ollama local model detection & custom models
+  const [localOllamaModels, setLocalOllamaModels] = useState<string[]>([]);
+  const [isDetectingOllama, setIsDetectingOllama] = useState(false);
+  const [isCustomModel, setIsCustomModel] = useState(false);
+
+  const detectLocalOllamaModels = useCallback(async (host = ollamaUrl || 'http://localhost:11434') => {
+    setIsDetectingOllama(true);
+    try {
+      const endpoint = `${host.replace(/\/+$/, '')}/api/tags`;
+      const res = await fetch(endpoint);
+      if (res.ok) {
+        const data = await res.json();
+        if (data && Array.isArray(data.models)) {
+          const names = data.models.map((m: any) => m.name || m.model).filter(Boolean);
+          setLocalOllamaModels(names);
+        }
+      }
+    } catch {
+      // offline
+    } finally {
+      setIsDetectingOllama(false);
+    }
+  }, [ollamaUrl]);
+
+  useEffect(() => {
+    if (isOpen && aiProvider === 'ollama') {
+      detectLocalOllamaModels();
+    }
+  }, [isOpen, aiProvider, detectLocalOllamaModels]);
 
   const globalSettings = ProjectStore.getInstance().getSettings();
   const getSavedKey = (prov: string): string => {
@@ -129,8 +160,81 @@ export const ConnectAppModal: React.FC<ConnectAppModalProps> = ({
     dataTypesCount: number;
     appTextsCount: number;
   } | null>(null);
+  const [isGeneratingFromApi, setIsGeneratingFromApi] = useState(false);
+  const [isListeningDownloads, setIsListeningDownloads] = useState(false);
+  const [isCopiedBookmarklet, setIsCopiedBookmarklet] = useState(false);
+  const [showBookmarkletGuide, setShowBookmarkletGuide] = useState(false);
+  const [showLegacyLogin, setShowLegacyLogin] = useState(false);
   const [isSyncingBubble, setIsSyncingBubble] = useState(false);
+  const [isBubbleAuthed, setIsBubbleAuthed] = useState<boolean | null>(null);
+  const [isOpeningLogin, setIsOpeningLogin] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (step === 4) {
+      BubbleSyncEngine.checkAuthStatus().then(res => setIsBubbleAuthed(res.isAuthenticated));
+    }
+  }, [step]);
+
+  const handleGenerateFromApi = async () => {
+    if (!appId.trim()) {
+      toast.error('Please enter an Application ID in Step 1 first');
+      return;
+    }
+    setIsGeneratingFromApi(true);
+    try {
+      const tempProject: ProjectProfile = {
+        id: 'temp',
+        name: name.trim() || appId.trim(),
+        appId: appId.trim(),
+        environment,
+        apiToken: apiToken.trim() || undefined,
+        customDomain: customDomain.trim() || undefined,
+        httpBasicUser: httpBasicUser.trim() || undefined,
+        httpBasicPassword: httpBasicPassword.trim() || undefined,
+        createdAt: new Date().toISOString()
+      };
+      const res = await BubbleSyncEngine.generateBlueprintFromApi(tempProject);
+      if (res.success && res.data) {
+        processReceivedAppData(res.data, res.fileName);
+      }
+    } finally {
+      setIsGeneratingFromApi(false);
+    }
+  };
+
+  const handleOpenBrowserExport = async () => {
+    if (!appId.trim()) {
+      toast.error('Please enter an Application ID in Step 1 first');
+      return;
+    }
+    setIsListeningDownloads(true);
+    await BubbleSyncEngine.openBubbleExportInBrowser(appId.trim(), (fileName, content) => {
+      processReceivedAppData(content, fileName);
+      setIsListeningDownloads(false);
+    });
+  };
+
+  const handleCopyBookmarklet = () => {
+    const code = BubbleSyncEngine.getBookmarkletCode();
+    navigator.clipboard.writeText(code);
+    setIsCopiedBookmarklet(true);
+    toast.success('1-Click Sync Bookmarklet copied to clipboard!');
+    setTimeout(() => setIsCopiedBookmarklet(false), 3000);
+  };
+
+  const handleOpenBubbleLogin = async () => {
+    setIsOpeningLogin(true);
+    try {
+      const res = await BubbleSyncEngine.login();
+      setIsBubbleAuthed(res.isAuthenticated);
+      if (res.isAuthenticated) {
+        toast.success('Signed in to Bubble.io successfully!');
+      }
+    } finally {
+      setIsOpeningLogin(false);
+    }
+  };
 
   const handle1ClickBubbleSync = async () => {
     if (!appId) {
@@ -141,8 +245,13 @@ export const ConnectAppModal: React.FC<ConnectAppModalProps> = ({
     try {
       const auth = await BubbleSyncEngine.checkAuthStatus();
       if (!auth.isAuthenticated) {
+        toast.info('Opening browser window to sign into Bubble.io...');
         const loginRes = await BubbleSyncEngine.login();
-        if (!loginRes.isAuthenticated) return;
+        setIsBubbleAuthed(loginRes.isAuthenticated);
+        if (!loginRes.isAuthenticated) {
+          setIsSyncingBubble(false);
+          return;
+        }
       }
 
       const tempProject: ProjectProfile = {
@@ -155,23 +264,67 @@ export const ConnectAppModal: React.FC<ConnectAppModalProps> = ({
 
       const res = await BubbleSyncEngine.syncAppFile(tempProject);
       if (res.success && res.data) {
-        setBlueprintFileName(res.fileName || `${appId}_live.bubble`);
-        setBlueprintJson(res.data);
-        setBlueprintFileSize(JSON.stringify(res.data).length);
-        const parsedSchema = DevOpsEngine.parseBubbleSchemaJson(res.data, tempProject);
-        const workflows = WorkflowGraphEngine.extractAllWorkflows(res.data);
-        setBlueprintStats({
-          pagesCount: Object.keys(res.data.pages || {}).length || 1,
-          workflowsCount: workflows.length,
-          elementsCount: 0,
-          dataTypesCount: parsedSchema.dataTypes.length,
-          appTextsCount: 0
-        });
+        processReceivedAppData(res.data, res.fileName || `${appId}_live.bubble`);
       }
     } finally {
       setIsSyncingBubble(false);
     }
   };
+
+  const processReceivedAppData = useCallback((data: any, sourceName?: string) => {
+    if (!data) return;
+    const tempProject: ProjectProfile = {
+      id: 'temp',
+      name: name || appId,
+      appId: appId || 'synced_app',
+      environment,
+      createdAt: new Date().toISOString()
+    };
+    try {
+      const fileName = sourceName || `${appId || 'bubble_app'}_browser_synced.bubble`;
+      setBlueprintFileName(fileName);
+      setBlueprintJson(data);
+      const jsonStr = JSON.stringify(data);
+      setBlueprintFileSize(jsonStr.length);
+      const parsedSchema = DevOpsEngine.parseBubbleSchemaJson(data, tempProject);
+      const workflows = WorkflowGraphEngine.extractAllWorkflows(data);
+      setBlueprintStats({
+        pagesCount: Object.keys(data.pages || {}).length || 1,
+        workflowsCount: workflows.length || 0,
+        elementsCount: Object.keys(data.elements || {}).length || 0,
+        dataTypesCount: parsedSchema.dataTypes.length || 0,
+        appTextsCount: Object.keys(data.app_texts || {}).length || 0
+      });
+      toast.success(`✨ Synced from your default browser! (${fileName})`);
+    } catch (err: any) {
+      toast.error('Failed to parse received application data: ' + err?.message);
+    }
+  }, [name, appId, environment]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    // Listen for data sent from default browser via local bridge port 41890
+    const unsubBrowser = (window.electronAPI as any)?.onBrowserAppReceived?.((payload: any) => {
+      if (payload && payload.data) {
+        processReceivedAppData(payload.data, `${appId || 'app'}_browser_sync.bubble`);
+      }
+    });
+
+    // Listen for downloaded .bubble files in Downloads folder
+    const unsubFile = window.electronAPI?.onBubbleFileDetected?.((data: any) => {
+      if (data && data.content) {
+        processReceivedAppData(data.content, data.fileName);
+      }
+    });
+
+    window.electronAPI?.bubbleSyncSetDownloadsWatcher?.(true);
+
+    return () => {
+      unsubBrowser?.();
+      unsubFile?.();
+    };
+  }, [isOpen, processReceivedAppData, appId]);
 
   const formatDisplayName = (slug: string): string => {
     if (!slug) return '';
@@ -468,9 +621,26 @@ export const ConnectAppModal: React.FC<ConnectAppModalProps> = ({
     onClose();
   };
 
-  if (!isOpen) return null;
+  const currentModels = useMemo(() => {
+    const base = PROVIDER_MODELS[aiProvider] || [];
+    if (aiProvider === 'ollama') {
+      const detectedItems = localOllamaModels.map(name => ({
+        id: name,
+        name: `${name} (Installed Locally ✓)`
+      }));
+      const existingIds = new Set(detectedItems.map(d => d.id));
+      const combined = [...detectedItems];
+      for (const m of base) {
+        if (!existingIds.has(m.id)) {
+          combined.push(m);
+        }
+      }
+      return combined;
+    }
+    return base;
+  }, [aiProvider, localOllamaModels]);
 
-  const currentModels = PROVIDER_MODELS[aiProvider] || [];
+  if (!isOpen) return null;
 
   return (
     <div style={{
@@ -943,6 +1113,7 @@ export const ConnectAppModal: React.FC<ConnectAppModalProps> = ({
                       }}
                       className="select"
                     >
+                      <option value="ollama">Ollama (Local Offline / 0 Cost) {getSavedKey('ollama') ? '• Saved Host ✓' : ''}</option>
                       <option value="gemini">Google Gemini {getSavedKey('gemini') ? '• Saved Key ✓' : ''}</option>
                       <option value="openai">OpenAI (GPT-4o) {getSavedKey('openai') ? '• Saved Key ✓' : ''}</option>
                       <option value="anthropic">Anthropic (Claude) {getSavedKey('anthropic') ? '• Saved Key ✓' : ''}</option>
@@ -951,7 +1122,6 @@ export const ConnectAppModal: React.FC<ConnectAppModalProps> = ({
                       <option value="xai">xAI (Grok 2) {getSavedKey('xai') ? '• Saved Key ✓' : ''}</option>
                       <option value="opencode">OpenCode (Zen Router) {getSavedKey('opencode') ? '• Saved Key ✓' : ''}</option>
                       <option value="openrouter">OpenRouter (Global Multi-LLM) {getSavedKey('openrouter') ? '• Saved Key ✓' : ''}</option>
-                      <option value="ollama">Ollama (Local Offline) {getSavedKey('ollama') ? '• Saved Host ✓' : ''}</option>
                       <option value="mock">Offline Studio Engine (Built-in)</option>
                     </select>
                   </div>
@@ -959,31 +1129,77 @@ export const ConnectAppModal: React.FC<ConnectAppModalProps> = ({
                   <div>
                     <label className="input-label">Model for {aiProvider.toUpperCase()}</label>
                     <select
-                      value={aiModel}
+                      value={isCustomModel ? '__custom__' : aiModel}
                       onChange={(e) => {
-                        setAiModel(e.target.value);
-                        setAiTestResult(null);
+                        if (e.target.value === '__custom__') {
+                          setIsCustomModel(true);
+                        } else {
+                          setIsCustomModel(false);
+                          setAiModel(e.target.value);
+                          setAiTestResult(null);
+                        }
                       }}
                       className="select"
                     >
                       {currentModels.map(m => (
                         <option key={m.id} value={m.id}>{m.name}</option>
                       ))}
+                      {aiProvider === 'ollama' && (
+                        <option value="__custom__">➕ Custom Model Name / Tag...</option>
+                      )}
                     </select>
+
+                    {aiProvider === 'ollama' && (isCustomModel || (!currentModels.some(m => m.id === aiModel) && aiModel)) && (
+                      <div style={{ marginTop: '8px' }}>
+                        <label className="input-label" style={{ fontSize: '0.725rem', color: 'var(--accent-cyan)' }}>
+                          Type Custom Ollama Model Name or Tag
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="e.g. llama3:8b, mistral:instruct, deepseek-r1:8b"
+                          value={aiModel === '__custom__' ? '' : aiModel}
+                          onChange={(e) => {
+                            setAiModel(e.target.value);
+                            setAiTestResult(null);
+                          }}
+                          className="input"
+                        />
+                      </div>
+                    )}
                   </div>
                 </div>
 
                 {/* Dynamic API Key input or Global Key Card */}
                 {aiProvider === 'ollama' ? (
-                  <div>
-                    <label className="input-label">Ollama Host URL</label>
-                    <input
-                      type="text"
-                      placeholder="http://localhost:11434"
-                      value={ollamaUrl}
-                      onChange={(e) => setOllamaUrl(e.target.value)}
-                      className="input"
-                    />
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    <div>
+                      <label className="input-label" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span>Ollama Host URL (Local / Offline LLM)</span>
+                        <button
+                          type="button"
+                          onClick={() => detectLocalOllamaModels()}
+                          disabled={isDetectingOllama}
+                          className="btn btn-secondary btn-sm"
+                          style={{ fontSize: '0.7rem', padding: '2px 8px', gap: '4px' }}
+                        >
+                          <RefreshCw size={11} className={isDetectingOllama ? 'spin' : ''} />
+                          <span>{isDetectingOllama ? 'Scanning...' : 'Detect Local Models'}</span>
+                        </button>
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="http://localhost:11434"
+                        value={ollamaUrl}
+                        onChange={(e) => setOllamaUrl(e.target.value)}
+                        className="input"
+                      />
+                    </div>
+                    {localOllamaModels.length > 0 && (
+                      <div style={{ fontSize: '0.72rem', color: 'var(--accent-emerald)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <CheckCircle2 size={12} />
+                        <span>Detected {localOllamaModels.length} installed model(s): <strong>{localOllamaModels.join(', ')}</strong></span>
+                      </div>
+                    )}
                   </div>
                 ) : aiProvider !== 'mock' ? (
                   <div>
@@ -1194,51 +1410,189 @@ export const ConnectAppModal: React.FC<ConnectAppModalProps> = ({
                 </p>
               </div>
 
-              {/* Community Feature #2: 1-Click Direct Cloud Sync */}
+              {/* 2 Primary Modern Action Cards for .bubble Acquisition */}
+              <div className="grid-2" style={{ gap: '12px' }}>
+                {/* Option 1: Auto-Generate from Bubble Data API */}
+                <div style={{
+                  padding: '14px 16px',
+                  borderRadius: 'var(--radius-md)',
+                  background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.1) 0%, rgba(6, 182, 212, 0.08) 100%)',
+                  border: '1px solid rgba(99, 102, 241, 0.3)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'space-between',
+                  gap: '12px'
+                }}>
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <div style={{
+                          width: '28px',
+                          height: '28px',
+                          borderRadius: '6px',
+                          background: 'linear-gradient(135deg, #6366f1, #06b6d4)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          color: '#fff'
+                        }}>
+                          <Zap size={15} />
+                        </div>
+                        <span style={{ fontWeight: 700, fontSize: '0.85rem', color: 'var(--text-primary)' }}>
+                          Option 1: Auto-Generate from API
+                        </span>
+                      </div>
+                      <span style={{ fontSize: '0.65rem', background: 'rgba(16, 185, 129, 0.15)', color: 'var(--accent-emerald)', padding: '2px 6px', borderRadius: '4px', fontWeight: 700 }}>
+                        RECOMMENDED
+                      </span>
+                    </div>
+                    <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', margin: 0, lineHeight: 1.4 }}>
+                      Directly generates a valid <code>.bubble</code> file from your Bubble Data API & Swagger schema. Zero browser windows or Google login needed!
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={handleGenerateFromApi}
+                    disabled={isGeneratingFromApi || !appId}
+                    className="btn btn-primary btn-sm"
+                    style={{ width: '100%', justifyContent: 'center', gap: '6px', fontWeight: 600 }}
+                  >
+                    <RefreshCw size={13} className={isGeneratingFromApi ? 'spin' : ''} />
+                    <span>{isGeneratingFromApi ? 'Synthesizing Blueprint...' : '⚡ Generate .bubble from Data API'}</span>
+                  </button>
+                </div>
+
+                {/* Option 2: Browser Auto-Export */}
+                <div style={{
+                  padding: '14px 16px',
+                  borderRadius: 'var(--radius-md)',
+                  background: isListeningDownloads ? 'rgba(16, 185, 129, 0.08)' : 'rgba(6, 182, 212, 0.05)',
+                  border: isListeningDownloads ? '1px solid var(--accent-emerald)' : '1px solid var(--border-subtle)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'space-between',
+                  gap: '12px',
+                  transition: 'all 0.2s ease'
+                }}>
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+                      <div style={{
+                        width: '28px',
+                        height: '28px',
+                        borderRadius: '6px',
+                        background: isListeningDownloads ? 'rgba(16, 185, 129, 0.2)' : 'rgba(6, 182, 212, 0.2)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: isListeningDownloads ? 'var(--accent-emerald)' : 'var(--accent-cyan)'
+                      }}>
+                        <Globe size={15} />
+                      </div>
+                      <span style={{ fontWeight: 700, fontSize: '0.85rem', color: 'var(--text-primary)' }}>
+                        Option 2: Browser Auto-Export
+                      </span>
+                    </div>
+                    <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', margin: 0, lineHeight: 1.4 }}>
+                      Opens Bubble in your default browser (Chrome/Edge) where you are already signed into Google. Auto-imports file upon export.
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={handleOpenBrowserExport}
+                    disabled={!appId}
+                    className="btn btn-secondary btn-sm"
+                    style={{
+                      width: '100%',
+                      justifyContent: 'center',
+                      gap: '6px',
+                      borderColor: isListeningDownloads ? 'var(--accent-emerald)' : 'var(--accent-cyan)'
+                    }}
+                  >
+                    <ExternalLink size={13} color={isListeningDownloads ? 'var(--accent-emerald)' : 'var(--accent-cyan)'} />
+                    <span>{isListeningDownloads ? '👂 Listening to Downloads Folder...' : '🚀 Open Bubble Export in Browser'}</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Active Downloads Watcher Notification Banner */}
+              {isListeningDownloads && (
+                <div style={{
+                  padding: '10px 14px',
+                  borderRadius: 'var(--radius-md)',
+                  background: 'rgba(16, 185, 129, 0.1)',
+                  border: '1px solid rgba(16, 185, 129, 0.35)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: '8px',
+                  animation: 'pulse 2s infinite'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.775rem', color: 'var(--accent-emerald)' }}>
+                    <Activity size={14} className="spin" />
+                    <span>Watching your <strong>Downloads</strong> folder. In Bubble, click <strong>"Export"</strong> under <em>Settings &gt; General</em>!</span>
+                  </div>
+                  <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Auto-Import Ready</span>
+                </div>
+              )}
+
+              {/* Option 3 Helper: 1-Click Browser Sync Helper (Bookmarklet) */}
               <div style={{
+                padding: '10px 14px',
+                borderRadius: 'var(--radius-md)',
+                background: 'var(--bg-input)',
+                border: '1px solid var(--border-subtle)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between',
-                padding: '12px 16px',
-                background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.12) 0%, rgba(6, 182, 212, 0.08) 100%)',
-                border: '1px solid var(--border-active)',
-                borderRadius: 'var(--radius-md)',
-                gap: '12px',
-                flexWrap: 'wrap'
+                flexWrap: 'wrap',
+                gap: '8px'
               }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <div style={{
-                    width: '32px',
-                    height: '32px',
-                    borderRadius: '8px',
-                    background: 'linear-gradient(135deg, #6366f1 0%, #06b6d4 100%)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    color: '#fff'
-                  }}>
-                    <Zap size={16} />
-                  </div>
-                  <div>
-                    <div style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-primary)' }}>
-                      Direct Bubble.io Cloud Sync
-                    </div>
-                    <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-                      Automatically fetch the <code>.bubble</code> file directly from your Bubble Editor session
-                    </div>
-                  </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.775rem', color: 'var(--text-secondary)' }}>
+                  <Sparkles size={14} color="var(--primary)" />
+                  <span>Have Bubble Editor open right now in Chrome?</span>
                 </div>
 
-                <button
-                  type="button"
-                  onClick={handle1ClickBubbleSync}
-                  disabled={isSyncingBubble || !appId}
-                  className="btn btn-primary btn-sm"
-                  style={{ gap: '6px', whiteSpace: 'nowrap' }}
-                >
-                  <RefreshCw size={13} className={isSyncingBubble ? 'spin' : ''} />
-                  <span>{isSyncingBubble ? 'Syncing...' : '⚡ 1-Click Sync'}</span>
-                </button>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <button
+                    type="button"
+                    onClick={handleCopyBookmarklet}
+                    className="btn btn-secondary btn-sm"
+                    style={{ fontSize: '0.725rem', padding: '4px 10px', gap: '5px' }}
+                  >
+                    {isCopiedBookmarklet ? <Check size={12} color="var(--accent-emerald)" /> : <Copy size={12} />}
+                    <span>{isCopiedBookmarklet ? 'Copied to Clipboard!' : 'Copy 1-Click Sync Script'}</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowBookmarkletGuide(!showBookmarkletGuide)}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      color: 'var(--accent-cyan)',
+                      fontSize: '0.725rem',
+                      cursor: 'pointer',
+                      padding: 0
+                    }}
+                  >
+                    {showBookmarkletGuide ? 'Hide Instructions' : 'How to use?'}
+                  </button>
+                </div>
+
+                {showBookmarkletGuide && (
+                  <div style={{
+                    width: '100%',
+                    paddingTop: '8px',
+                    marginTop: '6px',
+                    borderTop: '1px solid var(--border-subtle)',
+                    fontSize: '0.725rem',
+                    color: 'var(--text-muted)',
+                    lineHeight: 1.5
+                  }}>
+                    Paste this snippet into your browser console (Press <strong>F12 ➔ Console</strong>) while viewing your Bubble app, or create a Bookmark with this code as the URL. Clicking it will stream your full UI elements and workflows directly into Bubble Dev Studio over port 41890!
+                  </div>
+                )}
               </div>
 
               {/* Upload Dropzone */}

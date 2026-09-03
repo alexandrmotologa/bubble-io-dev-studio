@@ -344,19 +344,33 @@ export const DevOpsView: React.FC<DevOpsViewProps> = ({ activeProject, initialSu
   const handle1ClickBubbleSync = async () => {
     if (!activeProject) return;
     setIsSyncingBubble(true);
-    onLog('devops', `Initiating 1-Click Sync from Bubble.io for ${activeProject.name}...`);
+    onLog('devops', `Initiating Sync from Bubble.io for ${activeProject.name}...`);
     try {
-      const auth = await BubbleSyncEngine.checkAuthStatus();
-      if (!auth.isAuthenticated) {
-        onLog('devops', 'Authenticating with Bubble.io in secure session...', 'info');
-        const loginRes = await BubbleSyncEngine.login();
-        if (!loginRes.isAuthenticated) {
-          onLog('devops', 'Bubble authentication cancelled or failed', 'warn');
+      let res;
+      if (activeProject.apiToken) {
+        onLog('devops', 'Generating blueprint directly from Bubble Data API...', 'info');
+        res = await BubbleSyncEngine.generateBlueprintFromApi(activeProject, (msg) => onLog('devops', msg));
+      } else {
+        const auth = await BubbleSyncEngine.checkAuthStatus();
+        if (auth.isAuthenticated) {
+          res = await BubbleSyncEngine.syncAppFile(activeProject, (msg) => onLog('devops', msg));
+        } else {
+          onLog('devops', 'Opening Bubble settings in default browser with Auto-Detect Downloads enabled...', 'info');
+          await BubbleSyncEngine.openBubbleExportInBrowser(activeProject.appId, (fileName, content) => {
+            const parsedSchema = DevOpsEngine.parseBubbleSchemaJson(content, activeProject);
+            setSchema(parsedSchema);
+            setCollapsedTables(new Set(parsedSchema.dataTypes.map(d => d.id || d.name)));
+            setCollapsedOptionSets(new Set(parsedSchema.optionSets.map(os => os.name)));
+            MockServerEngine.initFromSchema(parsedSchema);
+            const ts = DevOpsEngine.generateTypeScriptDefinitions(parsedSchema);
+            setTsDefinitions(ts);
+            const erd = DevOpsEngine.generateMermaidERD(parsedSchema);
+            setMermaidErd(erd);
+            toast.success(`Auto-detected & loaded ${fileName} from Downloads!`);
+          });
           return;
         }
       }
-
-      const res = await BubbleSyncEngine.syncAppFile(activeProject, (msg) => onLog('devops', msg));
       if (res.success && res.data) {
         onLog('devops', `Successfully synced ${res.fileName} from Bubble.io! Parsing schema...`, 'success');
         const parsedSchema = DevOpsEngine.parseBubbleSchemaJson(res.data, activeProject);

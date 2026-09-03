@@ -42,6 +42,7 @@ export const App: React.FC = () => {
   const [isAuditing, setIsAuditing] = useState(false);
   const [healthScore, setHealthScore] = useState<number | null>(null);
   const [healthGrade, setHealthGrade] = useState<string | null>(null);
+  const [hasUpdateAvailable, setHasUpdateAvailable] = useState(false);
 
   // Apply theme to document
   useEffect(() => {
@@ -93,7 +94,7 @@ export const App: React.FC = () => {
     return unsubscribe;
   }, []);
 
-  // Listen to Electron native menu IPC events (New Project, Toast notifications)
+  // Listen to Electron native menu IPC events (New Project, Toast notifications, Updater)
   useEffect(() => {
     if (typeof window !== 'undefined' && (window as any).electronAPI) {
       const unsubNew = (window as any).electronAPI.receiveFromMain('menu:new-project', () => {
@@ -110,9 +111,15 @@ export const App: React.FC = () => {
           toast.info(payload?.title || 'Notice', payload?.message || '');
         }
       });
+      const unsubUpdater = (window as any).electronAPI.receiveFromMain('updater:status', (payload: any) => {
+        if (payload?.status === 'available' || payload?.status === 'downloaded') {
+          setHasUpdateAvailable(true);
+        }
+      });
       return () => {
         unsubNew && unsubNew();
         unsubToast && unsubToast();
+        unsubUpdater && unsubUpdater();
       };
     }
   }, []);
@@ -305,6 +312,7 @@ export const App: React.FC = () => {
           onDeleteProject={(proj) => setProjectToDelete(proj)}
           isOpen={isMobileSidebarOpen}
           onCloseMobile={() => setIsMobileSidebarOpen(false)}
+          hasUpdate={hasUpdateAvailable}
         />
 
         {/* Main Content Area */}

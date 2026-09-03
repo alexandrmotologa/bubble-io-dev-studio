@@ -6,7 +6,8 @@ const STORAGE_KEY = 'bubble_dev_studio_settings_v2';
 
 const DEFAULT_SETTINGS: GlobalSettings = {
   theme: 'dark',
-  defaultAiModel: 'gemini-2.0-flash',
+  defaultAiModel: 'llama3:8b',
+  ollamaUrl: 'http://localhost:11434',
   autoSaveReports: true,
   projects: [],
   activeProjectId: undefined

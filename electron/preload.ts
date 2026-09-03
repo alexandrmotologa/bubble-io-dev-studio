@@ -27,6 +27,7 @@ export interface ElectronAPI {
   bubbleSyncShowInFolder: (filePath: string) => Promise<boolean>;
   bubbleSyncExportBlueprintToDisk: (fileName: string, data: any) => Promise<{ success: boolean; filePath?: string; error?: string }>;
   onBubbleFileDetected: (callback: (data: { fileName: string; content: any }) => void) => () => void;
+  onBrowserAppReceived: (callback: (data: { data: any; originUrl?: string }) => void) => () => void;
 }
 
 const api: ElectronAPI = {
@@ -102,6 +103,13 @@ const api: ElectronAPI = {
     ipcRenderer.on('bubbleSync:fileDetected', subscription);
     return () => {
       ipcRenderer.removeListener('bubbleSync:fileDetected', subscription);
+    };
+  },
+  onBrowserAppReceived: (callback: (data: { data: any; originUrl?: string }) => void) => {
+    const subscription = (_event: any, data: any) => callback(data);
+    ipcRenderer.on('bubbleSync:browserAppReceived', subscription);
+    return () => {
+      ipcRenderer.removeListener('bubbleSync:browserAppReceived', subscription);
     };
   }
 };

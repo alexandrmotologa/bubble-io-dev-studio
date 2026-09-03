@@ -88,7 +88,7 @@ export const DocGenView: React.FC<DocGenViewProps> = ({ activeProject, settings,
   }, [activeProject?.id, activeProject?.blueprintFileName]);
 
   const getEffectiveAiConfig = () => {
-    const provider = activeProject?.aiProvider || (settings?.defaultAiModel ? getProviderForModel(settings.defaultAiModel) : 'gemini');
+    const provider = activeProject?.aiProvider || (settings?.defaultAiModel ? getProviderForModel(settings.defaultAiModel) : 'ollama');
     let apiKey = activeProject?.aiApiKey;
     if (!apiKey && settings) {
       if (provider === 'gemini') apiKey = settings.geminiApiKey;
@@ -98,6 +98,7 @@ export const DocGenView: React.FC<DocGenViewProps> = ({ activeProject, settings,
       else if (provider === 'xai') apiKey = settings.xaiApiKey;
       else if (provider === 'openrouter') apiKey = settings.openrouterApiKey;
       else if (provider === 'opencode') apiKey = settings.opencodeApiKey;
+      else if (provider === 'ollama') apiKey = settings.ollamaUrl || 'http://localhost:11434';
     }
     const model = activeProject?.aiModel || settings?.defaultAiModel || getDefaultModelForProvider(provider);
     return {
@@ -340,6 +341,27 @@ export const DocGenView: React.FC<DocGenViewProps> = ({ activeProject, settings,
                 <span>Raw Data Dictionary</span>
               </button>
             </div>
+
+            {docMode === 'narrative' && (
+              <span
+                style={{
+                  fontSize: '0.725rem',
+                  color: 'var(--text-secondary)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '5px',
+                  background: 'rgba(99, 102, 241, 0.1)',
+                  padding: '4px 10px',
+                  borderRadius: 'var(--radius-sm)',
+                  border: '1px solid rgba(99, 102, 241, 0.25)',
+                  marginRight: '4px'
+                }}
+                title={`Configured Model: ${getEffectiveAiConfig().model || 'llama3:8b'} (${getEffectiveAiConfig().provider.toUpperCase()})`}
+              >
+                <Sparkles size={11} color="var(--primary)" />
+                <span>Engine: <strong style={{ color: 'var(--text-primary)' }}>{getEffectiveAiConfig().provider === 'ollama' ? 'Local Ollama' : getEffectiveAiConfig().provider.toUpperCase()}</strong> ({getEffectiveAiConfig().model || 'Default'})</span>
+              </span>
+            )}
 
             <button onClick={() => compileDocumentation()} disabled={isGenerating} className="btn btn-secondary btn-sm">
               <RefreshCw size={13} className={isGenerating ? 'spin' : ''} />

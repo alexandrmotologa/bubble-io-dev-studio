@@ -61,24 +61,19 @@ export const EditProjectModal: React.FC<EditProjectModalProps> = ({
   const [isSyncingBubble, setIsSyncingBubble] = useState(false);
   const [testResult, setTestResult] = useState<{ reachable: boolean; latencyMs?: number; message?: string } | null>(null);
 
-  const handle1ClickBubbleSync = async () => {
+  const handleGenerateFromApi = async () => {
     if (!appId) {
       toast.error('Please enter an Application ID first');
       return;
     }
     setIsSyncingBubble(true);
     try {
-      const auth = await BubbleSyncEngine.checkAuthStatus();
-      if (!auth.isAuthenticated) {
-        const loginRes = await BubbleSyncEngine.login();
-        if (!loginRes.isAuthenticated) return;
-      }
-
-      const res = await BubbleSyncEngine.syncAppFile({ ...project, appId } as ProjectProfile);
+      const targetProj = { ...project, appId, apiToken, customDomain, environment } as ProjectProfile;
+      const res = await BubbleSyncEngine.generateBlueprintFromApi(targetProj);
       if (res.success && res.data) {
         setBlueprintFileName(res.fileName);
         setBlueprintExportJson(res.data);
-        const parsedSchema = DevOpsEngine.parseBubbleSchemaJson(res.data, { ...project, appId } as ProjectProfile);
+        const parsedSchema = DevOpsEngine.parseBubbleSchemaJson(res.data, targetProj);
         const workflows = WorkflowGraphEngine.extractAllWorkflows(res.data);
         setStats({
           pagesCount: Object.keys(res.data.pages || {}).length || 1,
@@ -89,6 +84,25 @@ export const EditProjectModal: React.FC<EditProjectModalProps> = ({
     } finally {
       setIsSyncingBubble(false);
     }
+  };
+
+  const handleOpenBrowserExport = async () => {
+    if (!appId) {
+      toast.error('Please enter an Application ID first');
+      return;
+    }
+    await BubbleSyncEngine.openBubbleExportInBrowser(appId, (fileName, content) => {
+      setBlueprintFileName(fileName);
+      setBlueprintExportJson(content);
+      const targetProj = { ...project, appId } as ProjectProfile;
+      const parsedSchema = DevOpsEngine.parseBubbleSchemaJson(content, targetProj);
+      const workflows = WorkflowGraphEngine.extractAllWorkflows(content);
+      setStats({
+        pagesCount: Object.keys(content.pages || {}).length || 1,
+        workflowsCount: workflows.length,
+        dataTypesCount: parsedSchema.dataTypes.length
+      });
+    });
   };
 
   useEffect(() => {
@@ -457,17 +471,28 @@ export const EditProjectModal: React.FC<EditProjectModalProps> = ({
                 </div>
               </div>
 
-              <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+              <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
                 <button
                   type="button"
-                  onClick={handle1ClickBubbleSync}
+                  onClick={handleGenerateFromApi}
                   disabled={isSyncingBubble}
                   className="btn btn-primary btn-sm"
                   style={{ padding: '6px 12px', gap: '5px' }}
-                  title="Directly fetch the latest .bubble file from your Bubble Editor session"
+                  title="Generate .bubble file directly from Bubble Data API schema"
                 >
                   <Zap size={13} className={isSyncingBubble ? 'spin' : ''} />
-                  <span>{isSyncingBubble ? 'Syncing...' : '⚡ 1-Click Sync'}</span>
+                  <span>{isSyncingBubble ? 'Generating...' : '⚡ Generate from API'}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleOpenBrowserExport}
+                  className="btn btn-secondary btn-sm"
+                  style={{ padding: '6px 12px', gap: '5px' }}
+                  title="Open Bubble Settings in your default browser and auto-detect export"
+                >
+                  <ExternalLink size={13} color="var(--accent-cyan)" />
+                  <span>Browser Export</span>
                 </button>
 
                 <label className="btn btn-secondary btn-sm" style={{ padding: '6px 12px', cursor: 'pointer', margin: 0 }}>

@@ -75,12 +75,12 @@ export const TranslatorView: React.FC<TranslatorViewProps> = ({
 
   const [provider, setProvider] = useState<TranslationProviderType>(
     (activeProject?.aiProvider as TranslationProviderType) || 
-    (defaultAiModel ? (getProviderForModel(defaultAiModel) as TranslationProviderType) : 'gemini')
+    (defaultAiModel ? (getProviderForModel(defaultAiModel) as TranslationProviderType) : 'ollama')
   );
   const [model, setModel] = useState<string>(
     activeProject?.aiModel || 
     defaultAiModel || 
-    'gemini-2.0-flash'
+    'llama3:8b'
   );
   const [tone, setTone] = useState<'professional' | 'casual' | 'formal' | 'concise' | 'marketing'>('professional');
   const [useGlossary, setUseGlossary] = useState(true);

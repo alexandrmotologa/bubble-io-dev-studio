@@ -15,6 +15,7 @@ import {
 import { NavigationTab, ProjectProfile } from '../types';
 import { ProjectDropdown } from './ProjectDropdown';
 import { APP_VERSION_LABEL } from '../version';
+import appLogo from '../assets/logo.png';
 
 interface SidebarProps {
   currentTab: NavigationTab;
@@ -26,6 +27,7 @@ interface SidebarProps {
   onDeleteProject?: (project: ProjectProfile) => void;
   isOpen?: boolean;
   onCloseMobile?: () => void;
+  hasUpdate?: boolean;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -37,7 +39,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onOpenConnectModal,
   onDeleteProject,
   isOpen,
-  onCloseMobile
+  onCloseMobile,
+  hasUpdate
 }) => {
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, badge: null },
@@ -49,7 +52,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     { id: 'doc-gen', label: 'DocGen Book', icon: BookOpen, badge: 'Docs' },
     { id: 'translator', label: 'AI Localization', icon: Languages, badge: 'AI' },
     { id: 'visual-tester', label: 'Visual QA Suite', icon: Camera, badge: 'Visual' },
-    { id: 'settings', label: 'Settings & Keys', icon: Settings, badge: null }
+    { id: 'settings', label: 'Settings & Keys', icon: Settings, badge: hasUpdate ? 'UPDATE' : null }
   ];
 
   const handleNavClick = (tabId: NavigationTab) => {
@@ -82,8 +85,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
       {/* App Branding */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '0 8px' }}>
         <img 
-          src="/icon.png" 
-          alt="Bubble Studio Logo" 
+          src={appLogo} 
+          alt="Bubble Studio" 
           style={{
             width: '38px',
             height: '38px',
@@ -172,7 +175,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 <span>{item.label}</span>
               </div>
               {item.badge && (
-                <span className={`badge ${isActive ? 'badge-indigo' : 'badge-cyan'}`} style={{ fontSize: '0.65rem' }}>
+                <span className={`badge ${item.badge === 'UPDATE' ? 'badge-emerald animate-pulse' : isActive ? 'badge-indigo' : 'badge-cyan'}`} style={{ fontSize: '0.65rem' }}>
                   {item.badge}
                 </span>
               )}
