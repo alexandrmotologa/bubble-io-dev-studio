@@ -132,7 +132,8 @@
       "category": "Development"
     },
     "nsis": {
-      "oneClick": false,
+      "oneClick": true,
+      "runAfterFinish": true,
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true
