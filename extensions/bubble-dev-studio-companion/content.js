@@ -120,6 +120,63 @@
     document.body.appendChild(container);
   }
 
+  async function autoTriggerBubbleExport() {
+    showToast('⚡ Auto-triggering official Bubble Export...', 'info');
+
+    function findExportButton() {
+      const allEls = Array.from(document.querySelectorAll('button, div[role="button"], input[type="button"], a, div'));
+      return allEls.find(el => {
+        const text = (el.innerText || el.textContent || '').trim().toLowerCase();
+        return (text === 'export application' || text.includes('export application')) && el.offsetParent !== null;
+      });
+    }
+
+    function findSettingsTab() {
+      const byAttr = document.querySelector('[data-tab*="setting" i], [title*="Setting" i], [aria-label*="Setting" i]');
+      if (byAttr && byAttr.offsetParent !== null) return byAttr;
+
+      const candidates = Array.from(document.querySelectorAll('div, button, a, li, span'));
+      return candidates.find(el => {
+        const text = (el.innerText || el.textContent || '').trim().toLowerCase();
+        return text === 'settings' && el.children.length <= 2 && el.offsetParent !== null;
+      });
+    }
+
+    let exportBtn = findExportButton();
+
+    if (!exportBtn) {
+      const settingsTab = findSettingsTab();
+      if (settingsTab) {
+        showToast('⚙️ Switching to Settings tab...', 'info');
+        settingsTab.click();
+        for (let i = 0; i < 10; i++) {
+          await new Promise(r => setTimeout(r, 300));
+          exportBtn = findExportButton();
+          if (exportBtn) break;
+        }
+      } else {
+        if (!window.location.search.includes('tab=general') && !window.location.search.includes('tab=tabs-')) {
+          showToast('⚙️ Opening Settings > General...', 'info');
+          const currentUrl = new URL(window.location.href);
+          currentUrl.searchParams.set('tab', 'general');
+          window.location.href = currentUrl.toString();
+          return true;
+        }
+      }
+    }
+
+    if (exportBtn) {
+      exportBtn.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      await new Promise(r => setTimeout(r, 300));
+      exportBtn.click();
+      showToast('🎉 Bubble Export triggered! Dev Studio is auto-catching the file...', 'success');
+      return true;
+    }
+
+    showToast('👉 Click Settings (⚙️) > General > "Export application". Dev Studio will auto-import it!', 'info');
+    return false;
+  }
+
   // 4. Trigger extraction and transmission
   let isSyncing = false;
   function triggerSync() {
@@ -156,7 +213,11 @@
 
       const res = event.detail;
       if (!res || !res.success || !res.data) {
-        showToast('❌ ' + (res?.error || 'Failed to extract Bubble data from editor'), 'error');
+        if (res && res.fallbackToExport) {
+          await autoTriggerBubbleExport();
+        } else {
+          showToast('❌ ' + (res?.error || 'Failed to extract Bubble data from editor'), 'error');
+        }
         resetButton();
         return;
       }
