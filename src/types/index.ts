@@ -344,6 +344,7 @@ export type TranslationProviderType =
   | 'gemini' 
   | 'openrouter' 
   | 'groq' 
+  | 'deepseek'
   | 'xai' 
   | 'opencode' 
   | 'ollama';

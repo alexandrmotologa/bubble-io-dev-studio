@@ -41,7 +41,7 @@ import { DevOpsEngine } from '../core/devops/devopsEngine';
 import { TranslatorEngine } from '../core/translator/translatorEngine';
 import { ConfirmDeleteModal } from '../components/ConfirmDeleteModal';
 import { EditProjectModal } from '../components/EditProjectModal';
-import { AI_PROVIDERS, PROVIDER_MODELS, getProviderForModel, getDefaultModelForProvider, getProviderDisplayName, getModelDisplayName } from '../core/ai/aiProviders';
+import { AI_PROVIDERS, PROVIDER_MODELS, getProviderForModel, getDefaultModelForProvider, getProviderDisplayName, getModelDisplayName, getCustomModelPlaceholder } from '../core/ai/aiProviders';
 import { toast } from '../core/toast/toastManager';
 import { ProjectStore } from '../core/storage/projectStore';
 import { BubbleSyncEngine } from '../core/bubble-sync/bubbleSyncEngine';
@@ -308,6 +308,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       else if (selectedProvider === 'xai') keyToTest = formData.xaiApiKey || '';
       else if (selectedProvider === 'opencode') keyToTest = formData.opencodeApiKey || '';
       else if (selectedProvider === 'openrouter') keyToTest = formData.openrouterApiKey || '';
+      else if (selectedProvider === 'deepseek') keyToTest = formData.deepseekApiKey || '';
 
       const res = await TranslatorEngine.verifyProviderConnection(
         selectedProvider,
@@ -683,7 +684,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
               {/* Dynamic Model Dropdown for selected provider */}
               <div>
-                <label className="input-label">Default LLM Model for {selectedProvider.toUpperCase()}</label>
+                <label className="input-label">Default LLM Model for {getProviderDisplayName(selectedProvider)}</label>
                 <select
                   value={isCustomOllamaModel ? '__custom__' : formData.defaultAiModel}
                   onChange={(e) => {
@@ -708,19 +709,17 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   {currentModels.map(m => (
                     <option key={m.id} value={m.id}>{m.name}</option>
                   ))}
-                  {selectedProvider === 'ollama' && (
-                    <option value="__custom__">➕ Custom Model Name / Tag...</option>
-                  )}
+                  <option value="__custom__">➕ Custom Model Name / Tag / ID...</option>
                 </select>
 
-                {selectedProvider === 'ollama' && (isCustomOllamaModel || (!currentModels.some(m => m.id === formData.defaultAiModel) && formData.defaultAiModel)) && (
+                {(isCustomOllamaModel || (!currentModels.some(m => m.id === formData.defaultAiModel) && formData.defaultAiModel)) && (
                   <div style={{ marginTop: '8px' }}>
                     <label className="input-label" style={{ fontSize: '0.75rem', color: 'var(--accent-cyan)' }}>
-                      Type Custom Ollama Model Name or Tag
+                      Type Custom Model Name / ID for {getProviderDisplayName(selectedProvider)}
                     </label>
                     <input
                       type="text"
-                      placeholder="e.g. llama3:8b, mistral:instruct, deepseek-r1:8b"
+                      placeholder={getCustomModelPlaceholder(selectedProvider)}
                       value={formData.defaultAiModel === '__custom__' ? '' : formData.defaultAiModel}
                       onChange={(e) => {
                         const val = e.target.value;
@@ -728,7 +727,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                           ...formData,
                           defaultAiModel: val,
                           projects: formData.projects.map(p =>
-                            p.id === formData.activeProjectId ? { ...p, aiProvider: 'ollama', aiModel: val } : p
+                            p.id === formData.activeProjectId ? { ...p, aiProvider: selectedProvider, aiModel: val } : p
                           )
                         };
                         setFormData(updated);
@@ -894,6 +893,30 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                       placeholder="sk-or-..."
                       value={formData.openrouterApiKey || ''}
                       onChange={(e) => setFormData({ ...formData, openrouterApiKey: e.target.value })}
+                      className="input"
+                      style={{ paddingRight: '36px' }}
+                    />
+                    <button type="button" onClick={() => setShowApiKey(!showApiKey)} style={{ position: 'absolute', right: '10px', top: '11px', background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}>
+                      {showApiKey ? <EyeOff size={15} /> : <Eye size={15} />}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {selectedProvider === 'deepseek' && (
+                <div>
+                  <label className="input-label" style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span>DeepSeek API Key (V3 / R1)</span>
+                    <a href="https://platform.deepseek.com/api_keys" target="_blank" rel="noreferrer" style={{ fontSize: '0.7rem', color: 'var(--accent-cyan)', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '3px' }}>
+                      <span>Get Key</span><ExternalLink size={10} />
+                    </a>
+                  </label>
+                  <div style={{ position: 'relative' }}>
+                    <input
+                      type={showApiKey ? 'text' : 'password'}
+                      placeholder="sk-..."
+                      value={formData.deepseekApiKey || ''}
+                      onChange={(e) => setFormData({ ...formData, deepseekApiKey: e.target.value })}
                       className="input"
                       style={{ paddingRight: '36px' }}
                     />

@@ -79,13 +79,30 @@ export class VisualEngine {
     const cases: VisualTestCase[] = [];
 
     // Extract pages from blueprint if present
-    const pageNames: string[] = [];
+    // In Bubble AST, keys in `pages` are internal hash IDs (e.g. 'AAW', 'AAX', 'cmbsY'),
+    // while the human-readable route name is stored in `pageData.name` or `pageData.properties.name`.
+    const pageEntries: Array<{ displayName: string; slug: string }> = [];
     if (project.blueprintExportJson?.pages && typeof project.blueprintExportJson.pages === 'object') {
-      pageNames.push(...Object.keys(project.blueprintExportJson.pages));
+      for (const [pageKey, pageData] of Object.entries<any>(project.blueprintExportJson.pages)) {
+        const rawName = pageData?.name || pageData?.properties?.name || pageKey;
+        if (rawName && typeof rawName === 'string') {
+          const cleanName = rawName.trim();
+          if (cleanName && !pageEntries.some(p => p.slug.toLowerCase() === cleanName.toLowerCase())) {
+            pageEntries.push({
+              displayName: cleanName.charAt(0).toUpperCase() + cleanName.slice(1).replace(/_/g, ' '),
+              slug: cleanName
+            });
+          }
+        }
+      }
     }
 
-    if (pageNames.length === 0) {
-      pageNames.push('index', 'dashboard', 'pricing');
+    if (pageEntries.length === 0) {
+      pageEntries.push(
+        { displayName: 'Index', slug: 'index' },
+        { displayName: 'Dashboard', slug: 'dashboard' },
+        { displayName: 'Pricing', slug: 'pricing' }
+      );
     }
 
     const viewports = [
@@ -95,13 +112,14 @@ export class VisualEngine {
     ];
 
     let counter = 1;
-    for (const page of pageNames.slice(0, 6)) {
-      const formattedPageName = page.charAt(0).toUpperCase() + page.slice(1).replace(/_/g, ' ');
+    for (const page of pageEntries.slice(0, 8)) {
+      const isIndex = page.slug.toLowerCase() === 'index';
+      const pageUrl = isIndex ? `${baseUrl}` : `${baseUrl}/${encodeURIComponent(page.slug)}`;
       for (const vp of viewports) {
         cases.push({
           id: `tc_${counter++}`,
-          name: `${formattedPageName} — ${vp.name.split(' ')[0]}`,
-          pageUrl: `${baseUrl}/${page}`,
+          name: `${page.displayName} — ${vp.name.split(' ')[0]}`,
+          pageUrl,
           viewport: vp,
           status: 'untested',
           diffPercentage: 0,

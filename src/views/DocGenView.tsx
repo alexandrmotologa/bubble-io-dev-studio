@@ -98,6 +98,7 @@ export const DocGenView: React.FC<DocGenViewProps> = ({ activeProject, settings,
       else if (provider === 'xai') apiKey = settings.xaiApiKey;
       else if (provider === 'openrouter') apiKey = settings.openrouterApiKey;
       else if (provider === 'opencode') apiKey = settings.opencodeApiKey;
+      else if (provider === 'deepseek') apiKey = settings.deepseekApiKey;
       else if (provider === 'ollama') apiKey = settings.ollamaUrl || 'http://localhost:11434';
     }
     const model = activeProject?.aiModel || settings?.defaultAiModel || getDefaultModelForProvider(provider);

@@ -36,7 +36,7 @@ import {
 import { ProjectProfile } from '../types';
 import { DevOpsEngine } from '../core/devops/devopsEngine';
 import { TranslatorEngine } from '../core/translator/translatorEngine';
-import { AI_PROVIDERS, PROVIDER_MODELS, getDefaultModelForProvider } from '../core/ai/aiProviders';
+import { AI_PROVIDERS, PROVIDER_MODELS, getDefaultModelForProvider, getCustomModelPlaceholder } from '../core/ai/aiProviders';
 import { ProjectStore } from '../core/storage/projectStore';
 import { BubbleSyncEngine } from '../core/bubble-sync/bubbleSyncEngine';
 import { WorkflowGraphEngine } from '../core/workflows/workflowGraphEngine';
@@ -1087,19 +1087,17 @@ export const ConnectAppModal: React.FC<ConnectAppModalProps> = ({
                       {currentModels.map(m => (
                         <option key={m.id} value={m.id}>{m.name}</option>
                       ))}
-                      {aiProvider === 'ollama' && (
-                        <option value="__custom__">➕ Custom Model Name / Tag...</option>
-                      )}
+                      <option value="__custom__">➕ Custom Model Name / Tag / ID...</option>
                     </select>
 
-                    {aiProvider === 'ollama' && (isCustomModel || (!currentModels.some(m => m.id === aiModel) && aiModel)) && (
+                    {(isCustomModel || (!currentModels.some(m => m.id === aiModel) && aiModel)) && (
                       <div style={{ marginTop: '8px' }}>
                         <label className="input-label" style={{ fontSize: '0.725rem', color: 'var(--accent-cyan)' }}>
-                          Type Custom Ollama Model Name or Tag
+                          Type Custom Model Name / ID for {aiProvider.toUpperCase()}
                         </label>
                         <input
                           type="text"
-                          placeholder="e.g. llama3:8b, mistral:instruct, deepseek-r1:8b"
+                          placeholder={getCustomModelPlaceholder(aiProvider)}
                           value={aiModel === '__custom__' ? '' : aiModel}
                           onChange={(e) => {
                             setAiModel(e.target.value);

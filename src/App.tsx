@@ -433,6 +433,7 @@ export const App: React.FC = () => {
                 anthropicApiKey={settings.anthropicApiKey}
                 openrouterApiKey={settings.openrouterApiKey}
                 groqApiKey={settings.groqApiKey}
+                deepseekApiKey={settings.deepseekApiKey}
                 xaiApiKey={settings.xaiApiKey}
                 opencodeApiKey={settings.opencodeApiKey}
                 ollamaUrl={settings.ollamaUrl}

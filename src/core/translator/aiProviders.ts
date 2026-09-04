@@ -48,7 +48,8 @@ export class AiProvidersEngine {
 
       // 1. Google Gemini
       if (provider === 'gemini') {
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/${model || 'gemini-2.0-flash'}:generateContent?key=${effectiveApiKey}`;
+        const targetModel = (model || 'gemini-2.0-flash').replace(/^models\//, '').trim();
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${targetModel}:generateContent?key=${effectiveApiKey}`;
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 15000);
 
@@ -93,7 +94,7 @@ export class AiProvidersEngine {
           },
           signal: controller.signal,
           body: JSON.stringify({
-            model: model || 'gpt-4o',
+            model: (model && model.trim().length > 0) ? model.trim() : 'gpt-4o',
             messages: [
               { role: 'system', content: systemPrompt },
               { role: 'user', content: text }
@@ -128,7 +129,7 @@ export class AiProvidersEngine {
           },
           signal: controller.signal,
           body: JSON.stringify({
-            model: model || 'claude-3-5-haiku-20241022',
+            model: (model && model.trim().length > 0) ? model.trim() : 'claude-3-7-sonnet-20250219',
             max_tokens: 1024,
             system: systemPrompt,
             messages: [{ role: 'user', content: text }],
@@ -147,13 +148,28 @@ export class AiProvidersEngine {
         tokensUsed = (data?.usage?.input_tokens || 0) + (data?.usage?.output_tokens || 0);
       }
 
-      // 4. Groq / xAI / OpenRouter / OpenCode (OpenAI Compatible API)
-      else if (['groq', 'xai', 'openrouter', 'opencode'].includes(provider)) {
+      // 4. Groq / xAI / OpenRouter / OpenCode / DeepSeek (OpenAI Compatible API)
+      else if (['groq', 'xai', 'openrouter', 'opencode', 'deepseek'].includes(provider)) {
         let endpoint = 'https://api.groq.com/openai/v1/chat/completions';
-        if (provider === 'xai') endpoint = 'https://api.x.ai/v1/chat/completions';
-        if (provider === 'openrouter') endpoint = 'https://openrouter.ai/api/v1/chat/completions';
-        if (provider === 'opencode') endpoint = 'https://api.opencode.ai/v1/chat/completions';
+        let defaultModel = 'llama-3.1-8b-instant';
+        if (provider === 'groq') {
+          endpoint = 'https://api.groq.com/openai/v1/chat/completions';
+          defaultModel = 'llama-3.1-8b-instant';
+        } else if (provider === 'xai') {
+          endpoint = 'https://api.x.ai/v1/chat/completions';
+          defaultModel = 'grok-2-latest';
+        } else if (provider === 'openrouter') {
+          endpoint = 'https://openrouter.ai/api/v1/chat/completions';
+          defaultModel = 'deepseek/deepseek-r1';
+        } else if (provider === 'opencode') {
+          endpoint = 'https://api.opencode.ai/v1/chat/completions';
+          defaultModel = 'opencode-go-pro';
+        } else if (provider === 'deepseek') {
+          endpoint = 'https://api.deepseek.com/chat/completions';
+          defaultModel = 'deepseek-chat';
+        }
 
+        const effectiveModel = (model && model.trim().length > 0) ? model.trim() : defaultModel;
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 15000);
 
@@ -165,7 +181,7 @@ export class AiProvidersEngine {
           },
           signal: controller.signal,
           body: JSON.stringify({
-            model: model,
+            model: effectiveModel,
             messages: [
               { role: 'system', content: systemPrompt },
               { role: 'user', content: text }
@@ -305,6 +321,7 @@ export class AiProvidersEngine {
     // Check for missing API Key on cloud providers
     if (!effectiveKey) {
       const providerLabel = provider === 'groq' ? 'Groq'
+        : provider === 'deepseek' ? 'DeepSeek'
         : provider === 'xai' ? 'xAI (Grok)'
         : provider === 'opencode' ? 'OpenCode Go/Zen'
         : provider === 'anthropic' ? 'Anthropic Claude'
@@ -424,11 +441,37 @@ export class AiProvidersEngine {
         return {
           success: true,
           latencyMs,
-          message: `Groq LPU ultra-fast inference verified (${latencyMs}ms)! Model '${model}' ready.`
+          message: `Groq LPU ultra-fast inference verified (${latencyMs}ms)! Model '${model || 'llama-3.1-8b-instant'}' ready.`
         };
       }
 
-      // 7. xAI (Grok)
+      // 7. DeepSeek
+      if (provider === 'deepseek') {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 6000);
+
+        const res = await fetch('https://api.deepseek.com/models', {
+          method: 'GET',
+          headers: { 'Authorization': `Bearer ${effectiveKey}` },
+          signal: controller.signal
+        });
+        clearTimeout(timeoutId);
+        const latencyMs = Math.round(performance.now() - start);
+
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          const errMsg = errData?.error?.message || `DeepSeek API verification failed (HTTP ${res.status})`;
+          return { success: false, latencyMs, message: errMsg };
+        }
+
+        return {
+          success: true,
+          latencyMs,
+          message: `DeepSeek API verified (${latencyMs}ms)! Model '${model || 'deepseek-chat'}' ready.`
+        };
+      }
+
+      // 8. xAI (Grok)
       if (provider === 'xai') {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 6000);

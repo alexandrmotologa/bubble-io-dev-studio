@@ -17,7 +17,9 @@ export class WuProfilerEngine {
   public static async analyzePerformance(rawBlueprintJson?: any, schema?: BubbleSchema | null): Promise<WuProfileReport> {
     const actualSchema = schema || (rawBlueprintJson ? DevOpsEngine.parseBubbleSchemaJson(rawBlueprintJson) : null);
     const realTypes = actualSchema?.dataTypes || [];
-    const rawPages = rawBlueprintJson?.pages ? Object.keys(rawBlueprintJson.pages) : [];
+    const rawPages = rawBlueprintJson?.pages 
+      ? Object.entries<any>(rawBlueprintJson.pages).map(([k, v]) => v?.name || v?.properties?.name || k) 
+      : [];
     const pageList = rawPages.length > 0 ? rawPages : (realTypes.length > 0 ? ['index', 'dashboard', 'admin_portal', 'user_profile', 'checkout'] : ['index', 'dashboard']);
 
     const bottlenecks: WuBottleneck[] = [];

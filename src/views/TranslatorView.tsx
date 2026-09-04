@@ -32,7 +32,7 @@ import { CostEstimate, ProjectProfile, TranslationItem, TranslationJobConfig, Tr
 import { TranslatorEngine } from '../core/translator/translatorEngine';
 import { BUBBLE_LANGUAGES, DEFAULT_TARGET_LANGUAGE, DEFAULT_SOURCE_LANGUAGE, getLanguageDisplayName } from '../core/translator/bubbleLanguages';
 import { SearchableLanguageSelect } from '../components/SearchableLanguageSelect';
-import { AI_PROVIDERS, PROVIDER_MODELS, getProviderForModel } from '../core/ai/aiProviders';
+import { AI_PROVIDERS, PROVIDER_MODELS, getProviderForModel, getCustomModelPlaceholder, getDefaultModelForProvider } from '../core/ai/aiProviders';
 import { toast } from '../core/toast/toastManager';
 import { PseudoLocalizerEngine } from '../core/translator/pseudoLocalizer';
 import { APP_VERSION } from '../version';
@@ -46,6 +46,7 @@ interface TranslatorViewProps {
   anthropicApiKey?: string;
   openrouterApiKey?: string;
   groqApiKey?: string;
+  deepseekApiKey?: string;
   xaiApiKey?: string;
   opencodeApiKey?: string;
   ollamaUrl?: string;
@@ -62,6 +63,7 @@ export const TranslatorView: React.FC<TranslatorViewProps> = ({
   anthropicApiKey,
   openrouterApiKey,
   groqApiKey,
+  deepseekApiKey,
   xaiApiKey,
   opencodeApiKey,
   ollamaUrl
@@ -75,13 +77,25 @@ export const TranslatorView: React.FC<TranslatorViewProps> = ({
 
   const [provider, setProvider] = useState<TranslationProviderType>(
     (activeProject?.aiProvider as TranslationProviderType) || 
-    (defaultAiModel ? (getProviderForModel(defaultAiModel) as TranslationProviderType) : 'ollama')
+    (defaultAiModel ? (getProviderForModel(defaultAiModel) as TranslationProviderType) : 'gemini')
   );
   const [model, setModel] = useState<string>(
     activeProject?.aiModel || 
     defaultAiModel || 
-    'llama3:8b'
+    'gemini-2.0-flash'
   );
+  const [isCustomModel, setIsCustomModel] = useState<boolean>(() => {
+    const m = activeProject?.aiModel || defaultAiModel;
+    if (!m) return false;
+    const p = (activeProject?.aiProvider as TranslationProviderType) || (defaultAiModel ? getProviderForModel(defaultAiModel) : 'gemini');
+    return !PROVIDER_MODELS[p]?.some(item => item.id === m);
+  });
+  const [customModelInput, setCustomModelInput] = useState<string>(() => {
+    const m = activeProject?.aiModel || defaultAiModel || '';
+    const p = (activeProject?.aiProvider as TranslationProviderType) || (defaultAiModel ? getProviderForModel(defaultAiModel) : 'gemini');
+    const isKnown = PROVIDER_MODELS[p]?.some(item => item.id === m);
+    return isKnown ? '' : m;
+  });
   const [tone, setTone] = useState<'professional' | 'casual' | 'formal' | 'concise' | 'marketing'>('professional');
   const [useGlossary, setUseGlossary] = useState(true);
   const [useCache, setUseCache] = useState(true);
@@ -169,9 +183,12 @@ export const TranslatorView: React.FC<TranslatorViewProps> = ({
 
   const handleProviderChange = (newProvider: TranslationProviderType) => {
     setProvider(newProvider);
+    setIsCustomModel(false);
+    setCustomModelInput('');
     const availableModels = PROVIDER_MODELS[newProvider];
     if (availableModels && availableModels.length > 0) {
-      setModel(availableModels[0].id);
+      const recommended = (availableModels as any[]).find(m => m.isRecommended) || availableModels[0];
+      setModel(recommended.id);
     }
   };
 
@@ -184,6 +201,7 @@ export const TranslatorView: React.FC<TranslatorViewProps> = ({
       case 'openai': return openaiApiKey;
       case 'anthropic': return anthropicApiKey;
       case 'groq': return groqApiKey;
+      case 'deepseek': return deepseekApiKey;
       case 'xai': return xaiApiKey;
       case 'openrouter': return openrouterApiKey;
       case 'opencode': return opencodeApiKey;
@@ -680,25 +698,85 @@ export const TranslatorView: React.FC<TranslatorViewProps> = ({
             <label className="input-label">AI Provider</label>
             <select value={provider} onChange={e => handleProviderChange(e.target.value as any)} className="select select-premium">
               <option value="gemini">Google Gemini (Gemini 2.0 / 1.5)</option>
-              <option value="openai">OpenAI (GPT-4o / GPT-4o-mini)</option>
-              <option value="anthropic">Anthropic (Claude 3.7 Sonnet / Haiku)</option>
+              <option value="openai">OpenAI (GPT-4o / GPT-4o-mini / o3-mini)</option>
+              <option value="anthropic">Anthropic (Claude 3.7 / 3.5 Sonnet & Haiku)</option>
               <option value="groq">Groq (Ultra-Fast LPUs)</option>
-              <option value="xai">xAI (Grok)</option>
+              <option value="deepseek">DeepSeek (V3 / R1)</option>
+              <option value="xai">xAI (Grok 2)</option>
               <option value="opencode">OpenCode (Go / Zen)</option>
               <option value="openrouter">OpenRouter (Multi-LLM)</option>
               <option value="ollama">Ollama (Local / Free Offline)</option>
-              <option value="mock">Built-in Studio Engine</option>
             </select>
           </div>
 
-          {/* 3. Model Selector */}
+          {/* 3. Model Selector & Custom Model Input */}
           <div>
-            <label className="input-label">Model for {provider.toUpperCase()}</label>
-            <select value={model} onChange={e => setModel(e.target.value)} className="select select-premium">
-              {PROVIDER_MODELS[provider]?.map(m => (
-                <option key={m.id} value={m.id}>{m.name}</option>
-              ))}
-            </select>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+              <label className="input-label" style={{ margin: 0 }}>Model for {provider.toUpperCase()}</label>
+              <button
+                type="button"
+                onClick={() => {
+                  const next = !isCustomModel;
+                  setIsCustomModel(next);
+                  if (next) {
+                    setCustomModelInput(model);
+                  } else {
+                    const fallback = PROVIDER_MODELS[provider]?.[0]?.id || '';
+                    setModel(fallback);
+                  }
+                }}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: isCustomModel ? 'var(--accent-cyan)' : 'var(--text-muted)',
+                  fontSize: '0.72rem',
+                  cursor: 'pointer',
+                  textDecoration: 'underline',
+                  padding: 0
+                }}
+              >
+                {isCustomModel ? '← Pick from list' : '✏️ Custom Model...'}
+              </button>
+            </div>
+
+            {!isCustomModel ? (
+              <select
+                value={PROVIDER_MODELS[provider]?.some(m => m.id === model) ? model : '__custom__'}
+                onChange={e => {
+                  if (e.target.value === '__custom__') {
+                    setIsCustomModel(true);
+                    setCustomModelInput(model);
+                  } else {
+                    setModel(e.target.value);
+                  }
+                }}
+                className="select select-premium"
+              >
+                {PROVIDER_MODELS[provider]?.map(m => (
+                  <option key={m.id} value={m.id}>{m.name}</option>
+                ))}
+                <option value="__custom__">➕ Custom Model ID (Write your own)...</option>
+              </select>
+            ) : (
+              <div>
+                <input
+                  type="text"
+                  value={customModelInput}
+                  placeholder={getCustomModelPlaceholder(provider)}
+                  onChange={e => {
+                    const val = e.target.value;
+                    setCustomModelInput(val);
+                    setModel(val.trim());
+                  }}
+                  className="input"
+                  style={{ borderColor: 'var(--accent-cyan)', fontSize: '0.85rem' }}
+                  autoFocus
+                />
+                <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginTop: '3px' }}>
+                  Enter any exact model ID supported by your {provider.toUpperCase()} API key
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
@@ -792,11 +870,11 @@ export const TranslatorView: React.FC<TranslatorViewProps> = ({
                     key={cat}
                     onClick={() => setCategoryFilter(cat)}
                     className={`btn btn-sm ${categoryFilter === cat ? 'btn-primary' : 'btn-secondary'}`}
-                    style={{ fontSize: '0.725rem', padding: '3px 8px', height: '26px' }}
+                    style={{ fontSize: '0.725rem', padding: '3px 9px', height: '26px', whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
                   >
-                    <span>{cat.toUpperCase()}</span>
+                    <span>{cat === 'option_set' ? 'OPTION SET' : cat.toUpperCase()}</span>
                     {categoryCounts[cat] !== undefined && (
-                      <span style={{ opacity: 0.7, marginLeft: '2px' }}>({categoryCounts[cat]})</span>
+                      <span style={{ opacity: 0.75, fontSize: '0.68rem' }}>({categoryCounts[cat]})</span>
                     )}
                   </button>
                 ))}
@@ -927,8 +1005,8 @@ export const TranslatorView: React.FC<TranslatorViewProps> = ({
                       key={item.id}
                       style={{
                         display: 'grid',
-                        gridTemplateColumns: '220px 1fr 1fr 180px',
-                        gap: '14px',
+                        gridTemplateColumns: 'minmax(280px, 320px) 1.2fr 1.2fr 160px',
+                        gap: '16px',
                         alignItems: 'center',
                         padding: '12px 14px',
                         borderRadius: 'var(--radius-md)',
@@ -936,11 +1014,47 @@ export const TranslatorView: React.FC<TranslatorViewProps> = ({
                         border: '1px solid var(--border-subtle)'
                       }}
                     >
-                      <div>
-                        <div style={{ fontWeight: 600, fontSize: '0.8rem', color: 'var(--text-primary)' }}>{item.key}</div>
-                        <div style={{ display: 'flex', gap: '6px', marginTop: '3px' }}>
-                          <span className="badge badge-indigo" style={{ fontSize: '0.65rem' }}>{item.category}</span>
-                          {item.context && <span className="badge badge-cyan" style={{ fontSize: '0.65rem' }}>{item.context}</span>}
+                      <div style={{ minWidth: 0, overflow: 'hidden' }}>
+                        <div 
+                          style={{ 
+                            fontWeight: 600, 
+                            fontSize: '0.8rem', 
+                            color: 'var(--text-primary)',
+                            whiteSpace: 'nowrap',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis'
+                          }}
+                          title={item.key}
+                        >
+                          {item.key}
+                        </div>
+                        <div style={{ display: 'flex', gap: '6px', marginTop: '4px', alignItems: 'center', flexWrap: 'nowrap', overflow: 'hidden' }}>
+                          <span 
+                            className="badge badge-indigo" 
+                            style={{ 
+                              fontSize: '0.65rem',
+                              whiteSpace: 'nowrap',
+                              flexShrink: 0
+                            }}
+                          >
+                            {item.category.replace('_', ' ')}
+                          </span>
+                          {item.context && (
+                            <span 
+                              className="badge badge-cyan" 
+                              style={{ 
+                                fontSize: '0.65rem',
+                                whiteSpace: 'nowrap',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                maxWidth: '170px',
+                                display: 'inline-block'
+                              }}
+                              title={item.context}
+                            >
+                              {item.context}
+                            </span>
+                          )}
                         </div>
                       </div>
 
@@ -1004,8 +1118,26 @@ export const TranslatorView: React.FC<TranslatorViewProps> = ({
                     {filteredItems.map(item => (
                       <tr key={item.id} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
                         <td style={{ padding: '10px 12px', verticalAlign: 'top' }}>
-                          <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{item.key}</div>
-                          <span className="badge badge-indigo" style={{ fontSize: '0.625rem', marginTop: '2px' }}>{item.category}</span>
+                          <div style={{ fontWeight: 600, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '200px' }} title={item.key}>{item.key}</div>
+                          <div style={{ display: 'flex', gap: '4px', marginTop: '3px', alignItems: 'center', flexWrap: 'nowrap' }}>
+                            <span className="badge badge-indigo" style={{ fontSize: '0.625rem', whiteSpace: 'nowrap' }}>{item.category.replace('_', ' ')}</span>
+                            {item.context && (
+                              <span 
+                                className="badge badge-cyan" 
+                                style={{ 
+                                  fontSize: '0.625rem', 
+                                  whiteSpace: 'nowrap', 
+                                  overflow: 'hidden', 
+                                  textOverflow: 'ellipsis', 
+                                  maxWidth: '120px', 
+                                  display: 'inline-block' 
+                                }} 
+                                title={item.context}
+                              >
+                                {item.context}
+                              </span>
+                            )}
+                          </div>
                         </td>
                         <td style={{ padding: '10px 12px', color: 'var(--text-secondary)', verticalAlign: 'top' }}>
                           {item.sourceText}

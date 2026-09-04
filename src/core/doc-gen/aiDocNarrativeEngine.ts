@@ -551,13 +551,20 @@ Keep the tone authoritative, clear, and structured in Markdown.`;
         }
       }
 
-      // 4. Groq / OpenRouter / xAI
-      if (['groq', 'openrouter', 'xai'].includes(provider)) {
+      // 4. Groq / OpenRouter / xAI / OpenCode / DeepSeek
+      if (['groq', 'openrouter', 'xai', 'opencode', 'deepseek'].includes(provider)) {
         let endpoint = 'https://api.groq.com/openai/v1/chat/completions';
         if (provider === 'openrouter') endpoint = 'https://openrouter.ai/api/v1/chat/completions';
         if (provider === 'xai') endpoint = 'https://api.x.ai/v1/chat/completions';
+        if (provider === 'opencode') endpoint = 'https://api.opencode.ai/v1/chat/completions';
+        if (provider === 'deepseek') endpoint = 'https://api.deepseek.com/chat/completions';
 
-        const model = config?.model || (provider === 'groq' ? 'llama-3.3-70b-versatile' : 'grok-2-latest');
+        const defaultModel = provider === 'groq' ? 'llama-3.1-8b-instant'
+          : provider === 'deepseek' ? 'deepseek-chat'
+          : provider === 'opencode' ? 'opencode-go-pro'
+          : provider === 'openrouter' ? 'deepseek/deepseek-r1'
+          : 'grok-2-latest';
+        const model = config?.model || defaultModel;
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 35000);
 
