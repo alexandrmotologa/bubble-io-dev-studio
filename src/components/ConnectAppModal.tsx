@@ -39,6 +39,7 @@ import { ProjectStore } from '../core/storage/projectStore';
 import { BubbleSyncEngine } from '../core/bubble-sync/bubbleSyncEngine';
 import { WorkflowGraphEngine } from '../core/workflows/workflowGraphEngine';
 import { toast } from '../core/toast/toastManager';
+import { CLOUD_SYNC_CONFIG } from '../config/cloudSyncConfig';
 
 interface ConnectAppModalProps {
   isOpen: boolean;
@@ -168,17 +169,9 @@ export const ConnectAppModal: React.FC<ConnectAppModalProps> = ({
   const [isCheckingDownloads, setIsCheckingDownloads] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Option 3: Cloud Direct Sync State (Oracle / Buildprint Mode)
-  const [cloudServerUrl, setCloudServerUrl] = useState<string>(() => {
-    return localStorage.getItem('bds_cloud_sync_url') || 'http://localhost:8080';
-  });
+  // Method 2: Managed Cloud Direct Sync State (Oracle / Buildprint Mode)
   const [cloudBranch, setCloudBranch] = useState<string>('test');
-  const [cloudApiSecret, setCloudApiSecret] = useState<string>(() => {
-    return localStorage.getItem('bds_cloud_sync_secret') || '';
-  });
   const [isCloudSyncing, setIsCloudSyncing] = useState<boolean>(false);
-  const [isCloudExpanded, setIsCloudExpanded] = useState<boolean>(false);
-  const [cloudServerStatus, setCloudServerStatus] = useState<'idle' | 'checking' | 'online' | 'offline'>('idle');
 
   const handleCloudSync = async () => {
     if (!appId.trim()) {
@@ -186,10 +179,9 @@ export const ConnectAppModal: React.FC<ConnectAppModalProps> = ({
       return;
     }
     setIsCloudSyncing(true);
-    localStorage.setItem('bds_cloud_sync_url', cloudServerUrl);
-    if (cloudApiSecret) localStorage.setItem('bds_cloud_sync_secret', cloudApiSecret);
+    const serverUrl = CLOUD_SYNC_CONFIG.getActiveServerUrl();
     try {
-      const res = await BubbleSyncEngine.syncFromCloudServer(cloudServerUrl, appId.trim(), cloudBranch, cloudApiSecret);
+      const res = await BubbleSyncEngine.syncFromCloudServer(serverUrl, appId.trim(), cloudBranch);
       if (res.success && res.data) {
         processReceivedAppData(res.data, res.fileName);
       }
@@ -198,15 +190,11 @@ export const ConnectAppModal: React.FC<ConnectAppModalProps> = ({
     }
   };
 
-  const handleCheckCloudHealth = async () => {
-    setCloudServerStatus('checking');
-    const health = await BubbleSyncEngine.checkCloudServerHealth(cloudServerUrl);
-    if (health.ok) {
-      setCloudServerStatus('online');
-      toast.success(`Cloud Sync Bot is ONLINE (v${health.version || '1.0.0'})`);
-    } else {
-      setCloudServerStatus('offline');
-      toast.warn(`Cloud server unreachable: ${health.error}`);
+  const handleCopyAgentEmail = () => {
+    if (navigator.clipboard?.writeText) {
+      navigator.clipboard.writeText(CLOUD_SYNC_CONFIG.botEmail).then(() => {
+        toast.success(`Copied ${CLOUD_SYNC_CONFIG.botEmail} to clipboard!`);
+      }).catch(() => {});
     }
   };
 
@@ -237,10 +225,6 @@ export const ConnectAppModal: React.FC<ConnectAppModalProps> = ({
     }
     setIsListeningDownloads(true);
     await BubbleSyncEngine.openBubbleInBrowser(appId.trim());
-  };
-
-  const handleOpenCompanionFolder = async () => {
-    await BubbleSyncEngine.openCompanionFolder();
   };
 
   const processReceivedAppData = useCallback((data: any, sourceName?: string) => {
@@ -1437,109 +1421,45 @@ export const ConnectAppModal: React.FC<ConnectAppModalProps> = ({
                 </div>
               )}
 
-              {/* 2 Primary Modern Action Cards for .bubble Acquisition */}
-              <div className="grid-2" style={{ gap: '12px' }}>
-                {/* Option 1: Chrome Companion Extension (Recommended) */}
+              {/* 2 Streamlined, Production-Grade Sync Workflows */}
+              <div className="grid-2" style={{ gap: '14px' }}>
+                {/* Method 1: Local Auto-Detect (Downloads Watcher) */}
                 <div style={{
-                  padding: '14px 16px',
+                  padding: '16px 18px',
                   borderRadius: 'var(--radius-md)',
-                  background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.12) 0%, rgba(6, 182, 212, 0.08) 100%)',
-                  border: '1px solid rgba(99, 102, 241, 0.35)',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  justifyContent: 'space-between',
-                  gap: '12px'
-                }}>
-                  <div>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <div style={{
-                          width: '28px',
-                          height: '28px',
-                          borderRadius: '6px',
-                          background: 'linear-gradient(135deg, #6366f1, #06b6d4)',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          color: '#fff'
-                        }}>
-                          <Zap size={15} />
-                        </div>
-                        <span style={{ fontWeight: 700, fontSize: '0.85rem', color: 'var(--text-primary)' }}>
-                          Option 1: 1-Click Chrome Sync
-                        </span>
-                      </div>
-                      <span style={{ fontSize: '0.65rem', background: 'rgba(16, 185, 129, 0.15)', color: 'var(--accent-emerald)', padding: '2px 6px', borderRadius: '4px', fontWeight: 700 }}>
-                        RECOMMENDED
-                      </span>
-                    </div>
-                    <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', margin: 0, lineHeight: 1.4 }}>
-                      Stream the full 11MB AST directly from your open Bubble Editor in Chrome/Edge. Zero downloads or file hunting needed.
-                    </p>
-                  </div>
-
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                    <div style={{ display: 'flex', gap: '8px' }}>
-                      <button
-                        type="button"
-                        onClick={handleOpenBrowserExport}
-                        disabled={!appId}
-                        className="btn btn-primary btn-sm"
-                        style={{ flex: 1, justifyContent: 'center', gap: '6px', fontWeight: 600 }}
-                      >
-                        <ExternalLink size={13} />
-                        <span>Open in Chrome</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={handleOpenCompanionFolder}
-                        className="btn btn-secondary btn-sm"
-                        style={{ justifyContent: 'center', gap: '5px', fontSize: '0.75rem', padding: '0 10px' }}
-                        title="Install Companion Extension in Chrome (Takes 15s)"
-                      >
-                        <FolderOpen size={13} />
-                        <span>Install Companion</span>
-                      </button>
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.7rem', color: 'var(--accent-emerald)' }}>
-                      <Activity size={12} className="spin" />
-                      <span>Bridge listening on port 41890 (ready to receive AST)</span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Option 2: Browser Auto-Export (Auto-Catch) */}
-                <div style={{
-                  padding: '14px 16px',
-                  borderRadius: 'var(--radius-md)',
-                  background: isListeningDownloads ? 'rgba(16, 185, 129, 0.08)' : 'rgba(6, 182, 212, 0.05)',
+                  background: isListeningDownloads ? 'rgba(16, 185, 129, 0.08)' : 'rgba(6, 182, 212, 0.06)',
                   border: isListeningDownloads ? '1px solid var(--accent-emerald)' : '1px solid var(--border-subtle)',
                   display: 'flex',
                   flexDirection: 'column',
                   justifyContent: 'space-between',
-                  gap: '12px',
+                  gap: '14px',
                   transition: 'all 0.2s ease'
                 }}>
                   <div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
-                      <div style={{
-                        width: '28px',
-                        height: '28px',
-                        borderRadius: '6px',
-                        background: isListeningDownloads ? 'rgba(16, 185, 129, 0.2)' : 'rgba(6, 182, 212, 0.2)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        color: isListeningDownloads ? 'var(--accent-emerald)' : 'var(--accent-cyan)'
-                      }}>
-                        <Globe size={15} />
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <div style={{
+                          width: '30px',
+                          height: '30px',
+                          borderRadius: '8px',
+                          background: isListeningDownloads ? 'rgba(16, 185, 129, 0.2)' : 'rgba(6, 182, 212, 0.2)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          color: isListeningDownloads ? 'var(--accent-emerald)' : 'var(--accent-cyan)'
+                        }}>
+                          <Globe size={16} />
+                        </div>
+                        <span style={{ fontWeight: 700, fontSize: '0.875rem', color: 'var(--text-primary)' }}>
+                          Method 1: Local Auto-Detect
+                        </span>
                       </div>
-                      <span style={{ fontWeight: 700, fontSize: '0.85rem', color: 'var(--text-primary)' }}>
-                        Option 2: Browser Auto-Catch
+                      <span style={{ fontSize: '0.65rem', background: 'rgba(6, 182, 212, 0.15)', color: 'var(--accent-cyan)', padding: '2px 8px', borderRadius: '4px', fontWeight: 700 }}>
+                        FREE / ZERO-SETUP
                       </span>
                     </div>
-                    <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', margin: 0, lineHeight: 1.4 }}>
-                      Opens Settings &gt; General in your browser. When you click "Export", Dev Studio automatically detects and imports the .bubble file.
+                    <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', margin: 0, lineHeight: 1.5 }}>
+                      Click below to open <strong>Settings &gt; General</strong> in your browser. Click <strong>"Export application"</strong> and Dev Studio automatically detects, catches and imports the <code>.bubble</code> file from Downloads!
                     </p>
                   </div>
 
@@ -1547,150 +1467,121 @@ export const ConnectAppModal: React.FC<ConnectAppModalProps> = ({
                     type="button"
                     onClick={handleOpenBrowserExport}
                     disabled={!appId}
-                    className="btn btn-secondary btn-sm"
+                    className="btn btn-primary btn-sm"
                     style={{
                       width: '100%',
                       justifyContent: 'center',
-                      gap: '6px',
-                      borderColor: isListeningDownloads ? 'var(--accent-emerald)' : 'var(--accent-cyan)'
-                    }}
-                  >
-                    <ExternalLink size={13} color={isListeningDownloads ? 'var(--accent-emerald)' : 'var(--accent-cyan)'} />
-                    <span>{isListeningDownloads ? '👂 Watching Downloads Folder...' : '🚀 Open Bubble Settings > General'}</span>
-                  </button>
-                </div>
-              </div>
-
-              {/* Option 3: Cloud Direct Sync (Buildprint Mode / Oracle Cloud Bot) */}
-              <div style={{
-                padding: '14px 16px',
-                borderRadius: 'var(--radius-md)',
-                background: 'linear-gradient(135deg, rgba(236, 72, 153, 0.08) 0%, rgba(168, 85, 247, 0.08) 100%)',
-                border: '1px solid rgba(236, 72, 153, 0.3)',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '12px',
-                transition: 'all 0.2s ease'
-              }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <div style={{
-                      width: '28px',
-                      height: '28px',
-                      borderRadius: '6px',
-                      background: 'linear-gradient(135deg, #ec4899, #a855f7)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      color: '#fff'
-                    }}>
-                      <Cloud size={15} />
-                    </div>
-                    <div>
-                      <span style={{ fontWeight: 700, fontSize: '0.85rem', color: 'var(--text-primary)' }}>
-                        Option 3: Cloud Direct Sync (Buildprint Mode)
-                      </span>
-                      <p style={{ fontSize: '0.725rem', color: 'var(--text-secondary)', margin: '2px 0 0 0' }}>
-                        Sync 24/7 cloud-to-cloud via your Oracle VM collaborator bot. Zero browser interaction required.
-                      </p>
-                    </div>
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span style={{ fontSize: '0.65rem', background: 'rgba(236, 72, 153, 0.15)', color: '#f472b6', padding: '2px 6px', borderRadius: '4px', fontWeight: 700 }}>
-                      PRO / CLOUD BOT
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => setIsCloudExpanded(!isCloudExpanded)}
-                      className="btn btn-ghost btn-xs"
-                      style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}
-                    >
-                      {isCloudExpanded ? 'Hide Settings' : 'Configure Server'}
-                    </button>
-                  </div>
-                </div>
-
-                {isCloudExpanded && (
-                  <div style={{
-                    padding: '10px 12px',
-                    borderRadius: 'var(--radius-sm)',
-                    background: 'rgba(0, 0, 0, 0.25)',
-                    border: '1px solid rgba(255, 255, 255, 0.08)',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: '10px'
-                  }}>
-                    <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '10px' }}>
-                      <div>
-                        <label style={{ fontSize: '0.7rem', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>
-                          Oracle Cloud / Server URL:
-                        </label>
-                        <input
-                          type="text"
-                          value={cloudServerUrl}
-                          onChange={(e) => setCloudServerUrl(e.target.value)}
-                          placeholder="http://your-oracle-ip:8080"
-                          className="input-text input-sm"
-                          style={{ width: '100%', fontSize: '0.75rem', fontFamily: 'monospace' }}
-                        />
-                      </div>
-                      <div>
-                        <label style={{ fontSize: '0.7rem', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>
-                          Branch:
-                        </label>
-                        <input
-                          type="text"
-                          value={cloudBranch}
-                          onChange={(e) => setCloudBranch(e.target.value)}
-                          placeholder="test"
-                          className="input-text input-sm"
-                          style={{ width: '100%', fontSize: '0.75rem', fontFamily: 'monospace' }}
-                        />
-                      </div>
-                    </div>
-
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.7rem' }}>
-                        <span style={{
-                          width: '8px',
-                          height: '8px',
-                          borderRadius: '50%',
-                          background: cloudServerStatus === 'online' ? 'var(--accent-emerald)' : cloudServerStatus === 'offline' ? '#ef4444' : 'var(--text-muted)'
-                        }} />
-                        <span style={{ color: 'var(--text-secondary)' }}>
-                          {cloudServerStatus === 'online' ? 'Bot Server Online' : cloudServerStatus === 'offline' ? 'Server Unreachable' : 'Server not tested'}
-                        </span>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={handleCheckCloudHealth}
-                        className="btn btn-secondary btn-xs"
-                        style={{ fontSize: '0.7rem', padding: '2px 8px' }}
-                      >
-                        Ping Server
-                      </button>
-                    </div>
-                  </div>
-                )}
-
-                <div style={{ display: 'flex', gap: '8px' }}>
-                  <button
-                    type="button"
-                    onClick={handleCloudSync}
-                    disabled={isCloudSyncing || !appId}
-                    className="btn btn-primary btn-sm"
-                    style={{
-                      flex: 1,
-                      justifyContent: 'center',
-                      gap: '6px',
+                      gap: '8px',
                       fontWeight: 600,
-                      background: 'linear-gradient(135deg, #ec4899 0%, #a855f7 100%)',
+                      background: isListeningDownloads ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)' : 'linear-gradient(135deg, #06b6d4 0%, #3b82f6 100%)',
                       borderColor: 'transparent'
                     }}
                   >
-                    <Cloud size={14} className={isCloudSyncing ? 'spin' : ''} />
-                    <span>{isCloudSyncing ? 'Syncing with Oracle Cloud...' : '⚡ Sync from Cloud'}</span>
+                    <ExternalLink size={14} />
+                    <span>{isListeningDownloads ? '👂 Watching Downloads Folder...' : '🚀 Open Bubble Settings > General'}</span>
                   </button>
+                </div>
+
+                {/* Method 2: Cloud Direct Sync (Oracle / Buildprint Mode) */}
+                <div style={{
+                  padding: '16px 18px',
+                  borderRadius: 'var(--radius-md)',
+                  background: 'linear-gradient(135deg, rgba(236, 72, 153, 0.08) 0%, rgba(168, 85, 247, 0.08) 100%)',
+                  border: '1px solid rgba(236, 72, 153, 0.3)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'space-between',
+                  gap: '14px',
+                  transition: 'all 0.2s ease'
+                }}>
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <div style={{
+                          width: '30px',
+                          height: '30px',
+                          borderRadius: '8px',
+                          background: 'linear-gradient(135deg, #ec4899, #a855f7)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          color: '#fff'
+                        }}>
+                          <Cloud size={16} />
+                        </div>
+                        <span style={{ fontWeight: 700, fontSize: '0.875rem', color: 'var(--text-primary)' }}>
+                          Method 2: Cloud Direct Sync
+                        </span>
+                      </div>
+                      <span style={{ fontSize: '0.65rem', background: 'rgba(236, 72, 153, 0.15)', color: '#f472b6', padding: '2px 8px', borderRadius: '4px', fontWeight: 700 }}>
+                        MANAGED CLOUD BOT
+                      </span>
+                    </div>
+                    <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', margin: '0 0 10px 0', lineHeight: 1.4 }}>
+                      Direct cloud-to-cloud sync via our official Bubble Dev Studio Agent. Zero browser interaction or file hunting.
+                    </p>
+
+                    <div style={{
+                      padding: '8px 10px',
+                      borderRadius: 'var(--radius-sm)',
+                      background: 'rgba(0, 0, 0, 0.25)',
+                      border: '1px solid rgba(255, 255, 255, 0.08)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      gap: '8px'
+                    }}>
+                      <div style={{ minWidth: 0 }}>
+                        <span style={{ fontSize: '0.675rem', color: 'var(--text-muted)', display: 'block' }}>
+                          1. Invite Collaborator in Bubble (Settings &gt; Collaboration):
+                        </span>
+                        <code style={{ fontSize: '0.75rem', color: '#f472b6', fontWeight: 600 }}>
+                          {CLOUD_SYNC_CONFIG.botEmail}
+                        </code>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleCopyAgentEmail}
+                        className="btn btn-secondary btn-xs"
+                        style={{ padding: '3px 8px', fontSize: '0.7rem', gap: '4px', flexShrink: 0 }}
+                        title="Copy email to clipboard"
+                      >
+                        <Copy size={11} />
+                        <span>Copy</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <div style={{ width: '85px', flexShrink: 0 }}>
+                      <input
+                        type="text"
+                        value={cloudBranch}
+                        onChange={(e) => setCloudBranch(e.target.value)}
+                        placeholder="test"
+                        title="Bubble Branch (default: test)"
+                        className="input-text input-sm"
+                        style={{ width: '100%', fontSize: '0.75rem', fontFamily: 'monospace', textAlign: 'center' }}
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleCloudSync}
+                      disabled={isCloudSyncing || !appId}
+                      className="btn btn-primary btn-sm"
+                      style={{
+                        flex: 1,
+                        justifyContent: 'center',
+                        gap: '8px',
+                        fontWeight: 600,
+                        background: 'linear-gradient(135deg, #ec4899 0%, #a855f7 100%)',
+                        borderColor: 'transparent'
+                      }}
+                    >
+                      <Cloud size={14} className={isCloudSyncing ? 'spin' : ''} />
+                      <span>{isCloudSyncing ? 'Syncing via Cloud Agent...' : '⚡ 1-Click Cloud Sync'}</span>
+                    </button>
+                  </div>
                 </div>
               </div>
 
