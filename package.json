@@ -114,6 +114,7 @@
     },
     "win": {
       "icon": "build/icon.ico",
+      "artifactName": "Bubble.io-Dev-Studio-${version}.${ext}",
       "target": [
         {
           "target": "nsis",
@@ -129,9 +130,19 @@
         }
       ]
     },
+    "mac": {
+      "icon": "build/icon.png",
+      "category": "public.app-category.developer-tools",
+      "artifactName": "Bubble.io-Dev-Studio-${version}-${arch}.${ext}",
+      "target": [
+        "dmg",
+        "zip"
+      ]
+    },
     "linux": {
       "icon": "build/icon.png",
       "maintainer": "Alexandr Motologa <alexandr@mtlglabs.space>",
+      "artifactName": "Bubble.io-Dev-Studio-${version}.${ext}",
       "target": [
         "AppImage",
         "deb"
@@ -143,7 +154,8 @@
       "runAfterFinish": true,
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
-      "createStartMenuShortcut": true
+      "createStartMenuShortcut": true,
+      "artifactName": "Bubble.io-Dev-Studio-Setup-${version}.${ext}"
     }
   }
 }
