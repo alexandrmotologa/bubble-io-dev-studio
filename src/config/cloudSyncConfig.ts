@@ -1,6 +1,6 @@
 export const CLOUD_SYNC_CONFIG = {
-  // Official Oracle Cloud Managed Backend Endpoint
-  defaultServerUrl: 'http://158.178.147.13:8080',
+  // Official Dedicated Cloud Managed Backend Gateway (Secure HTTPS)
+  defaultServerUrl: 'https://bubble-cloud-sync-mtlg-dev.vercel.app',
   
   // Official Collaborator Bot Account to be invited in Bubble Settings > Collaboration
   botEmail: 'bubbledevstudio.bot@gmail.com',
