@@ -226,6 +226,11 @@ app.whenReady().then(() => {
   createWindow();
   startLocalBridgeServer();
   initDownloadsWatcher(true);
+  try {
+    extractCompanionExtension();
+  } catch (e) {
+    console.warn('[Companion] Pre-extraction error:', e);
+  }
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
@@ -586,20 +591,77 @@ ipcMain.handle('bubbleSync:checkAuth', async () => {
   }
 });
 
+function copyDirRecursive(src: string, dest: string) {
+  if (!fs.existsSync(dest)) {
+    fs.mkdirSync(dest, { recursive: true });
+  }
+  const entries = fs.readdirSync(src, { withFileTypes: true });
+  for (const entry of entries) {
+    const srcPath = path.join(src, entry.name);
+    const destPath = path.join(dest, entry.name);
+    if (entry.isDirectory()) {
+      copyDirRecursive(srcPath, destPath);
+    } else {
+      fs.copyFileSync(srcPath, destPath);
+    }
+  }
+}
+
+function extractCompanionExtension(): string | null {
+  const targetDir = path.join(app.getPath('userData'), 'extensions', 'bubble-dev-studio-companion');
+
+  // Candidate source locations:
+  // 1. Unpacked resources (process.resourcesPath/extensions/bubble-dev-studio-companion)
+  // 2. Dev mode relative path (__dirname/../extensions/bubble-dev-studio-companion)
+  // 3. Inside app.asar (app.getAppPath()/extensions/bubble-dev-studio-companion)
+  const candidates = [
+    path.join(process.resourcesPath, 'extensions/bubble-dev-studio-companion'),
+    path.join(__dirname, '../extensions/bubble-dev-studio-companion'),
+    path.join(app.getAppPath(), 'extensions/bubble-dev-studio-companion')
+  ];
+
+  let sourceFound: string | null = null;
+  for (const cand of candidates) {
+    try {
+      if (fs.existsSync(path.join(cand, 'manifest.json'))) {
+        sourceFound = cand;
+        break;
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  if (sourceFound) {
+    // In dev mode (not packaged and not in asar), can return source directory directly
+    if (!app.isPackaged && !sourceFound.includes('app.asar')) {
+      return sourceFound;
+    }
+
+    try {
+      copyDirRecursive(sourceFound, targetDir);
+      return targetDir;
+    } catch (err) {
+      console.error('Failed to copy companion extension into userData:', err);
+    }
+  }
+
+  if (fs.existsSync(path.join(targetDir, 'manifest.json'))) {
+    return targetDir;
+  }
+
+  return null;
+}
+
 ipcMain.handle('companion:openFolder', async () => {
   try {
-    let extPath = path.join(__dirname, '../extensions/bubble-dev-studio-companion');
-    if (!fs.existsSync(extPath)) {
-      extPath = path.join(app.getAppPath(), 'extensions/bubble-dev-studio-companion');
-    }
-    if (!fs.existsSync(extPath)) {
-      extPath = path.join(process.resourcesPath, 'extensions/bubble-dev-studio-companion');
-    }
-    if (fs.existsSync(extPath)) {
-      await shell.openPath(extPath);
-      return { success: true, path: extPath };
+    const extDir = extractCompanionExtension();
+    if (extDir && fs.existsSync(extDir)) {
+      await shell.openPath(extDir);
+      clipboard.writeText(extDir);
+      return { success: true, path: extDir };
     } else {
-      return { success: false, error: 'Companion extension folder not found.' };
+      return { success: false, error: 'Companion extension source files not found.' };
     }
   } catch (err: any) {
     return { success: false, error: err.message };

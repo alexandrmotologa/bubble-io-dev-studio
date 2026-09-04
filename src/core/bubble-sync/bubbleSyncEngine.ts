@@ -64,7 +64,10 @@ export class BubbleSyncEngine {
     if (typeof window !== 'undefined' && (window.electronAPI as any)?.companionOpenFolder) {
       const res = await (window.electronAPI as any).companionOpenFolder();
       if (res.success) {
-        toast.info('Opened Companion Extension folder in File Explorer.');
+        if (res.path && typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+          navigator.clipboard.writeText(res.path).catch(() => {});
+        }
+        toast.info('Opened Companion folder in Explorer! Path copied to clipboard.\nIn Chrome: chrome://extensions -> Developer Mode -> Load unpacked.');
         return true;
       } else {
         toast.error('Could not open extension folder: ' + res.error);
