@@ -310,7 +310,7 @@ export class BubbleSyncEngine {
       const stats = result.stats || this.calculateBlueprintStats(result.data);
       toast.success(`✨ Cloud Sync completed! (${stats.pagesCount} Pages, ${stats.workflowsCount} Workflows)`);
 
-      const fileName = `${appId}-${branch}-cloud-sync.bubble`;
+      const fileName = `${appId}-cloud-sync.bubble`;
 
       // Auto-save a local copy to Downloads folder if running in Electron
       if (typeof window !== 'undefined' && window.electronAPI?.bubbleSyncExportBlueprintToDisk) {

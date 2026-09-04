@@ -787,7 +787,7 @@ ipcMain.handle('bubbleSync:exportBlueprintToDisk', async (_event, { fileName, da
     const downloadsDir = app.getPath('downloads');
     const safeName = fileName || `bubble_export_${Date.now()}.bubble`;
     const targetPath = path.join(downloadsDir, safeName);
-    fs.writeFileSync(targetPath, JSON.stringify(data, null, 2), 'utf8');
+    fs.writeFileSync(targetPath, JSON.stringify(data), 'utf8');
     shell.showItemInFolder(targetPath);
     return { success: true, filePath: targetPath };
   } catch (err: any) {
