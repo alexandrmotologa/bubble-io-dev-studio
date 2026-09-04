@@ -1,6 +1,6 @@
 # 🚀 Bubble.io Dev Studio
 
-[![Version](https://img.shields.io/badge/Version-3.3.8-brightgreen.svg)]()
+[![Version](https://img.shields.io/badge/Version-3.3.9-brightgreen.svg)]()
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.7-blue.svg?style=flat&logo=typescript)](https://www.typescriptlang.org/)
 [![Electron](https://img.shields.io/badge/Electron-34-47848F.svg?style=flat&logo=electron)](https://www.electronjs.org/)
 [![React](https://img.shields.io/badge/React-18-61DAFB.svg?style=flat&logo=react)](https://react.dev/)
@@ -12,17 +12,17 @@
 
 ---
 
-## 📥 Download Desktop App (v3.3.8 Pre-Built Binaries)
+## 📥 Download Desktop App (v3.3.9 Pre-Built Binaries)
 
 For developers and teams who want to run the desktop application directly without compiling from source:
 
-| Platform | Download Link (v3.3.8 Production Stable) | Package Format | Architecture |
+| Platform | Download Link (v3.3.9 Production Stable) | Package Format | Architecture |
 | :--- | :--- | :--- | :--- |
-| **🪟 Windows** | [**Bubble.io-Dev-Studio-Setup-3.3.8.exe**](https://github.com/alexandrmotologa/bubble-io-dev-studio/releases/download/v3.3.8/Bubble.io-Dev-Studio-Setup-3.3.8.exe) • [Portable .exe](https://github.com/alexandrmotologa/bubble-io-dev-studio/releases/download/v3.3.8/Bubble.io-Dev-Studio-3.3.8.exe) | NSIS Setup / Portable | x64 |
-| **🍎 macOS** | [**Bubble.io-Dev-Studio-3.3.8.dmg**](https://github.com/alexandrmotologa/bubble-io-dev-studio/releases/download/v3.3.8/Bubble.io-Dev-Studio-3.3.8.dmg) • [.zip](https://github.com/alexandrmotologa/bubble-io-dev-studio/releases/download/v3.3.8/Bubble.io-Dev-Studio-3.3.8-mac.zip) | Apple Disk Image / ZIP | Apple Silicon (M1–M4) & Intel |
-| **🐧 Linux** | [**Bubble.io-Dev-Studio-3.3.8.AppImage**](https://github.com/alexandrmotologa/bubble-io-dev-studio/releases/download/v3.3.8/Bubble.io-Dev-Studio-3.3.8.AppImage) | AppImage format | x64 |
+| **🪟 Windows** | [**Bubble.io-Dev-Studio-Setup-3.3.9.exe**](https://github.com/alexandrmotologa/bubble-io-dev-studio/releases/download/v3.3.9/Bubble.io-Dev-Studio-Setup-3.3.9.exe) • [Portable .exe](https://github.com/alexandrmotologa/bubble-io-dev-studio/releases/download/v3.3.9/Bubble.io-Dev-Studio-3.3.9.exe) | NSIS Setup / Portable | x64 |
+| **🍎 macOS** | [**Bubble.io-Dev-Studio-3.3.9.dmg**](https://github.com/alexandrmotologa/bubble-io-dev-studio/releases/download/v3.3.9/Bubble.io-Dev-Studio-3.3.9.dmg) • [.zip](https://github.com/alexandrmotologa/bubble-io-dev-studio/releases/download/v3.3.9/Bubble.io-Dev-Studio-3.3.9-mac.zip) | Apple Disk Image / ZIP | Apple Silicon (M1–M4) & Intel |
+| **🐧 Linux** | [**Bubble.io-Dev-Studio-3.3.9.AppImage**](https://github.com/alexandrmotologa/bubble-io-dev-studio/releases/download/v3.3.9/Bubble.io-Dev-Studio-3.3.9.AppImage) | AppImage format | x64 |
 
-> 🚀 **GitHub Release Hub**: [**View Official v3.3.8 Release & Changelog on GitHub**](https://github.com/alexandrmotologa/bubble-io-dev-studio/releases/tag/v3.3.8) | [Latest Release](https://github.com/alexandrmotologa/bubble-io-dev-studio/releases/latest)
+> 🚀 **GitHub Release Hub**: [**View Official v3.3.9 Release & Changelog on GitHub**](https://github.com/alexandrmotologa/bubble-io-dev-studio/releases/tag/v3.3.9) | [Latest Release](https://github.com/alexandrmotologa/bubble-io-dev-studio/releases/latest)
 >
 > 💡 **First-Time Windows Installation Note**: Because this is an open-source/indie release that is not signed with an enterprise EV certificate, Windows SmartScreen may show a prompt saying *"Windows protected your PC"*. Simply click **"More info"** ➔ **"Run anyway"** to launch the installer.
 
@@ -194,7 +194,7 @@ Bubble.io Dev Studio supports **3 streamlined synchronization pathways** to inge
 ### 11. 🔄 Native Auto-Update & Zero-Data-Loss Relaunch
 * **Seamless Distribution**: Powered by `electron-updater` and connected to official GitHub Releases (`alexandrmotologa/bubble-io-dev-studio`).
 * **Live Progress Tracking**: Displays real-time download speed (MB/s) and percentage.
-* **Sticky Relaunch Button**: Prominent `[ Restart & Install v3.3.8 ]` button invokes `autoUpdater.quitAndInstall(false, true)`.
+* **Persistent Update Prompt with Restart Later**: Displays a sleek persistent prompt with **"Restart Now"** or **"Restart Later"** options so active developer workflows are never interrupted.
 * **Zero Data Loss Guarantee**: App executable binaries reside in `%LOCALAPPDATA%\Programs\bubble-io-dev-studio\`, while all user workspaces, API keys, database snapshots, and IndexedDB stores reside in `%APPDATA%\bubble-io-dev-studio\` and remain 100% intact across updates.
 
 ---
