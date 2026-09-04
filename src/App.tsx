@@ -20,6 +20,7 @@ import { SettingsView } from './views/SettingsView';
 import { DocGenView } from './views/DocGenView';
 import { AiCopilotModal } from './components/AiCopilotModal';
 import { ToastContainer } from './components/ToastContainer';
+import { UpdatePromptModal } from './components/UpdatePromptModal';
 import { toast } from './core/toast/toastManager';
 import { DevOpsEngine } from './core/devops/devopsEngine';
 import { AuditEngine } from './core/audit/auditEngine';
@@ -43,6 +44,13 @@ export const App: React.FC = () => {
   const [healthScore, setHealthScore] = useState<number | null>(null);
   const [healthGrade, setHealthGrade] = useState<string | null>(null);
   const [hasUpdateAvailable, setHasUpdateAvailable] = useState(false);
+
+  // Persistent Update Prompt State
+  const [pendingUpdate, setPendingUpdate] = useState<{
+    version: string;
+    releaseNotes?: string;
+  } | null>(null);
+  const [isUpdateDismissed, setIsUpdateDismissed] = useState(false);
 
   // Apply theme to document
   useEffect(() => {
@@ -116,21 +124,11 @@ export const App: React.FC = () => {
           setHasUpdateAvailable(true);
         }
         if (payload?.status === 'downloaded') {
-          toast.success(
-            'Update Ready to Install',
-            `Version v${payload.version || ''} has been downloaded. Restart now to apply update and reopen automatically.`,
-            {
-              label: 'Restart Now',
-              onClick: () => {
-                if ((window as any).electronAPI?.installUpdate) {
-                  (window as any).electronAPI.installUpdate();
-                } else if ((window as any).electronAPI?.sendToMain) {
-                  (window as any).electronAPI.sendToMain('updater:install');
-                }
-              }
-            },
-            Infinity
-          );
+          setPendingUpdate({
+            version: payload.version || '',
+            releaseNotes: payload.releaseNotes || ''
+          });
+          setIsUpdateDismissed(false);
         }
       });
       return () => {
@@ -140,6 +138,31 @@ export const App: React.FC = () => {
       };
     }
   }, []);
+
+  // Automatically check for updates on startup
+  useEffect(() => {
+    if (typeof window !== 'undefined' && (window as any).electronAPI?.checkForUpdates) {
+      (window as any).electronAPI.checkForUpdates().catch((err: any) => {
+        console.log('[App] Startup auto-check for updates completed:', err?.message || err);
+      });
+    }
+  }, []);
+
+  const handleRestartNow = () => {
+    if (typeof window !== 'undefined' && (window as any).electronAPI?.installUpdate) {
+      (window as any).electronAPI.installUpdate();
+    } else if (typeof window !== 'undefined' && (window as any).electronAPI?.sendToMain) {
+      (window as any).electronAPI.sendToMain('updater:install');
+    }
+  };
+
+  const handleRestartLater = () => {
+    setIsUpdateDismissed(true);
+    toast.info(
+      'Update Deferred',
+      'The update is ready and will install automatically when you close the application.'
+    );
+  };
 
   // Initial welcome log & check if first run onboarding is needed
   useEffect(() => {
@@ -553,6 +576,16 @@ export const App: React.FC = () => {
 
       {/* Global Interactive Toast Notification Container */}
       <ToastContainer />
+
+      {/* Persistent In-App Update Prompt Modal */}
+      {pendingUpdate && !isUpdateDismissed && (
+        <UpdatePromptModal
+          version={pendingUpdate.version}
+          releaseNotes={pendingUpdate.releaseNotes}
+          onRestartNow={handleRestartNow}
+          onRestartLater={handleRestartLater}
+        />
+      )}
     </div>
   );
 };

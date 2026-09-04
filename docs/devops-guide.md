@@ -15,10 +15,9 @@ To provide a clean, distraction-free workflow, the module is organized into **4 
 │ 📊 Data Studio     │ 📑 Schema & Flow   │ 💾 Backups & DevOps│ 🛠️ Dev Tools & CI/CD   │
 │   • Live Data Grid │   • Schema Explorer│   • Selective Back │   • 4x CI/CD Presets    │
 │   • REPL Query     │   • 1-Click Cloud  │   • SHA-256 Hashes │   • Multi-SQL Migration │
-│   • Relational Seed│   • Companion Ext  │   • Snapshots Diff │   • SDK Scaffolder      │
-│   • CSV/JSON Import│   • Downloads Watch│   • Down Rollbacks │   • Mock API & Trigger  │
-│                    │   • Interactive ERD│   • Dev vs Live    │                         │
-│                    │   • Step Flowchart │                    │                         │
+│   • Relational Seed│   • Downloads Watch│   • Snapshots Diff │   • SDK Scaffolder      │
+│   • CSV/JSON Import│   • Interactive ERD│   • Down Rollbacks │   • Mock API & Trigger  │
+│                    │   • Step Flowchart │   • Dev vs Live    │                         │
 │                    │   • TypeScript/Zod │                    │                         │
 └────────────────────┴────────────────────┴────────────────────┴─────────────────────────┘
 ```
@@ -45,19 +44,16 @@ To provide a clean, distraction-free workflow, the module is organized into **4 
 ## 2. Domain 2: Schema & Flow (`Architecture & Types`)
 
 ### ⚡ Complete Application Blueprint Synchronization
-Dev Studio provides 4 ingestion pathways to synchronize your application structure:
+Dev Studio provides 3 ingestion pathways to synchronize your application structure:
 
 1. **⚡ 1-Click Cloud Direct Sync**:
-   - Uses our Oracle Cloud microservice and collaborator bot (`bubbledevstudio.bot@gmail.com`).
+   - Uses our dedicated microservice and collaborator bot (`bubbledevstudio.bot@gmail.com`).
    - Retrieves the full AST via Bubble's official export protocol.
    - Automatically writes a compact JSON file to `~/Downloads/[appId]-cloud-sync.bubble` (~10.8 MB).
-2. **🔌 Browser Companion Extension**:
-   - Injects a floating sync button inside the Bubble Editor.
-   - Streams live AST directly to local port `41890`.
-3. **📁 Downloads Folder Auto-Watcher**:
+2. **📁 Downloads Folder Auto-Watcher**:
    - Monitors `~/Downloads` for `.bubble` or `.json` files exported from Bubble *Settings ➔ General*.
    - Auto-attaches and parses newly detected exports without manual file picking.
-4. **📄 Manual File Import**:
+3. **📄 Manual File Import**:
    - Drag-and-drop or select any existing `.bubble` or `.json` file from your hard drive.
 
 ### 📑 Schema Explorer & Option Sets

@@ -40,7 +40,7 @@ export class BubbleSyncEngine {
    * Safe login helper
    */
   public static async login(): Promise<BubbleAuthStatus> {
-    toast.info('Please use the Bubble Dev Studio Companion Chrome extension for seamless authentication.');
+    toast.info('Please use 1-Click Cloud Sync or export your .bubble file.');
     return { isAuthenticated: false };
   }
 
@@ -53,28 +53,6 @@ export class BubbleSyncEngine {
       toast.info('Disconnected Bubble.io session');
       return true;
     }
-    return false;
-  }
-
-  /**
-   * Opens the unpacked Chrome Companion Extension folder in Windows Explorer / Finder
-   * so the user can click "Load unpacked" in chrome://extensions.
-   */
-  public static async openCompanionFolder(): Promise<boolean> {
-    if (typeof window !== 'undefined' && (window.electronAPI as any)?.companionOpenFolder) {
-      const res = await (window.electronAPI as any).companionOpenFolder();
-      if (res.success) {
-        if (res.path && typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
-          navigator.clipboard.writeText(res.path).catch(() => {});
-        }
-        toast.info('Opened Companion folder in Explorer! Path copied to clipboard.\nIn Chrome: chrome://extensions -> Developer Mode -> Load unpacked.');
-        return true;
-      } else {
-        toast.error('Could not open extension folder: ' + res.error);
-        return false;
-      }
-    }
-    toast.error('Companion installation is supported in Desktop App.');
     return false;
   }
 
@@ -119,7 +97,7 @@ export class BubbleSyncEngine {
       window.open(editorUrl, '_blank', 'noopener,noreferrer');
     }
 
-    toast.info('Opened Bubble in your browser. Use the Companion extension or click "Export" under Settings > General.');
+    toast.info('Opened Bubble in your browser. Click "Export" under Settings > General to download your blueprint.');
     return true;
   }
 
@@ -345,7 +323,7 @@ export class BubbleSyncEngine {
     project: ProjectProfile,
     onProgress?: (message: string) => void
   ): Promise<BubbleSyncResult> {
-    onProgress?.('Syncing via Bubble Companion or Downloads folder...');
+    onProgress?.('Checking recent downloads or cloud exports...');
     const recent = await this.checkRecentDownloads(project.appId);
     if (recent.found && recent.content) {
       return {

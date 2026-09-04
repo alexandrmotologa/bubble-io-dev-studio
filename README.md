@@ -68,20 +68,19 @@ For developers and teams who want to run the desktop application directly withou
 │ 🌐 AI Translation │ 📸 Visual QA      │ 🔌 Webhooks & SDK │ 📚 DocGen Book    │ ⚡ Cloud Sync   │
 │   • 7x AI Models  │   • Pixel Diff    │   • Webhook Logs  │   • Data Dict     │   • Bot Direct  │
 │   • Memory Cache  │   • Basic Auth    │   • cURL to Bubble│   • Markdown/HTML │   • Downloads   │
-│   • Bubble CSV    │   • Viewports     │   • Plugin Action │   • PDF Print     │   • Companion   │
+│   • Bubble CSV    │   • Viewports     │   • Plugin Action │   • PDF Print     │   • Auto-Watcher│
 └───────────────────┴───────────────────┴───────────────────┴───────────────────┴─────────────────┘
 ```
 
 ---
 
-## ⚡ Complete Blueprint Synchronization Matrix
+## ⚡ Application Blueprint Synchronization Matrix
 
-Bubble.io Dev Studio supports **4 versatile synchronization pathways** to ingest your application's AST (UI elements, workflows, pages, and database schemas) into the desktop workspace:
+Bubble.io Dev Studio supports **3 streamlined synchronization pathways** to ingest your application's AST (UI elements, workflows, pages, and database schemas) into the desktop workspace:
 
 | Method | Mechanism | Prerequisites | Setup Effort | Target Use Case |
 | :--- | :--- | :--- | :---: | :--- |
-| **⚡ 1-Click Cloud Direct Sync** | Dedicated Oracle Cloud VM microservice (`158.178.147.13:8080`) communicates via our collaborator bot (`bubbledevstudio.bot@gmail.com`). | Invite bot under Bubble *Settings ➔ Collaboration*. | ~30 seconds | Automated 1-click cloud sync without leaving the desktop IDE. |
-| **🔌 Companion Extension** | Unpacked Chrome / Edge extension with floating "⚡ Sync to Dev Studio" button streaming to local port `41890`. | Google Chrome or Microsoft Edge. | ~15 seconds | Instant sync for apps on Bubble Free or Paid plans. |
+| **⚡ 1-Click Cloud Direct Sync** | Dedicated Cloud Sync microservice communicates via our collaborator bot (`bubbledevstudio.bot@gmail.com`). | Invite bot under Bubble *Settings ➔ Collaboration*. | ~30 seconds | Automated 1-click cloud sync without leaving the desktop IDE. |
 | **📁 Local Auto-Detect Watcher** | Dev Studio background file watcher monitoring the OS `~/Downloads` directory. | None. Click *"Export application"* in Bubble *Settings ➔ General*. | Zero setup | Zero-configuration auto-import when manually exporting in browser. |
 | **📄 Manual File Import** | Built-in drag-and-drop file dropzone. | Existing `.bubble` or `.json` file on disk. | Zero setup | Completely offline environments and historical version diffs. |
 
@@ -124,7 +123,7 @@ Bubble.io Dev Studio supports **4 versatile synchronization pathways** to ingest
 ## ✨ Core Features & Capabilities
 
 ### 1. ⚡ 1-Click Cloud Direct Sync & Collaborator Bot
-* **Autonomous Microservice**: Hosted on a secure, high-availability Oracle Cloud Infrastructure (OCI) VM (`158.178.147.13:8080`).
+* **Autonomous Microservice**: Hosted on a secure, dedicated Cloud Infrastructure microservice.
 * **Official Export Protocol Priority**: Extracts application definitions directly via `https://bubble.io/appeditor/export/${branch}/${appId}.bubble`, providing 100% full AST fidelity (all pages, workflows, UI elements, and data models).
 * **Compact Storage Optimization**: Files are saved directly to `~/Downloads/[appId]-cloud-sync.bubble` as compact JSON (~10.8 MB instead of 29.4 MB formatted), matching Bubble's official export size byte-for-byte.
 * **Strict Security & Zero Data Leakage**: The bot **never** reads, queries, or touches live user records from your database. Bot session credentials reside in an isolated `.env` file on the private VM, protected by IP-based rate limiting (30 req / 15 min).
@@ -236,8 +235,7 @@ Explore detailed engineering specifications and user manuals in the [`docs/`](do
 * **Styling**: Native High-Performance CSS Variables & Modern Glassmorphism
 * **Visual Graph Engines**: [Mermaid.js](https://mermaid.js.org/) (Interactive SVG Zoom & Flowcharts) + [Lucide Icons](https://lucide.dev/)
 * **Local Persistence**: IndexedDB (Backups, Snapshots, Translation Memory) + LocalStorage (Project Store)
-* **Cloud Sync Microservice**: Node.js 20+ Express Microservice on Oracle Cloud Infrastructure
-* **Companion Extension**: Chrome Manifest V3 Extension with Local HTTP Bridge (`127.0.0.1:41890`)
+* **Cloud Sync Microservice**: Node.js 20+ Express Microservice on Cloud Infrastructure
 * **Distribution & Updates**: `electron-updater` + GitHub Releases CI/CD
 
 ---

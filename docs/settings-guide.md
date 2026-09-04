@@ -14,7 +14,7 @@ The **Settings & Integrations Hub** manages multi-provider AI credentials, Bubbl
 │   • 7x Providers   │   • 5-Step Wizard  │   • Themes (2x)    │   • Auto-Updater        │
 │   • Local Ollama   │   • Cloud Sync     │   • Auto Reports   │   • Zero-Loss Relaunch  │
 │   • Latency Ping   │   • Downloads Watch│   • Storage Purge  │   • System Diagnostics  │
-│   • Model Select   │   • Companion Ext  │                    │   • Diagnostic Bundle   │
+│   • Model Select   │   • Manual Import  │                    │   • Diagnostic Bundle   │
 └────────────────────┴────────────────────┴────────────────────┴─────────────────────────┘
 ```
 
@@ -45,8 +45,6 @@ The **Settings & Integrations Hub** manages multi-provider AI credentials, Bubbl
     - **📁 Local Auto-Detect**: Monitors `~/Downloads` folder while you click *"Export application"* in Bubble.
     - **📄 Manual Dropzone**: Drag-and-drop `.bubble` or `.json` files directly.
   - **Step 5: Pre-Flight Checklist & Launch**: Complete verification summary before opening workspace.
-- **Browser Companion Extension**:
-  - Quick link to open the `extensions/bubble-dev-studio-companion` folder for loading into Chrome or Edge (`chrome://extensions`).
 - **Workspace Manager**: View all connected Bubble applications with environment badges, latency indicators, and quick-switching.
 - **Full Workspace Bundle Archive (`.bds`)**: 1-Click export and import of portable workspace configurations (schemas, credentials, snapshots, and attached blueprints).
 

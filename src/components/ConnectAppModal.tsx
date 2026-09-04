@@ -263,13 +263,6 @@ export const ConnectAppModal: React.FC<ConnectAppModalProps> = ({
   useEffect(() => {
     if (!isOpen) return;
 
-    // Listen for data sent from default browser via local bridge port 41890
-    const unsubBrowser = (window.electronAPI as any)?.onBrowserAppReceived?.((payload: any) => {
-      if (payload && payload.data) {
-        processReceivedAppData(payload.data, `${appId || 'app'}_browser_sync.bubble`);
-      }
-    });
-
     // Listen for downloaded .bubble files in Downloads folder
     const unsubFile = window.electronAPI?.onBubbleFileDetected?.((data: any) => {
       if (data && data.content) {
@@ -277,27 +270,10 @@ export const ConnectAppModal: React.FC<ConnectAppModalProps> = ({
       }
     });
 
-    // Listen for companion extension auto-export trigger notification
-    const unsubExportTriggered = (window.electronAPI as any)?.onExportTriggered?.(() => {
-      setIsListeningDownloads(true);
-      toast.info('⚡ Official Bubble export triggered from Chrome! Dev Studio is auto-catching the file...');
-      setTimeout(() => {
-        if (appId) {
-          BubbleSyncEngine.checkRecentDownloads(appId).then((res) => {
-            if (res && res.found && res.content) {
-              processReceivedAppData(res.content, res.fileName);
-            }
-          });
-        }
-      }, 1800);
-    });
-
     window.electronAPI?.bubbleSyncSetDownloadsWatcher?.(true);
 
     return () => {
-      unsubBrowser?.();
       unsubFile?.();
-      unsubExportTriggered?.();
     };
   }, [isOpen, processReceivedAppData, appId]);
 

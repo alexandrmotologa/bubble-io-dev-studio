@@ -26,7 +26,6 @@ export interface ElectronAPI {
   bubbleSyncSetDownloadsWatcher: (enabled: boolean) => Promise<boolean>;
   bubbleSyncShowInFolder: (filePath: string) => Promise<boolean>;
   bubbleSyncExportBlueprintToDisk: (fileName: string, data: any) => Promise<{ success: boolean; filePath?: string; error?: string }>;
-  companionOpenFolder: () => Promise<{ success: boolean; path?: string; error?: string }>;
   bubbleSyncCheckRecentDownloads: (appId?: string) => Promise<{
     found: boolean;
     fileName?: string;
@@ -44,8 +43,6 @@ export interface ElectronAPI {
     error?: string;
   }>;
   onBubbleFileDetected: (callback: (data: { fileName: string; content: any; stats?: any }) => void) => () => void;
-  onBrowserAppReceived: (callback: (data: { data: any; originUrl?: string; stats?: any }) => void) => () => void;
-  onExportTriggered: (callback: (data: { appId?: string; timestamp?: number }) => void) => () => void;
 }
 
 const api: ElectronAPI = {
@@ -116,9 +113,6 @@ const api: ElectronAPI = {
   bubbleSyncExportBlueprintToDisk: async (fileName: string, data: any) => {
     return ipcRenderer.invoke('bubbleSync:exportBlueprintToDisk', { fileName, data });
   },
-  companionOpenFolder: async () => {
-    return ipcRenderer.invoke('companion:openFolder');
-  },
   bubbleSyncCheckRecentDownloads: async (appId?: string) => {
     return ipcRenderer.invoke('bubbleSync:checkRecentDownloads', appId);
   },
@@ -127,20 +121,6 @@ const api: ElectronAPI = {
     ipcRenderer.on('bubbleSync:fileDetected', subscription);
     return () => {
       ipcRenderer.removeListener('bubbleSync:fileDetected', subscription);
-    };
-  },
-  onBrowserAppReceived: (callback: (data: { data: any; originUrl?: string; stats?: any }) => void) => {
-    const subscription = (_event: any, data: any) => callback(data);
-    ipcRenderer.on('bubbleSync:browserAppReceived', subscription);
-    return () => {
-      ipcRenderer.removeListener('bubbleSync:browserAppReceived', subscription);
-    };
-  },
-  onExportTriggered: (callback: (data: { appId?: string; timestamp?: number }) => void) => {
-    const subscription = (_event: any, data: any) => callback(data);
-    ipcRenderer.on('bubbleSync:exportTriggered', subscription);
-    return () => {
-      ipcRenderer.removeListener('bubbleSync:exportTriggered', subscription);
     };
   }
 };

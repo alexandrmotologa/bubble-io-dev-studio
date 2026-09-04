@@ -546,18 +546,7 @@ async function runTests() {
       failedCount++;
     }
 
-    // 3.8 Test BubbleSyncEngine.getBookmarkletCode
-    const bookmarkletCode = BubbleSyncEngine.getBookmarkletCode();
-    if (typeof bookmarkletCode === 'string' &&
-        bookmarkletCode.startsWith('javascript:') &&
-        bookmarkletCode.includes('41890') &&
-        bookmarkletCode.includes('get_json_for_export')) {
-      logPass(`BubbleSyncEngine.getBookmarkletCode generated valid 1-click sync script`);
-      passedCount++;
-    } else {
-      logFail('BubbleSyncEngine.getBookmarkletCode failed to generate valid bookmarklet', bookmarkletCode);
-      failedCount++;
-    }
+
   } catch (err) {
     logFail('Round 3 In-App Bubble Sync test exception', err);
     failedCount++;

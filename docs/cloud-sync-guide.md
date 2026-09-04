@@ -12,17 +12,17 @@ Traditionally, analyzing a Bubble application in an external IDE required develo
 3. Wait for the browser to download a `.bubble` file.
 4. Locate the file in their local `Downloads` directory and drag-and-drop it into the IDE.
 
-With **Cloud Direct Sync**, Dev Studio connects directly to our dedicated Cloud Sync Microservice (hosted on a high-availability Oracle Cloud VM) which acts as an authorized collaborator bot to fetch your application's AST in seconds.
+With **Cloud Direct Sync**, Dev Studio connects directly to our dedicated Cloud Sync Microservice which acts as an authorized collaborator bot to fetch your application's AST in seconds.
 
 ```
 ┌────────────────────────────────────────────────────────────────────────────────────────┐
 │                              Synchronization Topologies                                │
-├─────────────────────────┬─────────────────────────┬────────────────────────────────────┤
-│ ⚡ 1-Click Cloud Sync   │ 🔌 Companion Extension  │ 📁 Downloads Auto-Watcher          │
-│   • Autonomous Bot      │   • Chrome / Edge Ext   │   • Background File Watcher        │
-│   • Zero File Hunting   │   • Local Bridge (41890)│   • Listens to ~/Downloads         │
-│   • 100% Full AST       │   • 1-Click in Bubble   │   • Zero Configuration             │
-└─────────────────────────┴─────────────────────────┴────────────────────────────────────┘
+├────────────────────────────────────────┬───────────────────────────────────────────────┤
+│ ⚡ 1-Click Cloud Sync                  │ 📁 Downloads Auto-Watcher                     │
+│   • Autonomous Collaborator Bot        │   • Background File Watcher                   │
+│   • Zero File Hunting & Zero Friction  │   • Listens to OS ~/Downloads                 │
+│   • 100% Full AST Fidelity             │   • Zero Setup Required                       │
+└────────────────────────────────────────┴───────────────────────────────────────────────┘
 ```
 
 ---
@@ -49,7 +49,7 @@ To enable 1-Click Cloud Sync for any Bubble application:
 6. Click **Invite**.
 
 > [!NOTE]
-> Collaboration requires a Bubble paid plan (Starter, Growth, Team, Enterprise, or Agency plan). If your app is on the Free plan, you can use **Method 1: Local Auto-Detect (Downloads Watcher)** or the **Browser Companion Extension**, both of which work 100% free with zero plan restrictions.
+> Collaboration requires a Bubble plan with collaborator support. If your app is on the Free plan, you can use **Method 1: Local Auto-Detect (Downloads Watcher)** or **Manual File Import**, both of which work 100% free with zero plan restrictions.
 
 ---
 
@@ -57,13 +57,13 @@ To enable 1-Click Cloud Sync for any Bubble application:
 
 Once the bot is invited to your app:
 
-1. In Bubble.io Dev Studio, click **Connect Application** (or open the project settings).
+1. In Bubble.io Dev Studio, click **Connect Application** (or open project settings).
 2. Follow the wizard to **Step 4: Blueprint & Schema Export File**.
-3. Under **Method 2: Cloud Direct Sync**, click the button:
+3. Under **Method 2: Cloud Direct Sync**, click:
    ```text
    ⚡ 1-Click Cloud Sync
    ```
-4. Dev Studio communicates with the Cloud Sync Microservice at `http://158.178.147.13:8080`.
+4. Dev Studio communicates securely with the Cloud Sync Microservice.
 5. The microservice retrieves your app structure and delivers it to Dev Studio.
 6. The app is automatically parsed:
    - **Pages & Reusable Elements**
@@ -88,7 +88,7 @@ sequenceDiagram
     autonumber
     actor Dev as Developer (Desktop IDE)
     participant IDE as Dev Studio Desktop
-    participant VM as Oracle Cloud Microservice (158.178.147.13:8080)
+    participant VM as Cloud Sync Microservice
     participant Bubble as Bubble.io Editor API
 
     Dev->>IDE: Click "⚡ 1-Click Cloud Sync"
@@ -149,7 +149,7 @@ We take data privacy and intellectual property very seriously:
 | Security Question | Guarantee | Implementation |
 | :--- | :--- | :--- |
 | **Are live database records accessed?** | 🚫 **NO** | Cloud Sync **ONLY** accesses application structure (AST: UI, workflows, schemas). It **never** reads, queries, or transfers live user records or personal data from the Bubble database. |
-| **Where are bot credentials stored?** | 🔒 **Isolated on VM** | The bot session cookie (`BUBBLE_BOT_SESSION`) is stored exclusively in a secure `.env` file on our private Oracle Cloud Linux VM. It is never included in the Git repository and never exposed to the client. |
+| **Where are bot credentials stored?** | 🔒 **Isolated on VM** | The bot session cookie (`BUBBLE_BOT_SESSION`) is stored exclusively in a secure `.env` file on our private, hardened Linux VM. It is never included in the Git repository and never exposed to the client. |
 | **Are API tokens or passwords exposed?** | 🚫 **NO** | Cloud Sync does not require your Bubble Data API token or admin passwords. All API tokens entered in Dev Studio remain encrypted on your local machine using Node.js/Electron safeStorage. |
 | **Is the microservice rate-limited?** | 🛡️ **YES** | The service enforces an IP-based sliding window rate limiter: **maximum 30 requests per 15 minutes** per IP address to prevent abuse. |
 | **Can third parties access my app?** | 🔒 **NO** | Bubble's authorization model strictly ensures that only invited collaborators can access the app editor. If the bot is not invited, Bubble returns HTTP 403 / 404. You can remove the bot collaborator anytime in Bubble Settings. |
@@ -158,11 +158,10 @@ We take data privacy and intellectual property very seriously:
 
 ## 📊 Comparison of Sync Methods
 
-| Capability | ⚡ 1-Click Cloud Sync | 🔌 Companion Extension | 📁 Downloads Auto-Watcher | 📄 Manual Import |
-| :--- | :---: | :---: | :---: | :---: |
-| **Setup Time** | 30 seconds (invite bot) | 15 seconds (load unpacked) | 0 seconds (zero setup) | 0 seconds |
-| **Requires Bubble Paid Plan** | Yes (Collaboration feature) | No (Works on Free plan) | No (Works on Free plan) | No (Works on Free plan) |
-| **Manual Export in Browser** | ❌ Not needed | ❌ Not needed | ⚠️ 1-click in Bubble | ⚠️ 1-click in Bubble |
-| **Automatic AST Refresh** | ✅ Instant (1-Click) | ✅ Instant (1-Click) | ✅ Auto-caught on export | ❌ Manual re-upload |
-| **Local Port Bridge** | None | Port 41890 | None | None |
-| **Works Completely Offline** | No (Requires internet) | Yes (Local bridge) | Yes (Local filesystem) | Yes (Local filesystem) |
+| Capability | ⚡ 1-Click Cloud Sync | 📁 Downloads Auto-Watcher | 📄 Manual Import |
+| :--- | :---: | :---: | :---: |
+| **Setup Time** | 30 seconds (invite bot) | 0 seconds (zero setup) | 0 seconds |
+| **Requires Bubble Paid Plan** | Yes (Collaboration feature) | No (Works on Free plan) | No (Works on Free plan) |
+| **Manual Export in Browser** | ❌ Not needed | ⚠️ 1-click in Bubble | ⚠️ 1-click in Bubble |
+| **Automatic AST Refresh** | ✅ Instant (1-Click) | ✅ Auto-caught on export | ❌ Manual re-upload |
+| **Works Completely Offline** | No (Requires internet) | Yes (Local filesystem) | Yes (Local filesystem) |

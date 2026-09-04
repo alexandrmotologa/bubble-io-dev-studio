@@ -17,13 +17,11 @@ graph TD
     end
 
     subgraph "Cloud Synchronization Layer"
-        OVM[Oracle Cloud VM Microservice: 158.178.147.13:8080]
+        OVM[Cloud Sync Microservice]
         BOT[Collaborator Bot: bubbledevstudio.bot@gmail.com]
     end
 
-    subgraph "Local Companion & Ingestion Layer"
-        EXT[Chrome / Edge Companion Extension]
-        BS[Local Bridge Server: 127.0.0.1:41890]
+    subgraph "Local Ingestion Layer"
         DW[Downloads Folder Watcher: ~/Downloads/*.bubble]
     end
 
@@ -64,8 +62,6 @@ graph TD
     BE_EXP --> BOT
     BOT --> OVM
     OVM -->|POST /v1/sync| IPC
-    EXT -->|HTTP POST /sync| BS
-    BS --> IPC
     DW --> IPC
 
     %% Core connections
@@ -82,14 +78,13 @@ graph TD
 
 ---
 
-## 2. The 4 Application Blueprint Ingestion Pathways
+## 2. The 3 Application Blueprint Ingestion Pathways
 
-To provide unmatched flexibility regardless of the developer's Bubble hosting tier, Dev Studio supports **4 distinct synchronization pathways**:
+To provide unmatched flexibility regardless of the developer's Bubble hosting tier, Dev Studio supports **3 distinct synchronization pathways**:
 
 | Pathway | Mechanism | Target User | Network Flow |
 | :--- | :--- | :--- | :--- |
-| **⚡ 1-Click Cloud Direct Sync** | Oracle Cloud VM Microservice (`158.178.147.13:8080`) via collaborator bot (`bubbledevstudio.bot@gmail.com`). | Teams on Paid Bubble Plans wanting 1-click cloud sync. | `Bubble Official Export ➔ Oracle VM ➔ Desktop App` |
-| **🔌 Browser Companion Extension** | Chrome/Edge extension injecting a floating sync button directly in Bubble Editor. | Developers on Free or Paid plans wanting instant sync. | `Browser Tab ➔ Local Bridge (127.0.0.1:41890) ➔ Desktop App` |
+| **⚡ 1-Click Cloud Direct Sync** | Dedicated Cloud Sync microservice via collaborator bot (`bubbledevstudio.bot@gmail.com`). | Teams on Paid Bubble Plans wanting 1-click cloud sync. | `Bubble Official Export ➔ Cloud Microservice ➔ Desktop App` |
 | **📁 Downloads Auto-Watcher** | Background file watcher listening to OS `~/Downloads` directory. | Zero-setup users using manual *"Export application"*. | `Browser Download ➔ Local File Watcher ➔ Desktop App` |
 | **📄 Manual File Import** | Native file dropzone accepting `.bubble` or `.json` files. | Offline environments or archival review. | `Drag-and-Drop ➔ Desktop App` |
 

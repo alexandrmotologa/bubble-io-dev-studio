@@ -140,7 +140,7 @@ function createAppMenu() {
                 type: 'info',
                 title: 'About Bubble.io Dev Studio',
                 message: `Bubble.io Dev Studio v${app.getVersion()} (Production Stable)`,
-                detail: `All-in-one Developer Studio & GUI for Bubble.io (DevOps, Schema, Dead Code Audit, AI Translation, Visual QA)\n\nAuthor: Alexandr Motologa | MTLG Labs\nStudio: https://mtlglabs.space\nPersonal Hub: https://mtlg.site\nGitHub: https://github.com/alexandrmotologa`,
+                detail: `All-in-one Developer Studio & GUI for Bubble.io (DevOps, Schema, Dead Code Audit, AI Translation, Visual QA)\n\nAuthor: Alexandr Motologa | MTLG Labs`,
                 buttons: ['OK']
               });
             }
@@ -202,15 +202,14 @@ function createWindow() {
   // Initialize in-app auto-update notifications and listeners
   initAutoUpdater();
 
+  // Automatically check for updates on startup
   if (!isDev) {
-    const updateConfigPath = path.join(process.resourcesPath, 'app-update.yml');
-    if (fs.existsSync(updateConfigPath)) {
-      setTimeout(() => {
-        autoUpdater.checkForUpdates().catch((err: any) => {
-          console.warn('Silent auto-update check on startup failed:', err?.message || err);
-        });
-      }, 10000);
-    }
+    setTimeout(() => {
+      console.log('[AutoUpdater] Automatically checking for updates on application startup...');
+      autoUpdater.checkForUpdates().catch((err: any) => {
+        console.warn('[AutoUpdater] Startup update check failed:', err?.message || err);
+      });
+    }, 2000);
   }
 
   // Handle external links opening in user's default browser
@@ -224,13 +223,7 @@ function createWindow() {
 
 app.whenReady().then(() => {
   createWindow();
-  startLocalBridgeServer();
   initDownloadsWatcher(true);
-  try {
-    extractCompanionExtension();
-  } catch (e) {
-    console.warn('[Companion] Pre-extraction error:', e);
-  }
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
@@ -600,66 +593,7 @@ function copyDirRecursive(src: string, dest: string) {
   }
 }
 
-function extractCompanionExtension(): string | null {
-  const targetDir = path.join(app.getPath('userData'), 'extensions', 'bubble-dev-studio-companion');
 
-  // Candidate source locations:
-  // 1. Unpacked resources (process.resourcesPath/extensions/bubble-dev-studio-companion)
-  // 2. Dev mode relative path (__dirname/../extensions/bubble-dev-studio-companion)
-  // 3. Inside app.asar (app.getAppPath()/extensions/bubble-dev-studio-companion)
-  const candidates = [
-    path.join(process.resourcesPath, 'extensions/bubble-dev-studio-companion'),
-    path.join(__dirname, '../extensions/bubble-dev-studio-companion'),
-    path.join(app.getAppPath(), 'extensions/bubble-dev-studio-companion')
-  ];
-
-  let sourceFound: string | null = null;
-  for (const cand of candidates) {
-    try {
-      if (fs.existsSync(path.join(cand, 'manifest.json'))) {
-        sourceFound = cand;
-        break;
-      }
-    } catch {
-      // ignore
-    }
-  }
-
-  if (sourceFound) {
-    // In dev mode (not packaged and not in asar), can return source directory directly
-    if (!app.isPackaged && !sourceFound.includes('app.asar')) {
-      return sourceFound;
-    }
-
-    try {
-      copyDirRecursive(sourceFound, targetDir);
-      return targetDir;
-    } catch (err) {
-      console.error('Failed to copy companion extension into userData:', err);
-    }
-  }
-
-  if (fs.existsSync(path.join(targetDir, 'manifest.json'))) {
-    return targetDir;
-  }
-
-  return null;
-}
-
-ipcMain.handle('companion:openFolder', async () => {
-  try {
-    const extDir = extractCompanionExtension();
-    if (extDir && fs.existsSync(extDir)) {
-      await shell.openPath(extDir);
-      clipboard.writeText(extDir);
-      return { success: true, path: extDir };
-    } else {
-      return { success: false, error: 'Companion extension source files not found.' };
-    }
-  } catch (err: any) {
-    return { success: false, error: err.message };
-  }
-});
 
 ipcMain.handle('bubbleSync:checkRecentDownloads', async (_event, appId?: string) => {
   try {
@@ -757,11 +691,11 @@ ipcMain.handle('bubbleSync:checkRecentDownloads', async (_event, appId?: string)
 
 // Legacy backward-compatible stubs
 ipcMain.handle('bubbleSync:login', async () => {
-  return { isAuthenticated: false, error: 'Please use Chrome Companion or Downloads auto-detect.' };
+  return { isAuthenticated: false, error: 'Please use 1-Click Cloud Sync or Downloads auto-detect.' };
 });
 
 ipcMain.handle('bubbleSync:fetchApp', async (_event, appId: string) => {
-  return { success: false, error: 'Please use Chrome Companion or Downloads auto-detect.' };
+  return { success: false, error: 'Please use 1-Click Cloud Sync or Downloads auto-detect.' };
 });
 
 ipcMain.handle('bubbleSync:logout', async () => {
@@ -794,100 +728,6 @@ ipcMain.handle('bubbleSync:exportBlueprintToDisk', async (_event, { fileName, da
     return { success: false, error: err.message };
   }
 });
-
-// Local HTTP Bridge Server for Default Browser Sync (Chrome, Edge, Brave, Safari, Firefox)
-let localBridgeServer: http.Server | null = null;
-const BRIDGE_PORT = 41890;
-
-function startLocalBridgeServer() {
-  if (localBridgeServer) return;
-
-  localBridgeServer = http.createServer((req, res) => {
-    // Enable CORS from any browser origin
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
-
-    if (req.method === 'OPTIONS') {
-      res.writeHead(200);
-      res.end();
-      return;
-    }
-
-    if (req.method === 'POST' && (req.url === '/sync' || req.url === '/api/sync')) {
-      let body = '';
-      req.on('data', chunk => {
-        body += chunk;
-        if (body.length > 250 * 1024 * 1024) { // 250MB limit
-          req.destroy();
-        }
-      });
-
-      req.on('end', () => {
-        try {
-          const payload = JSON.parse(body);
-          const appData = payload.data || payload.app || payload;
-          const originUrl = payload.origin || '';
-
-          if (mainWindow && !mainWindow.isDestroyed()) {
-            mainWindow.webContents.send('bubbleSync:browserAppReceived', {
-              data: appData,
-              originUrl,
-              stats: payload.stats
-            });
-            if (mainWindow.isMinimized()) mainWindow.restore();
-            mainWindow.focus();
-          }
-
-          res.writeHead(200, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ success: true, message: 'Received by Bubble Dev Studio' }));
-        } catch (err: any) {
-          res.writeHead(400, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ success: false, error: err?.message || 'Invalid JSON' }));
-        }
-      });
-      return;
-    }
-
-    if (req.method === 'POST' && req.url === '/notify-export') {
-      let body = '';
-      req.on('data', chunk => { body += chunk; });
-      req.on('end', () => {
-        try {
-          const payload = body ? JSON.parse(body) : {};
-          if (mainWindow && !mainWindow.isDestroyed()) {
-            mainWindow.webContents.send('bubbleSync:exportTriggered', payload);
-            if (mainWindow.isMinimized()) mainWindow.restore();
-            mainWindow.focus();
-          }
-          res.writeHead(200, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ success: true, message: 'Export notification received' }));
-        } catch {
-          res.writeHead(200, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ success: true }));
-        }
-      });
-      return;
-    }
-
-    if (req.method === 'GET' && req.url === '/status') {
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ status: 'ready', port: BRIDGE_PORT, app: 'Bubble.io Dev Studio' }));
-      return;
-    }
-
-    res.writeHead(404);
-    res.end('Not found');
-  });
-
-  localBridgeServer.on('error', (err: any) => {
-    console.warn('[BridgeServer] Port conflict or error on 41890:', err?.message);
-  });
-
-  localBridgeServer.listen(BRIDGE_PORT, '127.0.0.1', () => {
-    console.log(`[BridgeServer] Listening on http://127.0.0.1:${BRIDGE_PORT} for default browser sync`);
-  });
-}
 
 
 
