@@ -133,19 +133,6 @@ export const AI_PROVIDERS: AiProviderDefinition[] = [
       { id: 'meta-llama/llama-3.3-70b-instruct', name: 'Meta Llama 3.3 70B' },
       { id: 'google/gemini-2.0-flash-001', name: 'Gemini 2.0 Flash (OpenRouter)' }
     ]
-  },
-
-  {
-    id: 'mock',
-    name: 'Offline Studio Engine',
-    displayName: 'Offline Studio Engine (Built-in Demo)',
-    description: 'Built-in rule-based offline simulation engine with zero network dependencies',
-    docsUrl: '',
-    keyPlaceholder: 'No key required',
-    isLocal: true,
-    models: [
-      { id: 'mock-offline-translator', name: 'Offline Studio Engine (Built-in)', isRecommended: true }
-    ]
   }
 ];
 

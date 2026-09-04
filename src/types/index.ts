@@ -346,8 +346,7 @@ export type TranslationProviderType =
   | 'groq' 
   | 'xai' 
   | 'opencode' 
-  | 'ollama' 
-  | 'mock';
+  | 'ollama';
 
 export interface TranslationItem {
   id: string;

@@ -523,7 +523,6 @@ export const App: React.FC = () => {
       {/* Bottom IDE Status Bar */}
       {(() => {
         const hasKey = (providerId: string) => {
-          if (providerId === 'mock') return true;
           if (activeProject?.aiProvider === providerId && activeProject?.aiApiKey && activeProject.aiApiKey.trim().length > 0) return true;
           switch (providerId) {
             case 'gemini': return Boolean(settings.geminiApiKey && settings.geminiApiKey.trim().length > 0);

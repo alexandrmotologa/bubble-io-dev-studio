@@ -1066,7 +1066,6 @@ export const ConnectAppModal: React.FC<ConnectAppModalProps> = ({
                       <option value="xai">xAI (Grok 2) {getSavedKey('xai') ? '• Saved Key ✓' : ''}</option>
                       <option value="opencode">OpenCode (Zen Router) {getSavedKey('opencode') ? '• Saved Key ✓' : ''}</option>
                       <option value="openrouter">OpenRouter (Global Multi-LLM) {getSavedKey('openrouter') ? '• Saved Key ✓' : ''}</option>
-                      <option value="mock">Offline Studio Engine (Built-in)</option>
                     </select>
                   </div>
 
@@ -1145,7 +1144,7 @@ export const ConnectAppModal: React.FC<ConnectAppModalProps> = ({
                       </div>
                     )}
                   </div>
-                ) : aiProvider !== 'mock' ? (
+                ) : (
                   <div>
                     {useGlobalKey && hasGlobalKeyForCurrent ? (
                       <div style={{
@@ -1242,10 +1241,6 @@ export const ConnectAppModal: React.FC<ConnectAppModalProps> = ({
                         </label>
                       </div>
                     )}
-                  </div>
-                ) : (
-                  <div style={{ padding: '12px', borderRadius: 'var(--radius-sm)', background: 'var(--bg-input)', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-                    Using built-in Studio offline engine. No API key or credit card required.
                   </div>
                 )}
 

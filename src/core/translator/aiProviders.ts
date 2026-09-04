@@ -26,54 +26,7 @@ export class AiProvidersEngine {
   }
 
   /**
-   * Fallback multi-lingual dictionary for offline mode or demo simulations
-   */
-  private static getOfflineDictionaryTranslation(text: string, targetLang: string): string {
-    const lang = targetLang.toLowerCase().split('_')[0]; // normalize 'ro_ro' to 'ro'
-
-    const dictionary: Record<string, Record<string, string>> = {
-      ro: {
-        'Welcome back to your workspace overview': 'Bine ai revenit în panoul de control al spațiului tău de lucru',
-        'Upgrade to Pro to unlock unlimited team members': 'Treci la planul Pro pentru a debloca membri nelimitați în echipă',
-        'Invalid email address or password provided. Please check your credentials.': 'Adresă de e-mail sau parolă incorectă. Te rugăm să verifici datele introduse.',
-        'Your payment of [amount] has been successfully processed.': 'Plata ta în valoare de [amount] a fost procesată cu succes.',
-        'Are you sure you want to permanently delete this project? This action cannot be undone.': 'Ești sigur că dorești să ștergi definitiv acest proiect? Această acțiune este ireversibilă.',
-        'Administrator (Full Workspace Permissions)': 'Administrator (Permisiuni complete de spațiu de lucru)'
-      },
-      fr: {
-        'Welcome back to your workspace overview': "Bienvenue dans votre aperçu d'espace de travail",
-        'Upgrade to Pro to unlock unlimited team members': 'Passez à Pro pour débloquer un nombre illimité de membres',
-        'Invalid email address or password provided. Please check your credentials.': 'Adresse e-mail ou mot de passe invalide. Veuillez vérifier vos identifiants.',
-        'Your payment of [amount] has been successfully processed.': 'Votre paiement de [amount] a été traité avec succès.',
-        'Are you sure you want to permanently delete this project? This action cannot be undone.': 'Êtes-vous sûr de vouloir supprimer définitivement ce projet ? Cette action est irréversible.',
-        'Administrator (Full Workspace Permissions)': "Administrateur (Autorisations complètes de l'espace)"
-      },
-      es: {
-        'Welcome back to your workspace overview': 'Bienvenido de nuevo a la vista general de su espacio de trabajo',
-        'Upgrade to Pro to unlock unlimited team members': 'Actualice a Pro para desbloquear miembros de equipo ilimitados',
-        'Invalid email address or password provided. Please check your credentials.': 'Dirección de correo o contraseña no válidas. Por favor revise sus credenciales.',
-        'Your payment of [amount] has been successfully processed.': 'Su pago de [amount] se ha procesado con éxito.',
-        'Are you sure you want to permanently delete this project? This action cannot be undone.': '¿Está seguro de que desea eliminar permanentemente este proyecto? Esta acción no se puede deshacer.',
-        'Administrator (Full Workspace Permissions)': 'Administrador (Permisos completos del espacio)'
-      },
-      de: {
-        'Welcome back to your workspace overview': 'Willkommen zurück in Ihrer Arbeitsbereichsübersicht',
-        'Upgrade to Pro to unlock unlimited team members': 'Upgraden Sie auf Pro für unbegrenzte Teammitglieder',
-        'Invalid email address or password provided. Please check your credentials.': 'Ungültige E-Mail-Adresse oder Passwort. Bitte überprüfen Sie Ihre Anmeldedaten.',
-        'Your payment of [amount] has been successfully processed.': 'Ihre Zahlung von [amount] wurde erfolgreich verarbeitet.',
-        'Are you sure you want to permanently delete this project? This action cannot be undone.': 'Sind Sie sicher, dass Sie dieses Projekt dauerhaft löschen möchten?',
-        'Administrator (Full Workspace Permissions)': 'Administrator (Vollständige Berechtigungen)'
-      }
-    };
-
-    if (dictionary[lang] && dictionary[lang][text]) {
-      return dictionary[lang][text];
-    }
-    return `[${targetLang.toUpperCase()}] ${text}`;
-  }
-
-  /**
-   * Translates a single text using chosen live AI provider or offline fallback
+   * Translates a single text using chosen live AI provider
    */
   public static async translateText(
     text: string,
@@ -81,23 +34,12 @@ export class AiProvidersEngine {
     apiKey?: string
   ): Promise<{ text: string; tokensUsed: number }> {
     const effectiveApiKey = (apiKey || config.apiKey || '').trim();
-    const provider = config.provider || 'mock';
+    const provider = config.provider || 'gemini';
     const model = config.model;
     const systemPrompt = this.buildSystemPrompt(config);
 
-    // If provider is 'mock' or no API key is provided (except for local ollama), use offline engine
-    if (provider === 'mock' || (!effectiveApiKey && provider !== 'ollama')) {
-      let result = this.getOfflineDictionaryTranslation(text, config.targetLang);
-
-      if (config.useGlossary && config.glossary) {
-        for (const [term, replacement] of Object.entries(config.glossary)) {
-          const regex = new RegExp(`\\b${term}\\b`, 'gi');
-          result = result.replace(regex, replacement);
-        }
-      }
-
-      const tokensUsed = Math.max(8, Math.round((text.length + result.length) / 3.5));
-      return { text: result, tokensUsed };
+    if (!effectiveApiKey && provider !== 'ollama') {
+      throw new Error(`API key required for ${provider.toUpperCase()} translation. Please configure it in Settings or your Project Profile.`);
     }
 
     try {
@@ -295,12 +237,7 @@ export class AiProvidersEngine {
       };
     } catch (err: any) {
       console.warn(`[AiProvidersEngine] Live translation failed for ${provider} (${model}):`, err.message);
-      // Graceful fallback to offline dictionary with notice
-      let fallbackText = this.getOfflineDictionaryTranslation(text, config.targetLang);
-      return {
-        text: fallbackText,
-        tokensUsed: Math.max(4, Math.round(text.length / 4))
-      };
+      throw new Error(`Live translation failed for ${provider} (${model}): ${err.message || err}`);
     }
   }
 
@@ -314,15 +251,6 @@ export class AiProvidersEngine {
     ollamaUrl?: string
   ): Promise<{ success: boolean; latencyMs: number; message: string }> {
     const effectiveKey = (apiKey || '').trim();
-
-    // 1. Built-in Offline Mock
-    if (provider === 'mock') {
-      return {
-        success: true,
-        latencyMs: 0,
-        message: 'Built-in offline studio engine ready (zero network latency).'
-      };
-    }
 
     // 2. Local Ollama Server Ping
     if (provider === 'ollama') {
