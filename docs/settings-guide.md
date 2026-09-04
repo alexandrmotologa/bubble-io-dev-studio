@@ -1,4 +1,4 @@
-# ⚙️ Settings & Integrations Hub Guide (v3.3.8)
+# ⚙️ Settings & Integrations Hub Guide (v3.3.9)
 
 The **Settings & Integrations Hub** manages multi-provider AI credentials, Bubble workspace connections, 1-click cloud sync configurations, auto-update releases, and zero-data-loss system persistence.
 
@@ -68,6 +68,6 @@ The **Settings & Integrations Hub** manages multi-provider AI credentials, Bubbl
 - **Export Diagnostics JSON**: 1-Click download of a diagnostic bundle for troubleshooting and GitHub issues.
 
 ### 6. ℹ️ About & Credits (`about`)
-- **Release Edition**: Version `v3.3.8` (Production Stable Suite).
+- **Release Edition**: Version `v3.3.9` (Production Stable Suite).
 - **Author Credits**: Designed and built by **Alexandr Motologa | MTLG Labs** ([mtlglabs.space](https://mtlglabs.space) • [mtlg.site](https://mtlg.site)).
 - **Ecosystem & Support Links**: MTLG Labs Ecosystem, Personal Portfolio Hub, GitHub repository, and direct email support (`contact@mtlglabs.space`).

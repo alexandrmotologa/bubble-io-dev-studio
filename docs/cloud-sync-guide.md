@@ -1,4 +1,4 @@
-# ⚡ 1-Click Cloud Direct Sync & Collaborator Bot Guide (v3.3.8)
+# ⚡ 1-Click Cloud Direct Sync & Collaborator Bot Guide (v3.3.9)
 
 Bubble.io Dev Studio introduces **⚡ 1-Click Cloud Direct Sync**, an autonomous synchronization engine that pulls your entire Bubble application blueprint and Abstract Syntax Tree (AST) directly from the cloud without requiring manual downloads, browser devtools scraping, or local file hunting.
 
@@ -152,6 +152,7 @@ We take data privacy and intellectual property very seriously:
 | **Where are bot credentials stored?** | 🔒 **Isolated on VM** | The bot session cookie (`BUBBLE_BOT_SESSION`) is stored exclusively in a secure `.env` file on our private, hardened Linux VM. It is never included in the Git repository and never exposed to the client. |
 | **Are API tokens or passwords exposed?** | 🚫 **NO** | Cloud Sync does not require your Bubble Data API token or admin passwords. All API tokens entered in Dev Studio remain encrypted on your local machine using Node.js/Electron safeStorage. |
 | **Is the microservice rate-limited?** | 🛡️ **YES** | The service enforces an IP-based sliding window rate limiter: **maximum 30 requests per 15 minutes** per IP address to prevent abuse. |
+| **How is network transit protected?** | 🔒 **HTTPS Edge Gateway** | All traffic from desktop clients is routed through a secure HTTPS edge gateway (`https://bubble-cloud-sync-mtlg-dev.vercel.app`) with 120s streaming support, shielding origin server infrastructure and encrypting all payloads in transit with TLS 1.3. |
 | **Can third parties access my app?** | 🔒 **NO** | Bubble's authorization model strictly ensures that only invited collaborators can access the app editor. If the bot is not invited, Bubble returns HTTP 403 / 404. You can remove the bot collaborator anytime in Bubble Settings. |
 
 ---

@@ -1,4 +1,4 @@
-# 🌐 AI Localization Studio Guide (v3.3.8)
+# 🌐 AI Localization Studio Guide (v3.3.9)
 
 The **AI Localization Studio** provides multi-provider AI translation, recursive string extraction from `.bubble` files, translation memory caching, brand glossary protection, and real-time cost estimation.
 

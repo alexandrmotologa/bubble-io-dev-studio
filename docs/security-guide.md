@@ -1,4 +1,4 @@
-# 🛡️ Security & Privacy Rules Auditor Guide (v3.3.8)
+# 🛡️ Security & Privacy Rules Auditor Guide (v3.3.9)
 
 The **Security & Privacy Rules Auditor** is an enterprise security and compliance suite that protects Bubble applications against data leaks, unauthenticated public API scraping, and exposed sensitive records.
 

@@ -1,4 +1,4 @@
-# 📚 1-Click Developer Documentation Book (DocGen) Guide (v3.3.8)
+# 📚 1-Click Developer Documentation Book (DocGen) Guide (v3.3.9)
 
 The **DocGen Engine** compiles full-scale technical documentation books for clients, development agencies, and internal engineering teams with a single click.
 
@@ -6,7 +6,7 @@ The **DocGen Engine** compiles full-scale technical documentation books for clie
 
 ## 1. Dual-Mode Documentation: AI Narrative vs Raw Data Dictionary
 
-In v3.3.8, DocGen offers a top toolbar mode switcher:
+In v3.3.9, DocGen offers a top toolbar mode switcher:
 
 1. **✨ AI Narrative Book (Recommended)**:
    - Transforms dry schema columns into an engaging, cohesive architectural book.

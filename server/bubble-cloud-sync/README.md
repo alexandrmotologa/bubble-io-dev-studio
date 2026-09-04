@@ -1,4 +1,4 @@
-# ☁️ Bubble.io Dev Studio — Cloud Sync Microservice (v3.3.8)
+# ☁️ Bubble.io Dev Studio — Cloud Sync Microservice (v3.3.9)
 
 A high-performance, autonomous Node.js service running on Oracle Cloud Infrastructure (Always-Free Tier) that serves as the backend bridge for Bubble.io Dev Studio's **⚡ 1-Click Cloud Direct Sync**.
 
