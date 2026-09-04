@@ -1,6 +1,6 @@
 export const CLOUD_SYNC_CONFIG = {
   // Official Oracle Cloud Managed Backend Endpoint
-  defaultServerUrl: 'https://sync.bubbledevstudio.com',
+  defaultServerUrl: 'http://158.178.147.13:8080',
   
   // Official Collaborator Bot Account to be invited in Bubble Settings > Collaboration
   botEmail: 'agent@bubbledevstudio.com',

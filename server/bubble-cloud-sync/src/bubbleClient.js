@@ -6,9 +6,6 @@ class BubbleCloudClient {
     this.userAgent = options.userAgent || 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36';
   }
 
-  /**
-   * Set or update active session cookie
-   */
   setSessionCookie(cookie) {
     this.sessionCookie = cookie;
   }
@@ -25,94 +22,138 @@ class BubbleCloudClient {
     const cleanAppId = appId.trim();
     const cleanBranch = (branch || 'test').trim();
 
-    // 1. Prepare authenticated headers mirroring a genuine collaborator session
     const headers = {
       'User-Agent': this.userAgent,
       'Cookie': cookie.includes('=') ? cookie : `bubble_session=${cookie}`,
-      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-      'Accept-Language': 'en-US,en;q=0.9',
-      'Sec-Fetch-Dest': 'document',
-      'Sec-Fetch-Mode': 'navigate',
-      'Sec-Fetch-Site': 'same-origin'
+      'Accept': 'application/json, text/javascript, */*; q=0.01',
+      'X-Requested-With': 'XMLHttpRequest',
+      'Referer': `https://bubble.io/page?id=${encodeURIComponent(cleanAppId)}&tab=tabs-general`
     };
 
-    // 2. Fetch editor page which contains the bootstrap state
-    const editorUrl = `https://bubble.io/page?id=${encodeURIComponent(cleanAppId)}&branch=${encodeURIComponent(cleanBranch)}&tab=tabs-general`;
-    
-    const pageResponse = await axios.get(editorUrl, {
-      headers,
-      maxRedirects: 5,
-      timeout: 30000,
-      validateStatus: (status) => status < 400
-    });
+    // --- STRATEGY 1: Internal Bubble Editor protocol (/appeditor/load_multiple_paths) ---
+    // Works on ALL plans (Free, Starter, Team, Enterprise)
+    try {
+      console.log(`[BubbleClient] Probing /appeditor/load_multiple_paths for ${cleanAppId} (${cleanBranch})...`);
+      const loadUrl = `https://bubble.io/appeditor/load_multiple_paths/${encodeURIComponent(cleanAppId)}/${encodeURIComponent(cleanBranch)}`;
+      
+      const initRes = await axios.post(loadUrl, {
+        path_arrays: [
+          ["_index", "id_to_path"],
+          ["user_types"],
+          ["styles"]
+        ],
+        no_chunking: true
+      }, {
+        headers,
+        timeout: 25000,
+        validateStatus: (status) => status < 500
+      });
 
-    const html = pageResponse.data;
-    if (typeof html !== 'string') {
-      throw new Error('Unexpected response format from Bubble.io');
-    }
+      if (initRes.status === 200 && initRes.data?.data) {
+        const idToPath = initRes.data.data[0]?.data || {};
+        const userTypes = initRes.data.data[1]?.data || {};
+        const styles = initRes.data.data[2]?.data || {};
 
-    // Check if redirected to login
-    if (html.includes('id="login-form"') || html.includes('Log into Bubble') || pageResponse.request?.res?.responseUrl?.includes('/login')) {
-      throw new Error('Authentication failed: Bot session cookie expired or invalid. Please refresh BUBBLE_BOT_SESSION.');
-    }
+        if (Object.keys(idToPath).length > 0 || Object.keys(userTypes).length > 0) {
+          console.log(`[BubbleClient] Successfully connected via editor protocol (${Object.keys(idToPath).length} symbols, ${Object.keys(userTypes).length} types)`);
 
-    // 3. Extract JSON payload from script tags or window.__app / bubble_page_data
-    let appJson = null;
+          const pageKeys = new Set();
+          const edKeys = new Set();
 
-    // Pattern A: window.bubble_page_data or window.app_data
-    const pageDataMatch = html.match(/(?:window\.)?(?:bubble_page_data|app_data|bootstrap_data)\s*=\s*(\{.+?\});/s);
-    if (pageDataMatch) {
-      try {
-        appJson = JSON.parse(pageDataMatch[1]);
-      } catch (e) {}
-    }
-
-    // Pattern B: Embedded JSON in script type="application/json"
-    if (!appJson) {
-      const scriptMatches = html.matchAll(/<script[^>]*type=["']application\/json["'][^>]*>(.+?)<\/script>/gis);
-      for (const m of scriptMatches) {
-        try {
-          const parsed = JSON.parse(m[1]);
-          if (parsed.pages || parsed.user_types || parsed.custom_types) {
-            appJson = parsed;
-            break;
+          for (const [id, path] of Object.entries(idToPath)) {
+            if (typeof path === 'string') {
+              const parts = path.split('.');
+              if (parts[0] === '%p3' && parts[1]) pageKeys.add(parts[1]);
+              else if (parts[0] === '%ed' && parts[1]) edKeys.add(parts[1]);
+            }
           }
-        } catch (e) {}
-      }
-    }
 
-    // Pattern C: Attempt internal MGT API with authenticated cookie
-    if (!appJson) {
-      try {
-        const mgtUrl = `https://bubble.io/api/1.1/mgt/app/${encodeURIComponent(cleanAppId)}/data`;
-        const mgtRes = await axios.get(mgtUrl, {
-          headers: {
-            ...headers,
-            'Accept': 'application/json',
-            'X-Requested-With': 'XMLHttpRequest'
-          },
-          timeout: 15000
-        });
-        if (mgtRes.data && (mgtRes.data.pages || mgtRes.data.user_types)) {
-          appJson = mgtRes.data;
+          // Fetch all pages and reusable elements
+          const queries = [
+            ...Array.from(pageKeys).map(p => ["%p3", p]),
+            ...Array.from(edKeys).map(e => ["%ed", e])
+          ];
+
+          const pages = {};
+          const element_definitions = {};
+
+          if (queries.length > 0) {
+            const chunkSize = 50;
+            for (let i = 0; i < queries.length; i += chunkSize) {
+              const chunk = queries.slice(i, i + chunkSize);
+              const batchRes = await axios.post(loadUrl, {
+                path_arrays: chunk,
+                no_chunking: true
+              }, { headers, timeout: 30000 });
+
+              if (batchRes.status === 200 && batchRes.data?.data) {
+                batchRes.data.data.forEach((item, chunkIdx) => {
+                  const queryIdx = i + chunkIdx;
+                  const [type, key] = queries[queryIdx];
+                  if (type === '%p3') {
+                    const pageData = item.data;
+                    if (pageData) {
+                      const pageName = pageData['%nm'] || key;
+                      pages[pageName] = pageData;
+                    }
+                  } else if (type === '%ed') {
+                    if (item.data) element_definitions[key] = item.data;
+                  }
+                });
+              }
+            }
+          }
+
+          const fullApp = {
+            pages,
+            user_types: userTypes,
+            styles,
+            element_definitions,
+            _index: { id_to_path: idToPath }
+          };
+
+          const stats = this.calculateStats(fullApp);
+          return {
+            success: true,
+            appId: cleanAppId,
+            branch: cleanBranch,
+            stats,
+            data: fullApp
+          };
         }
-      } catch (e) {}
+      }
+    } catch (err) {
+      console.warn(`[BubbleClient] Strategy 1 (/appeditor/load_multiple_paths) failed:`, err.message);
     }
 
-    if (!appJson) {
-      throw new Error('Could not extract application AST. Ensure the bot account is added as a Collaborator to this Bubble app.');
+    // --- STRATEGY 2: Official export endpoint (/appeditor/export/...) ---
+    try {
+      console.log(`[BubbleClient] Probing /appeditor/export for ${cleanAppId}...`);
+      const exportUrl = `https://bubble.io/appeditor/export/${encodeURIComponent(cleanBranch)}/${encodeURIComponent(cleanAppId)}.bubble`;
+      const exportRes = await axios.get(exportUrl, {
+        headers: {
+          ...headers,
+          'Accept': '*/*'
+        },
+        timeout: 30000,
+        validateStatus: (status) => status < 400
+      });
+
+      if (exportRes.status === 200 && exportRes.data && (typeof exportRes.data === 'object')) {
+        const stats = this.calculateStats(exportRes.data);
+        return {
+          success: true,
+          appId: cleanAppId,
+          branch: cleanBranch,
+          stats,
+          data: exportRes.data
+        };
+      }
+    } catch (err) {
+      console.warn(`[BubbleClient] Strategy 2 (/appeditor/export) failed:`, err.message);
     }
 
-    // 4. Calculate accurate blueprint statistics
-    const stats = this.calculateStats(appJson);
-
-    return {
-      success: true,
-      appId: cleanAppId,
-      branch: cleanBranch,
-      stats,
-      data: appJson
-    };
+    throw new Error('Could not extract application AST. Ensure the bot account is added as a Collaborator to this Bubble app (Settings -> Collaboration).');
   }
 
   calculateStats(data) {
@@ -134,12 +175,25 @@ class BubbleCloudClient {
           } else if (page.workflows && typeof page.workflows === 'object') {
             workflowsCount += Object.keys(page.workflows).length;
           }
+
+          if (page['%el'] && typeof page['%el'] === 'object') {
+            elementsCount += Object.keys(page['%el']).length;
+          }
+          if (page['%wf'] && typeof page['%wf'] === 'object') {
+            workflowsCount += Object.keys(page['%wf']).length;
+          }
         }
       }
     }
 
     if (data.element_definitions && typeof data.element_definitions === 'object') {
       elementsCount += Object.keys(data.element_definitions).length;
+      for (const ed of Object.values(data.element_definitions)) {
+        if (ed && typeof ed === 'object') {
+          if (ed['%el']) elementsCount += Object.keys(ed['%el']).length;
+          if (ed['%wf']) workflowsCount += Object.keys(ed['%wf']).length;
+        }
+      }
     }
 
     const typesObj = data.user_types || data.custom_types || data.types;
