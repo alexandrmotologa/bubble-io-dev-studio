@@ -29,7 +29,9 @@ import {
   Copy,
   Download,
   FolderOpen,
-  Cloud
+  Cloud,
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react';
 import { ProjectProfile } from '../types';
 import { DevOpsEngine } from '../core/devops/devopsEngine';
@@ -172,6 +174,7 @@ export const ConnectAppModal: React.FC<ConnectAppModalProps> = ({
   // Method 2: Managed Cloud Direct Sync State (Oracle / Buildprint Mode)
   const [cloudBranch, setCloudBranch] = useState<string>('test');
   const [isCloudSyncing, setIsCloudSyncing] = useState<boolean>(false);
+  const [isGuidanceExpanded, setIsGuidanceExpanded] = useState<boolean>(false);
 
   const handleCloudSync = async () => {
     if (!appId.trim()) {
@@ -612,7 +615,8 @@ export const ConnectAppModal: React.FC<ConnectAppModalProps> = ({
     }}>
       <div style={{
         width: '100%',
-        maxWidth: '750px',
+        maxWidth: '780px',
+        maxHeight: 'min(92vh, 860px)',
         backgroundColor: 'var(--bg-surface-elevated)',
         border: '1px solid var(--border-active)',
         borderRadius: 'var(--radius-lg)',
@@ -624,9 +628,10 @@ export const ConnectAppModal: React.FC<ConnectAppModalProps> = ({
       }}>
         {/* Wizard Header with 5 Step Progress Bar */}
         <div style={{
-          padding: '22px 28px 18px',
+          padding: '18px 24px 14px',
           borderBottom: '1px solid var(--border-subtle)',
-          background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.15) 0%, rgba(6, 182, 212, 0.08) 100%)'
+          background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.15) 0%, rgba(6, 182, 212, 0.08) 100%)',
+          flexShrink: 0
         }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -707,8 +712,15 @@ export const ConnectAppModal: React.FC<ConnectAppModalProps> = ({
           </div>
         </div>
 
-        {/* Wizard Step Body */}
-        <div style={{ padding: '24px 28px', minHeight: '370px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+        {/* Wizard Step Body with Smooth Vertical Scrolling */}
+        <div style={{
+          padding: '20px 24px',
+          flex: '1 1 auto',
+          overflowY: 'auto',
+          minHeight: 0,
+          display: 'flex',
+          flexDirection: 'column'
+        }}>
           {/* STEP 1: APP IDENTITY */}
           {step === 1 && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', animation: 'fadeIn 0.2s ease-out' }}>
@@ -1425,41 +1437,42 @@ export const ConnectAppModal: React.FC<ConnectAppModalProps> = ({
               <div className="grid-2" style={{ gap: '14px' }}>
                 {/* Method 1: Local Auto-Detect (Downloads Watcher) */}
                 <div style={{
-                  padding: '16px 18px',
+                  padding: '16px',
                   borderRadius: 'var(--radius-md)',
                   background: isListeningDownloads ? 'rgba(16, 185, 129, 0.08)' : 'rgba(6, 182, 212, 0.06)',
                   border: isListeningDownloads ? '1px solid var(--accent-emerald)' : '1px solid var(--border-subtle)',
                   display: 'flex',
                   flexDirection: 'column',
                   justifyContent: 'space-between',
-                  gap: '14px',
+                  gap: '12px',
                   transition: 'all 0.2s ease'
                 }}>
                   <div>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', marginBottom: '8px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
                         <div style={{
-                          width: '30px',
-                          height: '30px',
+                          width: '28px',
+                          height: '28px',
                           borderRadius: '8px',
                           background: isListeningDownloads ? 'rgba(16, 185, 129, 0.2)' : 'rgba(6, 182, 212, 0.2)',
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'center',
-                          color: isListeningDownloads ? 'var(--accent-emerald)' : 'var(--accent-cyan)'
+                          color: isListeningDownloads ? 'var(--accent-emerald)' : 'var(--accent-cyan)',
+                          flexShrink: 0
                         }}>
-                          <Globe size={16} />
+                          <Globe size={15} />
                         </div>
-                        <span style={{ fontWeight: 700, fontSize: '0.875rem', color: 'var(--text-primary)' }}>
+                        <span style={{ fontWeight: 700, fontSize: '0.825rem', color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                           Method 1: Local Auto-Detect
                         </span>
                       </div>
-                      <span style={{ fontSize: '0.65rem', background: 'rgba(6, 182, 212, 0.15)', color: 'var(--accent-cyan)', padding: '2px 8px', borderRadius: '4px', fontWeight: 700 }}>
-                        FREE / ZERO-SETUP
+                      <span style={{ fontSize: '0.625rem', background: 'rgba(6, 182, 212, 0.15)', color: 'var(--accent-cyan)', padding: '2px 6px', borderRadius: '4px', fontWeight: 700, whiteSpace: 'nowrap', flexShrink: 0 }}>
+                        ZERO-SETUP
                       </span>
                     </div>
-                    <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', margin: 0, lineHeight: 1.5 }}>
-                      Click below to open <strong>Settings &gt; General</strong> in your browser. Click <strong>"Export application"</strong> and Dev Studio automatically detects, catches and imports the <code>.bubble</code> file from Downloads!
+                    <p style={{ fontSize: '0.735rem', color: 'var(--text-secondary)', margin: 0, lineHeight: 1.45 }}>
+                      Click below to open <strong>Settings &gt; General</strong> in your browser. Click <strong>"Export application"</strong> and Dev Studio automatically catches the <code>.bubble</code> file!
                     </p>
                   </div>
 
@@ -1473,56 +1486,59 @@ export const ConnectAppModal: React.FC<ConnectAppModalProps> = ({
                       justifyContent: 'center',
                       gap: '8px',
                       fontWeight: 600,
+                      fontSize: '0.775rem',
+                      padding: '8px 12px',
                       background: isListeningDownloads ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)' : 'linear-gradient(135deg, #06b6d4 0%, #3b82f6 100%)',
                       borderColor: 'transparent'
                     }}
                   >
-                    <ExternalLink size={14} />
-                    <span>{isListeningDownloads ? '👂 Watching Downloads Folder...' : '🚀 Open Bubble Settings > General'}</span>
+                    <ExternalLink size={13} />
+                    <span>{isListeningDownloads ? 'Watching Downloads Folder...' : 'Open Bubble Settings > General'}</span>
                   </button>
                 </div>
 
                 {/* Method 2: Cloud Direct Sync (Oracle / Buildprint Mode) */}
                 <div style={{
-                  padding: '16px 18px',
+                  padding: '16px',
                   borderRadius: 'var(--radius-md)',
                   background: 'linear-gradient(135deg, rgba(236, 72, 153, 0.08) 0%, rgba(168, 85, 247, 0.08) 100%)',
                   border: '1px solid rgba(236, 72, 153, 0.3)',
                   display: 'flex',
                   flexDirection: 'column',
                   justifyContent: 'space-between',
-                  gap: '14px',
+                  gap: '12px',
                   transition: 'all 0.2s ease'
                 }}>
                   <div>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', marginBottom: '8px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
                         <div style={{
-                          width: '30px',
-                          height: '30px',
+                          width: '28px',
+                          height: '28px',
                           borderRadius: '8px',
                           background: 'linear-gradient(135deg, #ec4899, #a855f7)',
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'center',
-                          color: '#fff'
+                          color: '#fff',
+                          flexShrink: 0
                         }}>
-                          <Cloud size={16} />
+                          <Cloud size={15} />
                         </div>
-                        <span style={{ fontWeight: 700, fontSize: '0.875rem', color: 'var(--text-primary)' }}>
+                        <span style={{ fontWeight: 700, fontSize: '0.825rem', color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                           Method 2: Cloud Direct Sync
                         </span>
                       </div>
-                      <span style={{ fontSize: '0.65rem', background: 'rgba(236, 72, 153, 0.15)', color: '#f472b6', padding: '2px 8px', borderRadius: '4px', fontWeight: 700 }}>
-                        MANAGED CLOUD BOT
+                      <span style={{ fontSize: '0.625rem', background: 'rgba(236, 72, 153, 0.15)', color: '#f472b6', padding: '2px 6px', borderRadius: '4px', fontWeight: 700, whiteSpace: 'nowrap', flexShrink: 0 }}>
+                        MANAGED BOT
                       </span>
                     </div>
-                    <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', margin: '0 0 10px 0', lineHeight: 1.4 }}>
-                      Direct cloud-to-cloud sync via our official Bubble Dev Studio Agent. Zero browser interaction or file hunting.
+                    <p style={{ fontSize: '0.735rem', color: 'var(--text-secondary)', margin: '0 0 8px 0', lineHeight: 1.45 }}>
+                      Direct cloud-to-cloud AST sync via our official collaborator bot. Instant, zero file hunting.
                     </p>
 
                     <div style={{
-                      padding: '8px 10px',
+                      padding: '6px 10px',
                       borderRadius: 'var(--radius-sm)',
                       background: 'rgba(0, 0, 0, 0.25)',
                       border: '1px solid rgba(255, 255, 255, 0.08)',
@@ -1531,11 +1547,11 @@ export const ConnectAppModal: React.FC<ConnectAppModalProps> = ({
                       justifyContent: 'space-between',
                       gap: '8px'
                     }}>
-                      <div style={{ minWidth: 0 }}>
-                        <span style={{ fontSize: '0.675rem', color: 'var(--text-muted)', display: 'block' }}>
-                          1. Invite Collaborator in Bubble (Settings &gt; Collaboration):
+                      <div style={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: '1px' }}>
+                        <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>
+                          1. Invite Collaborator (Settings &gt; Collaboration):
                         </span>
-                        <code style={{ fontSize: '0.75rem', color: '#f472b6', fontWeight: 600 }}>
+                        <code style={{ fontSize: '0.725rem', color: '#f472b6', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                           {CLOUD_SYNC_CONFIG.botEmail}
                         </code>
                       </div>
@@ -1543,7 +1559,7 @@ export const ConnectAppModal: React.FC<ConnectAppModalProps> = ({
                         type="button"
                         onClick={handleCopyAgentEmail}
                         className="btn btn-secondary btn-xs"
-                        style={{ padding: '3px 8px', fontSize: '0.7rem', gap: '4px', flexShrink: 0 }}
+                        style={{ padding: '3px 8px', fontSize: '0.675rem', gap: '4px', flexShrink: 0 }}
                         title="Copy email to clipboard"
                       >
                         <Copy size={11} />
@@ -1552,36 +1568,26 @@ export const ConnectAppModal: React.FC<ConnectAppModalProps> = ({
                     </div>
                   </div>
 
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <div style={{ width: '85px', flexShrink: 0 }}>
-                      <input
-                        type="text"
-                        value={cloudBranch}
-                        onChange={(e) => setCloudBranch(e.target.value)}
-                        placeholder="test"
-                        title="Bubble Branch (default: test)"
-                        className="input-text input-sm"
-                        style={{ width: '100%', fontSize: '0.75rem', fontFamily: 'monospace', textAlign: 'center' }}
-                      />
-                    </div>
-                    <button
-                      type="button"
-                      onClick={handleCloudSync}
-                      disabled={isCloudSyncing || !appId}
-                      className="btn btn-primary btn-sm"
-                      style={{
-                        flex: 1,
-                        justifyContent: 'center',
-                        gap: '8px',
-                        fontWeight: 600,
-                        background: 'linear-gradient(135deg, #ec4899 0%, #a855f7 100%)',
-                        borderColor: 'transparent'
-                      }}
-                    >
-                      <Cloud size={14} className={isCloudSyncing ? 'spin' : ''} />
-                      <span>{isCloudSyncing ? 'Syncing via Cloud Agent...' : '⚡ 1-Click Cloud Sync'}</span>
-                    </button>
-                  </div>
+                  {/* Clean full-width 1-Click Cloud Sync Button (No test input) */}
+                  <button
+                    type="button"
+                    onClick={handleCloudSync}
+                    disabled={isCloudSyncing || !appId}
+                    className="btn btn-primary btn-sm"
+                    style={{
+                      width: '100%',
+                      justifyContent: 'center',
+                      gap: '8px',
+                      fontWeight: 600,
+                      fontSize: '0.775rem',
+                      padding: '8px 12px',
+                      background: 'linear-gradient(135deg, #ec4899 0%, #a855f7 100%)',
+                      borderColor: 'transparent'
+                    }}
+                  >
+                    <Zap size={13} className={isCloudSyncing ? 'spin' : ''} />
+                    <span>{isCloudSyncing ? 'Connecting & Syncing...' : '⚡ 1-Click Cloud Sync'}</span>
+                  </button>
                 </div>
               </div>
 
@@ -1598,11 +1604,13 @@ export const ConnectAppModal: React.FC<ConnectAppModalProps> = ({
                   gap: '8px',
                   animation: 'pulse 2s infinite'
                 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.775rem', color: 'var(--accent-emerald)' }}>
-                    <Activity size={14} className="spin" />
-                    <span>Watching your <strong>Downloads</strong> folder. In Bubble, click <strong>"Export"</strong> under <em>Settings &gt; General</em>!</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.775rem', color: 'var(--accent-emerald)', minWidth: 0 }}>
+                    <Activity size={14} className="spin" style={{ flexShrink: 0 }} />
+                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      Watching your <strong>Downloads</strong> folder. In Bubble, click <strong>"Export"</strong> under <em>Settings &gt; General</em>!
+                    </span>
                   </div>
-                  <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Auto-Import Active</span>
+                  <span style={{ fontSize: '0.675rem', color: 'var(--text-muted)', whiteSpace: 'nowrap', flexShrink: 0 }}>Auto-Import Active</span>
                 </div>
               )}
 
@@ -1611,7 +1619,7 @@ export const ConnectAppModal: React.FC<ConnectAppModalProps> = ({
                 style={{
                   border: blueprintFileName ? '2px solid var(--accent-emerald)' : '2px dashed var(--border-active)',
                   borderRadius: 'var(--radius-md)',
-                  padding: '20px',
+                  padding: '18px',
                   textAlign: 'center',
                   background: blueprintFileName ? 'rgba(16, 185, 129, 0.06)' : 'var(--bg-input)',
                   cursor: 'pointer',
@@ -1628,34 +1636,34 @@ export const ConnectAppModal: React.FC<ConnectAppModalProps> = ({
                 />
 
                 <div style={{
-                  width: '42px',
-                  height: '42px',
+                  width: '40px',
+                  height: '40px',
                   borderRadius: '50%',
                   background: blueprintFileName ? 'rgba(16, 185, 129, 0.15)' : 'rgba(99, 102, 241, 0.15)',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  margin: '0 auto 10px',
+                  margin: '0 auto 8px',
                   color: blueprintFileName ? 'var(--accent-emerald)' : 'var(--primary)'
                 }}>
-                  {blueprintFileName ? <CheckCircle2 size={22} /> : <Upload size={20} />}
+                  {blueprintFileName ? <CheckCircle2 size={20} /> : <Upload size={18} />}
                 </div>
 
                 {blueprintFileName ? (
                   <div>
-                    <div style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: '0.9rem' }}>
+                    <div style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: '0.875rem' }}>
                       {blueprintFileName} ({blueprintFileSize >= 1024 * 1024 ? `${(blueprintFileSize / (1024 * 1024)).toFixed(1)} MB` : `${Math.round(blueprintFileSize / 1024)} KB`})
                     </div>
-                    <div style={{ fontSize: '0.75rem', color: 'var(--accent-emerald)', marginTop: '2px' }}>
+                    <div style={{ fontSize: '0.735rem', color: 'var(--accent-emerald)', marginTop: '2px' }}>
                       ✓ Blueprint parsed and ready for AST analysis! Click to change file.
                     </div>
                   </div>
                 ) : (
                   <div>
-                    <div style={{ fontWeight: 600, color: 'var(--text-primary)', fontSize: '0.875rem' }}>
+                    <div style={{ fontWeight: 600, color: 'var(--text-primary)', fontSize: '0.85rem' }}>
                       Drag & drop your <code>.bubble</code> or <code>export.json</code> file
                     </div>
-                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                    <div style={{ fontSize: '0.735rem', color: 'var(--text-muted)', marginTop: '2px' }}>
                       Or click to browse from disk (.bubble, .json, .csv)
                     </div>
                   </div>
@@ -1666,78 +1674,121 @@ export const ConnectAppModal: React.FC<ConnectAppModalProps> = ({
               {blueprintStats && (
                 <div style={{
                   display: 'grid',
-                  gridTemplateColumns: 'repeat(4, 1fr)',
+                  gridTemplateColumns: 'repeat(4, minmax(0, 1fr))',
                   gap: '8px',
-                  padding: '12px',
+                  padding: '10px 14px',
                   background: 'rgba(0,0,0,0.25)',
                   borderRadius: 'var(--radius-md)',
                   border: '1px solid var(--border-subtle)'
                 }}>
-                  <div style={{ textAlign: 'center' }}>
-                    <div style={{ fontSize: '0.675rem', color: 'var(--text-muted)' }}>PAGES</div>
+                  <div style={{ textAlign: 'center', minWidth: 0 }}>
+                    <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', letterSpacing: '0.5px', whiteSpace: 'nowrap' }}>PAGES</div>
                     <div style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--accent-cyan)' }}>{blueprintStats.pagesCount}</div>
                   </div>
-                  <div style={{ textAlign: 'center' }}>
-                    <div style={{ fontSize: '0.675rem', color: 'var(--text-muted)' }}>WORKFLOWS</div>
+                  <div style={{ textAlign: 'center', minWidth: 0 }}>
+                    <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', letterSpacing: '0.5px', whiteSpace: 'nowrap' }}>WORKFLOWS</div>
                     <div style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--primary)' }}>{blueprintStats.workflowsCount}</div>
                   </div>
-                  <div style={{ textAlign: 'center' }}>
-                    <div style={{ fontSize: '0.675rem', color: 'var(--text-muted)' }}>ELEMENTS</div>
+                  <div style={{ textAlign: 'center', minWidth: 0 }}>
+                    <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', letterSpacing: '0.5px', whiteSpace: 'nowrap' }}>ELEMENTS</div>
                     <div style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--accent-emerald)' }}>{blueprintStats.elementsCount}</div>
                   </div>
-                  <div style={{ textAlign: 'center' }}>
-                    <div style={{ fontSize: '0.675rem', color: 'var(--text-muted)' }}>DATA TYPES</div>
+                  <div style={{ textAlign: 'center', minWidth: 0 }}>
+                    <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', letterSpacing: '0.5px', whiteSpace: 'nowrap' }}>DATA TYPES</div>
                     <div style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--accent-amber)' }}>{blueprintStats.dataTypesCount}</div>
                   </div>
                 </div>
               )}
 
-              {/* Guidance box */}
+              {/* Guidance box (Collapsible, collapsed by default) */}
               <div style={{
-                padding: '14px 16px',
                 borderRadius: 'var(--radius-md)',
-                background: 'rgba(99, 102, 241, 0.06)',
+                background: 'rgba(99, 102, 241, 0.05)',
                 border: '1px solid rgba(99, 102, 241, 0.2)',
                 fontSize: '0.775rem',
                 color: 'var(--text-secondary)',
                 lineHeight: 1.6,
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '8px'
+                overflow: 'hidden',
+                transition: 'all 0.2s ease'
               }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <div style={{ fontWeight: 700, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <div
+                  onClick={() => setIsGuidanceExpanded(!isGuidanceExpanded)}
+                  style={{
+                    padding: '10px 14px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    cursor: 'pointer',
+                    userSelect: 'none',
+                    background: isGuidanceExpanded ? 'rgba(99, 102, 241, 0.08)' : 'transparent',
+                    borderBottom: isGuidanceExpanded ? '1px solid rgba(99, 102, 241, 0.15)' : 'none',
+                    transition: 'background 0.15s ease'
+                  }}
+                >
+                  <div style={{ fontWeight: 600, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <Sparkles size={14} color="var(--primary)" />
-                    <span>How to get your application file from Bubble:</span>
+                    <span style={{ fontSize: '0.8rem' }}>How to get your application file from Bubble</span>
+                    <span style={{
+                      fontSize: '0.65rem',
+                      padding: '1px 6px',
+                      borderRadius: '4px',
+                      background: 'rgba(99, 102, 241, 0.15)',
+                      color: 'var(--primary)',
+                      fontWeight: 600
+                    }}>
+                      {isGuidanceExpanded ? 'Hide guide' : 'Show guide'}
+                    </span>
                   </div>
-                  {appId && (
-                    <a
-                      href={`https://bubble.io/page?id=${appId}&tab=general`}
-                      target="_blank"
-                      rel="noreferrer"
-                      style={{ fontSize: '0.7rem', color: 'var(--accent-cyan)', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '4px' }}
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    {appId && (
+                      <a
+                        href={`https://bubble.io/page?id=${appId}&tab=general`}
+                        target="_blank"
+                        rel="noreferrer"
+                        onClick={(e) => e.stopPropagation()}
+                        style={{ fontSize: '0.7rem', color: 'var(--accent-cyan)', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '4px' }}
+                      >
+                        <span>Open Settings &gt; General</span>
+                        <ExternalLink size={10} />
+                      </a>
+                    )}
+                    <button
+                      type="button"
+                      style={{
+                        background: 'transparent',
+                        border: 'none',
+                        color: 'var(--text-muted)',
+                        padding: 0,
+                        display: 'flex',
+                        alignItems: 'center',
+                        cursor: 'pointer'
+                      }}
                     >
-                      <span>Open Bubble Settings &gt; General</span>
-                      <ExternalLink size={10} />
-                    </a>
-                  )}
+                      {isGuidanceExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                    </button>
+                  </div>
                 </div>
 
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                  <div><strong>1. Locate in Bubble:</strong> Open your Bubble Editor ➔ click <strong>Settings (⚙️)</strong> in the left sidebar ➔ choose the <strong>General</strong> tab.</div>
-                  <div><strong>2. Export:</strong> Scroll down to the <strong>"Export application"</strong> section and click <strong>"Export"</strong>. A <code>.bubble</code> or <code>.json</code> file will download to your computer.</div>
-                  <div><strong>3. Upload here:</strong> Drag and drop that downloaded file into the box above.</div>
-                </div>
+                {isGuidanceExpanded && (
+                  <div style={{ padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                      <div><strong>1. Locate in Bubble:</strong> Open your Bubble Editor ➔ click <strong>Settings (⚙️)</strong> in the left sidebar ➔ choose the <strong>General</strong> tab.</div>
+                      <div><strong>2. Export:</strong> Scroll down to the <strong>"Export application"</strong> section and click <strong>"Export"</strong>. A <code>.bubble</code> or <code>.json</code> file will download to your computer.</div>
+                      <div><strong>3. Upload here:</strong> Drag and drop that downloaded file into the box above.</div>
+                    </div>
 
-                <div style={{
-                  padding: '8px 10px',
-                  borderRadius: 'var(--radius-sm)',
-                  background: 'rgba(0, 0, 0, 0.2)',
-                  fontSize: '0.725rem',
-                  color: 'var(--text-muted)'
-                }}>
-                  💡 <strong>Note:</strong> This file contains your app's UI elements, workflows, and database schema (AST). It is 100% safe and does not contain live user records. If you don't have it right now, you can skip this step and upload it later in Settings.
-                </div>
+                    <div style={{
+                      padding: '8px 10px',
+                      borderRadius: 'var(--radius-sm)',
+                      background: 'rgba(0, 0, 0, 0.25)',
+                      fontSize: '0.725rem',
+                      color: 'var(--text-muted)'
+                    }}>
+                      💡 <strong>Note:</strong> This file contains your app's UI elements, workflows, and database schema (AST). It is 100% safe and does not contain live user records. If you don't have it right now, you can skip this step and upload it later in Settings.
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -1811,69 +1862,71 @@ export const ConnectAppModal: React.FC<ConnectAppModalProps> = ({
               </div>
             </div>
           )}
+        </div>
 
-          {/* Stepper Navigation Footer */}
-          <div style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            marginTop: '20px',
-            paddingTop: '16px',
-            borderTop: '1px solid var(--border-subtle)'
-          }}>
-            <div>
-              {step > 1 && (
-                <button
-                  type="button"
-                  onClick={handlePrevStep}
-                  className="btn btn-secondary btn-sm"
-                  style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
-                >
-                  <ArrowLeft size={14} />
-                  <span>Back</span>
-                </button>
-              )}
-            </div>
-
-            <div style={{ display: 'flex', gap: '10px' }}>
+        {/* Stepper Navigation Footer - Fixed & Always Visible at Bottom */}
+        <div style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          padding: '14px 24px',
+          borderTop: '1px solid var(--border-subtle)',
+          background: 'rgba(15, 23, 42, 0.85)',
+          backdropFilter: 'blur(10px)',
+          flexShrink: 0
+        }}>
+          <div>
+            {step > 1 && (
               <button
                 type="button"
-                onClick={onClose}
+                onClick={handlePrevStep}
                 className="btn btn-secondary btn-sm"
+                style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
               >
-                <span>Cancel</span>
+                <ArrowLeft size={14} />
+                <span>Back</span>
               </button>
+            )}
+          </div>
 
-              {step < 5 ? (
-                <button
-                  type="button"
-                  onClick={handleNextStep}
-                  disabled={step === 1 && !appId.trim()}
-                  className="btn btn-primary btn-sm"
-                  style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
-                >
-                  <span>{step === 4 ? 'Continue to Launch' : 'Next Step'}</span>
-                  <ArrowRight size={14} />
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  onClick={handleFinish}
-                  className="btn btn-primary btn-sm"
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    background: 'linear-gradient(135deg, #10b981 0%, #06b6d4 100%)',
-                    border: 'none',
-                    fontWeight: 700
-                  }}
-                >
-                  <Check size={15} />
-                  <span>Launch Studio Workspace</span>
-                </button>
-              )}
-            </div>
+          <div style={{ display: 'flex', gap: '10px' }}>
+            <button
+              type="button"
+              onClick={onClose}
+              className="btn btn-secondary btn-sm"
+            >
+              <span>Cancel</span>
+            </button>
+
+            {step < 5 ? (
+              <button
+                type="button"
+                onClick={handleNextStep}
+                disabled={step === 1 && !appId.trim()}
+                className="btn btn-primary btn-sm"
+                style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+              >
+                <span>{step === 4 ? 'Continue to Launch' : 'Next Step'}</span>
+                <ArrowRight size={14} />
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={handleFinish}
+                className="btn btn-primary btn-sm"
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  background: 'linear-gradient(135deg, #10b981 0%, #06b6d4 100%)',
+                  border: 'none',
+                  fontWeight: 700
+                }}
+              >
+                <Check size={15} />
+                <span>Launch Studio Workspace</span>
+              </button>
+            )}
           </div>
         </div>
       </div>
