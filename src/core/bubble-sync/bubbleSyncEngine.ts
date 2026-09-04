@@ -12,6 +12,13 @@ export interface BubbleSyncResult {
   success: boolean;
   fileName?: string;
   data?: any;
+  stats?: {
+    pagesCount: number;
+    workflowsCount: number;
+    elementsCount: number;
+    dataTypesCount: number;
+    appTextsCount: number;
+  };
   error?: string;
 }
 
@@ -30,22 +37,11 @@ export class BubbleSyncEngine {
   }
 
   /**
-   * Opens native Bubble.io login window in Electron
+   * Safe login helper
    */
   public static async login(): Promise<BubbleAuthStatus> {
-    if (typeof window === 'undefined' || !window.electronAPI?.bubbleSyncLogin) {
-      toast.error('Bubble In-App Sync is only supported in desktop mode');
-      return { isAuthenticated: false };
-    }
-
-    toast.info('Opening Bubble.io login window (for Email/Password accounts)...');
-    const result = await window.electronAPI.bubbleSyncLogin();
-    if (result.isAuthenticated) {
-      toast.success('Successfully authenticated with Bubble.io!');
-    } else {
-      toast.info('Bubble.io login was cancelled or closed');
-    }
-    return result;
+    toast.info('Please use the Bubble Dev Studio Companion Chrome extension for seamless authentication.');
+    return { isAuthenticated: false };
   }
 
   /**
@@ -61,58 +57,147 @@ export class BubbleSyncEngine {
   }
 
   /**
-   * 1-Click Syncs the application file (.bubble) directly from Bubble Editor session
+   * Opens the unpacked Chrome Companion Extension folder in Windows Explorer / Finder
+   * so the user can click "Load unpacked" in chrome://extensions.
    */
-  public static async syncAppFile(
-    project: ProjectProfile,
-    onProgress?: (message: string) => void
-  ): Promise<BubbleSyncResult> {
-    if (!project.appId) {
-      const err = 'Cannot sync: Application ID is missing in project settings';
-      toast.error(err);
-      return { success: false, error: err };
-    }
-
-    if (typeof window === 'undefined' || !window.electronAPI?.bubbleSyncFetchApp) {
-      const err = '1-Click Direct Sync requires the Bubble Dev Studio Desktop App.';
-      toast.error(err);
-      return { success: false, error: err };
-    }
-
-    onProgress?.(`Connecting to Bubble.io for ${project.appId}...`);
-    try {
-      const result = await window.electronAPI.bubbleSyncFetchApp(project.appId);
-
-      if (result.success && result.data) {
-        const fileName = result.fileName || `${project.appId}_synced_${Date.now()}.bubble`;
-        
-        ProjectStore.getInstance().updateProject(project.id, {
-          blueprintFileName: fileName,
-          blueprintExportJson: result.data,
-          lastActiveAt: new Date().toISOString()
-        });
-
-        toast.success(`Successfully synced ${fileName} from Bubble.io!`);
-        return {
-          success: true,
-          fileName,
-          data: result.data
-        };
+  public static async openCompanionFolder(): Promise<boolean> {
+    if (typeof window !== 'undefined' && (window.electronAPI as any)?.companionOpenFolder) {
+      const res = await (window.electronAPI as any).companionOpenFolder();
+      if (res.success) {
+        toast.info('Opened Companion Extension folder in File Explorer.');
+        return true;
       } else {
-        const errorMsg = result.error || 'Failed to capture application data from Bubble Editor';
-        toast.error(errorMsg);
-        return { success: false, error: errorMsg };
+        toast.error('Could not open extension folder: ' + res.error);
+        return false;
       }
-    } catch (err: any) {
-      const msg = err.message || 'Error occurred during Bubble sync';
-      toast.error(msg);
-      return { success: false, error: msg };
     }
+    toast.error('Companion installation is supported in Desktop App.');
+    return false;
   }
 
   /**
-   * Generates a fully indexed .bubble blueprint directly from Bubble Data API / Meta API
-   * Zero browser login or Google OAuth required.
+   * Checks Downloads directory for recent .bubble files matching the current app or recently exported
+   */
+  public static async checkRecentDownloads(appId?: string): Promise<{
+    found: boolean;
+    fileName?: string;
+    filePath?: string;
+    sizeBytes?: number;
+    mtime?: number;
+    content?: any;
+    stats?: {
+      pagesCount: number;
+      workflowsCount: number;
+      elementsCount: number;
+      dataTypesCount: number;
+      appTextsCount: number;
+    };
+  }> {
+    if (typeof window !== 'undefined' && (window.electronAPI as any)?.bubbleSyncCheckRecentDownloads) {
+      return await (window.electronAPI as any).bubbleSyncCheckRecentDownloads(appId);
+    }
+    return { found: false };
+  }
+
+  /**
+   * Opens user's default browser directly to Bubble Editor for the given application
+   */
+  public static async openBubbleInBrowser(appId: string): Promise<boolean> {
+    if (!appId) {
+      toast.error('Please enter an Application ID first');
+      return false;
+    }
+
+    const editorUrl = `https://bubble.io/page?id=${encodeURIComponent(appId)}&tab=general`;
+
+    if (typeof window !== 'undefined' && window.electronAPI?.openExternal) {
+      await window.electronAPI.openExternal(editorUrl);
+    } else {
+      window.open(editorUrl, '_blank', 'noopener,noreferrer');
+    }
+
+    toast.info('Opened Bubble in your browser. Use the Companion extension or click "Export" under Settings > General.');
+    return true;
+  }
+
+  /**
+   * Opens user's default browser directly to Bubble Editor Settings > General tab
+   * and automatically engages the Downloads folder watcher for exported .bubble files.
+   */
+  public static async openBubbleExportInBrowser(
+    appId: string,
+    onFileDetected?: (fileName: string, content: any, stats?: any) => void
+  ): Promise<boolean> {
+    if (onFileDetected) {
+      await this.toggleDownloadsWatcher(true, onFileDetected);
+    }
+    return this.openBubbleInBrowser(appId);
+  }
+
+  /**
+   * Computes accurate Bubble application AST statistics
+   */
+  public static calculateBlueprintStats(data: any): {
+    pagesCount: number;
+    workflowsCount: number;
+    elementsCount: number;
+    dataTypesCount: number;
+    appTextsCount: number;
+  } {
+    if (!data || typeof data !== 'object') {
+      return { pagesCount: 0, workflowsCount: 0, elementsCount: 0, dataTypesCount: 0, appTextsCount: 0 };
+    }
+
+    let pagesCount = 0;
+    let workflowsCount = 0;
+    let elementsCount = 0;
+    let dataTypesCount = 0;
+    let appTextsCount = 0;
+
+    if (data.pages && typeof data.pages === 'object') {
+      pagesCount = Object.keys(data.pages).length;
+      for (const p of Object.values<any>(data.pages)) {
+        if (p.elements && typeof p.elements === 'object') {
+          elementsCount += Object.keys(p.elements).length;
+        }
+        if (p.events && typeof p.events === 'object') {
+          workflowsCount += Object.keys(p.events).length;
+        } else if (p.workflows && typeof p.workflows === 'object') {
+          workflowsCount += Object.keys(p.workflows).length;
+        }
+      }
+    }
+
+    if (data.element_definitions && typeof data.element_definitions === 'object') {
+      elementsCount += Object.keys(data.element_definitions).length;
+    }
+    if (data.workflows && typeof data.workflows === 'object') {
+      workflowsCount += Object.keys(data.workflows).length;
+    }
+    if (data.user_types && typeof data.user_types === 'object') {
+      dataTypesCount += Object.keys(data.user_types).length;
+    }
+    if (data.custom_types && typeof data.custom_types === 'object') {
+      dataTypesCount += Object.keys(data.custom_types).length;
+    }
+    if (data.types && typeof data.types === 'object') {
+      dataTypesCount += Object.keys(data.types).length;
+    }
+    if (data.app_texts && typeof data.app_texts === 'object') {
+      appTextsCount = Object.keys(data.app_texts).length;
+    }
+
+    return {
+      pagesCount: pagesCount || 1,
+      workflowsCount: workflowsCount || 0,
+      elementsCount: elementsCount || 0,
+      dataTypesCount: dataTypesCount || 0,
+      appTextsCount: appTextsCount || 0
+    };
+  }
+
+  /**
+   * Generates a schema blueprint directly from Bubble Data API / Meta API (Schema fallback)
    */
   public static async generateBlueprintFromApi(
     project: ProjectProfile,
@@ -127,20 +212,15 @@ export class BubbleSyncEngine {
     onProgress?.(`Connecting to Bubble Meta API for "${project.appId}"...`);
 
     try {
-      // 1. Fetch live schema using API token or public Swagger
       const schema = await DevOpsEngine.fetchSchema(project);
-
       let effectiveSchema = schema;
       if (!effectiveSchema || effectiveSchema.dataTypes.length === 0) {
-        // Fallback: If Data API returned empty, use the project's tailored schema baseline
         effectiveSchema = DevOpsEngine.getTemplateSchema(project);
       }
 
-      // 2. Synthesize complete .bubble format JSON
       const blueprintData = DevOpsEngine.synthesizeBubbleBlueprint(effectiveSchema, project);
       const fileName = `${project.appId}_api_generated.bubble`;
 
-      // 3. Persist to project store
       if (project.id && project.id !== 'temp' && project.id !== 'test_app') {
         ProjectStore.getInstance().updateProject(project.id, {
           blueprintFileName: fileName,
@@ -149,23 +229,12 @@ export class BubbleSyncEngine {
         });
       }
 
-      // 4. Save physical copy to Downloads folder if in Electron
-      if (typeof window !== 'undefined' && window.electronAPI?.bubbleSyncExportBlueprintToDisk) {
-        try {
-          await window.electronAPI.bubbleSyncExportBlueprintToDisk(fileName, blueprintData);
-        } catch (saveErr) {
-          console.warn('Auto-save to disk notice:', saveErr);
-        }
-      }
-
-      const totalTypes = effectiveSchema.dataTypes.length;
-      const totalOptions = effectiveSchema.optionSets.length;
-      toast.success(`✨ Generated ${fileName} from Data API! (${totalTypes} Types, ${totalOptions} Option Sets)`);
-
+      const stats = this.calculateBlueprintStats(blueprintData);
       return {
         success: true,
         fileName,
-        data: blueprintData
+        data: blueprintData,
+        stats
       };
     } catch (err: any) {
       const msg = err.message || 'Failed to generate blueprint from Bubble API';
@@ -175,40 +244,26 @@ export class BubbleSyncEngine {
   }
 
   /**
-   * Opens user's default browser directly to Bubble Editor Settings > General tab
-   * and automatically engages the Downloads folder watcher for exported .bubble files.
+   * Sync app file helper for backward compatibility
    */
-  public static async openBubbleExportInBrowser(
-    appId: string,
-    onFileDetected?: (fileName: string, content: any) => void
-  ): Promise<boolean> {
-    if (!appId) {
-      toast.error('Please enter an Application ID first');
-      return false;
+  public static async syncAppFile(
+    project: ProjectProfile,
+    onProgress?: (message: string) => void
+  ): Promise<BubbleSyncResult> {
+    onProgress?.('Syncing via Bubble Companion or Downloads folder...');
+    const recent = await this.checkRecentDownloads(project.appId);
+    if (recent.found && recent.content) {
+      return {
+        success: true,
+        fileName: recent.fileName,
+        data: recent.content,
+        stats: recent.stats
+      };
     }
-
-    // 1. Ensure Downloads Watcher is listening
-    await this.toggleDownloadsWatcher(true, onFileDetected);
-
-    // 2. Target URL in user's default browser (where they are already authenticated with Google)
-    const exportUrl = `https://bubble.io/page?id=${encodeURIComponent(appId)}&tab=general`;
-
-    if (typeof window !== 'undefined' && window.electronAPI?.openExternal) {
-      await window.electronAPI.openExternal(exportUrl);
-    } else {
-      window.open(exportUrl, '_blank', 'noopener,noreferrer');
-    }
-
-    toast.info('Opened Bubble Settings in your default browser. Click "Export" to auto-sync!');
-    return true;
-  }
-
-  /**
-   * Returns a ready-to-run 1-click JavaScript snippet / Bookmarklet for instant AST sync
-   * from any open Bubble Editor tab in Chrome/Edge to Bubble Dev Studio.
-   */
-  public static getBookmarkletCode(bridgePort = 41890): string {
-    return `javascript:(function(){try{var a=window.app;if(!a){alert('Please open your Bubble Editor tab first!');return;}var d=typeof a.get_json_for_export==='function'?a.get_json_for_export():(typeof a.to_json==='function'?a.to_json():a);fetch('http://127.0.0.1:${bridgePort}/sync',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({data:d,origin:location.href})}).then(function(r){return r.json();}).then(function(){alert('✨ Successfully synced app to Bubble Dev Studio!');}).catch(function(e){alert('Sync error: '+e.message);});}catch(err){alert('Error: '+err.message);}})();`;
+    return {
+      success: false,
+      error: 'No export found. Please open Bubble in Chrome and click Sync or Export.'
+    };
   }
 
   /**
@@ -216,7 +271,7 @@ export class BubbleSyncEngine {
    */
   public static async toggleDownloadsWatcher(
     enabled: boolean,
-    onFileDetected?: (fileName: string, content: any) => void
+    onFileDetected?: (fileName: string, content: any, stats?: any) => void
   ): Promise<boolean> {
     if (typeof window === 'undefined' || !window.electronAPI?.bubbleSyncSetDownloadsWatcher) {
       return false;
@@ -226,9 +281,9 @@ export class BubbleSyncEngine {
     this.isWatcherActive = enabled;
 
     if (enabled && !this.watcherUnsubscribe && window.electronAPI.onBubbleFileDetected) {
-      this.watcherUnsubscribe = window.electronAPI.onBubbleFileDetected((data) => {
-        toast.success(`✨ Detected new Bubble app file: ${data.fileName}`);
-        onFileDetected?.(data.fileName, data.content);
+      this.watcherUnsubscribe = window.electronAPI.onBubbleFileDetected((data: any) => {
+        toast.success(`✨ Detected new Bubble app export: ${data.fileName}`);
+        onFileDetected?.(data.fileName, data.content, data.stats);
       });
     } else if (!enabled && this.watcherUnsubscribe) {
       this.watcherUnsubscribe();

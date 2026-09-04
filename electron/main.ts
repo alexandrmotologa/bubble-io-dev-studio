@@ -225,6 +225,7 @@ function createWindow() {
 app.whenReady().then(() => {
   createWindow();
   startLocalBridgeServer();
+  initDownloadsWatcher(true);
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
@@ -502,12 +503,41 @@ function initDownloadsWatcher(enable: boolean): boolean {
 
           const raw = fs.readFileSync(fullPath, 'utf-8');
           const data = JSON.parse(raw);
-          if (data && (data.pages || data.workflows || data.types || data.schema || data.app_version)) {
+          if (data && (data.pages || data.workflows || data.types || data.user_types || data.schema || data.app_version)) {
+            let pagesCount = 0;
+            let workflowsCount = 0;
+            let elementsCount = 0;
+            let dataTypesCount = 0;
+            let appTextsCount = 0;
+
+            if (data.pages && typeof data.pages === 'object') {
+              pagesCount = Object.keys(data.pages).length;
+              for (const p of Object.values<any>(data.pages)) {
+                if (p.elements) elementsCount += Object.keys(p.elements).length;
+                if (p.events || p.workflows) workflowsCount += Object.keys(p.events || p.workflows || {}).length;
+              }
+            }
+            if (data.element_definitions) {
+              elementsCount += Object.keys(data.element_definitions).length;
+            }
+            if (data.workflows) workflowsCount += Object.keys(data.workflows).length;
+            if (data.user_types) dataTypesCount += Object.keys(data.user_types).length;
+            if (data.custom_types) dataTypesCount += Object.keys(data.custom_types).length;
+            if (data.types) dataTypesCount += Object.keys(data.types).length;
+            if (data.app_texts) appTextsCount = Object.keys(data.app_texts).length;
+
             if (mainWindow && !mainWindow.isDestroyed()) {
               mainWindow.webContents.send('bubbleSync:fileDetected', {
                 fileName: filename,
                 filePath: fullPath,
-                content: data
+                content: data,
+                stats: {
+                  pagesCount: pagesCount || 1,
+                  workflowsCount: workflowsCount || 0,
+                  elementsCount: elementsCount || 0,
+                  dataTypesCount: dataTypesCount || 0,
+                  appTextsCount: appTextsCount || 0
+                }
               });
             }
           }
@@ -556,6 +586,129 @@ ipcMain.handle('bubbleSync:checkAuth', async () => {
   }
 });
 
+ipcMain.handle('companion:openFolder', async () => {
+  try {
+    let extPath = path.join(__dirname, '../extensions/bubble-dev-studio-companion');
+    if (!fs.existsSync(extPath)) {
+      extPath = path.join(app.getAppPath(), 'extensions/bubble-dev-studio-companion');
+    }
+    if (!fs.existsSync(extPath)) {
+      extPath = path.join(process.resourcesPath, 'extensions/bubble-dev-studio-companion');
+    }
+    if (fs.existsSync(extPath)) {
+      await shell.openPath(extPath);
+      return { success: true, path: extPath };
+    } else {
+      return { success: false, error: 'Companion extension folder not found.' };
+    }
+  } catch (err: any) {
+    return { success: false, error: err.message };
+  }
+});
+
+ipcMain.handle('bubbleSync:checkRecentDownloads', async (_event, appId?: string) => {
+  try {
+    const downloadsDir = app.getPath('downloads');
+    if (!fs.existsSync(downloadsDir)) return { found: false };
+
+    const files = fs.readdirSync(downloadsDir);
+    const cleanAppId = (appId || '').toLowerCase().trim();
+
+    const candidates: Array<{ name: string; fullPath: string; mtime: number; size: number }> = [];
+
+    for (const f of files) {
+      const lower = f.toLowerCase();
+      if (!lower.endsWith('.bubble') && !lower.endsWith('.json')) continue;
+      const fullPath = path.join(downloadsDir, f);
+      try {
+        const st = fs.statSync(fullPath);
+        // within last 14 days and size > 500 bytes
+        if (st.size > 500 && Date.now() - st.mtimeMs < 14 * 24 * 3600 * 1000) {
+          candidates.push({
+            name: f,
+            fullPath,
+            mtime: st.mtimeMs,
+            size: st.size
+          });
+        }
+      } catch {}
+    }
+
+    if (candidates.length === 0) return { found: false };
+
+    // Sort: 1) contains appId first, 2) non-api-generated first, 3) newest mtime
+    candidates.sort((a, b) => {
+      const aLower = a.name.toLowerCase();
+      const bLower = b.name.toLowerCase();
+
+      const aMatch = cleanAppId && aLower.includes(cleanAppId);
+      const bMatch = cleanAppId && bLower.includes(cleanAppId);
+      if (aMatch && !bMatch) return -1;
+      if (!aMatch && bMatch) return 1;
+
+      const aIsApi = aLower.includes('_api_generated');
+      const bIsApi = bLower.includes('_api_generated');
+      if (!aIsApi && bIsApi) return -1;
+      if (aIsApi && !bIsApi) return 1;
+
+      return b.mtime - a.mtime;
+    });
+
+    const top = candidates[0];
+    const raw = fs.readFileSync(top.fullPath, 'utf8');
+    const data = JSON.parse(raw);
+
+    let pagesCount = 0;
+    let workflowsCount = 0;
+    let elementsCount = 0;
+    let dataTypesCount = 0;
+    let appTextsCount = 0;
+
+    if (data.pages && typeof data.pages === 'object') {
+      pagesCount = Object.keys(data.pages).length;
+      for (const p of Object.values<any>(data.pages)) {
+        if (p.elements) elementsCount += Object.keys(p.elements).length;
+        if (p.events || p.workflows) workflowsCount += Object.keys(p.events || p.workflows || {}).length;
+      }
+    }
+    if (data.element_definitions) {
+      elementsCount += Object.keys(data.element_definitions).length;
+    }
+    if (data.workflows) workflowsCount += Object.keys(data.workflows).length;
+    if (data.user_types) dataTypesCount += Object.keys(data.user_types).length;
+    if (data.custom_types) dataTypesCount += Object.keys(data.custom_types).length;
+    if (data.types) dataTypesCount += Object.keys(data.types).length;
+    if (data.app_texts) appTextsCount = Object.keys(data.app_texts).length;
+
+    return {
+      found: true,
+      fileName: top.name,
+      filePath: top.fullPath,
+      sizeBytes: top.size,
+      mtime: top.mtime,
+      content: data,
+      stats: {
+        pagesCount: pagesCount || 1,
+        workflowsCount: workflowsCount || 0,
+        elementsCount: elementsCount || 0,
+        dataTypesCount: dataTypesCount || 0,
+        appTextsCount: appTextsCount || 0
+      }
+    };
+  } catch (err: any) {
+    return { found: false, error: err.message };
+  }
+});
+
+// Legacy backward-compatible stubs
+ipcMain.handle('bubbleSync:login', async () => {
+  return { isAuthenticated: false, error: 'Please use Chrome Companion or Downloads auto-detect.' };
+});
+
+ipcMain.handle('bubbleSync:fetchApp', async (_event, appId: string) => {
+  return { success: false, error: 'Please use Chrome Companion or Downloads auto-detect.' };
+});
+
 ipcMain.handle('bubbleSync:logout', async () => {
   try {
     const authSession = session.fromPartition('persist:bubble_session');
@@ -564,345 +717,6 @@ ipcMain.handle('bubbleSync:logout', async () => {
   } catch (err) {
     return false;
   }
-});
-
-ipcMain.handle('bubbleSync:login', async () => {
-  return new Promise((resolve) => {
-    const authSession = session.fromPartition('persist:bubble_session');
-
-    // Desktop Firefox User-Agent across Windows, macOS, and Linux
-    // Crucial: Google OAuth actively blocks Chromium embedded webviews (Electron/CEF),
-    // but permits Firefox without triggering the "This browser or app may not be secure" block.
-    const FIREFOX_UA = process.platform === 'darwin'
-      ? 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:133.0) Gecko/20100101 Firefox/133.0'
-      : process.platform === 'linux'
-      ? 'Mozilla/5.0 (X11; Linux x86_64; rv:133.0) Gecko/20100101 Firefox/133.0'
-      : 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:133.0) Gecko/20100101 Firefox/133.0';
-
-    authSession.setUserAgent(FIREFOX_UA);
-
-    // Strip Chromium Client Hints that Google uses to detect and block Electron
-    authSession.webRequest.onBeforeSendHeaders((details, callback) => {
-      details.requestHeaders['User-Agent'] = FIREFOX_UA;
-      delete details.requestHeaders['sec-ch-ua'];
-      delete details.requestHeaders['sec-ch-ua-mobile'];
-      delete details.requestHeaders['sec-ch-ua-platform'];
-      delete details.requestHeaders['sec-ch-ua-model'];
-      delete details.requestHeaders['sec-ch-ua-arch'];
-      delete details.requestHeaders['sec-ch-ua-bitness'];
-      delete details.requestHeaders['sec-ch-ua-full-version-list'];
-      callback({ cancel: false, requestHeaders: details.requestHeaders });
-    });
-
-    const authPreloadPath = path.join(__dirname, 'authPreload.js');
-
-    const authWin = new BrowserWindow({
-      width: 1000,
-      height: 800,
-      minWidth: 800,
-      minHeight: 600,
-      center: true,
-      show: false,
-      modal: false, // Independent top-level window so macOS sheets or Linux WM modals don't trap OAuth popups
-      autoHideMenuBar: false,
-      title: 'Sign in to Bubble.io (Bubble Email/Password or SSO)',
-      webPreferences: {
-        preload: fs.existsSync(authPreloadPath) ? authPreloadPath : undefined,
-        partition: 'persist:bubble_session',
-        nodeIntegration: false,
-        contextIsolation: true
-      }
-    });
-
-    authWin.webContents.setUserAgent(FIREFOX_UA);
-
-    // Support OAuth popups (e.g. Google Sign-In, Microsoft, Apple) within the same session
-    authWin.webContents.setWindowOpenHandler(({ url }) => {
-      return {
-        action: 'allow',
-        overrideBrowserWindowOptions: {
-          width: 600,
-          height: 720,
-          parent: authWin,
-          modal: false,
-          autoHideMenuBar: true,
-          webPreferences: {
-            preload: fs.existsSync(authPreloadPath) ? authPreloadPath : undefined,
-            partition: 'persist:bubble_session',
-            nodeIntegration: false,
-            contextIsolation: true
-          }
-        }
-      };
-    });
-
-    // Provide explicit navigation toolbar in native window menu
-    const authMenu = Menu.buildFromTemplate([
-      {
-        label: '⬅ Back to Bubble Login',
-        accelerator: 'Alt+Left',
-        click: () => {
-          if (!authWin.isDestroyed()) {
-            if (authWin.webContents.canGoBack()) {
-              authWin.webContents.goBack();
-            } else {
-              authWin.loadURL('https://bubble.io/login');
-            }
-          }
-        }
-      },
-      {
-        label: '🏠 Reset to Login',
-        click: () => {
-          if (!authWin.isDestroyed()) {
-            authWin.loadURL('https://bubble.io/login');
-          }
-        }
-      },
-      {
-        label: '🔄 Reload',
-        accelerator: 'F5',
-        click: () => {
-          if (!authWin.isDestroyed()) {
-            authWin.webContents.reload();
-          }
-        }
-      },
-      {
-        label: '🌐 Open in Default Browser (Google accounts)',
-        click: () => {
-          shell.openExternal('https://bubble.io/login');
-        }
-      }
-    ]);
-    authWin.setMenu(authMenu);
-
-    // Keyboard navigation helper
-    authWin.webContents.on('before-input-event', (event, input) => {
-      if (input.type === 'keyDown' && !authWin.isDestroyed()) {
-        if (input.alt && input.key === 'ArrowLeft') {
-          if (authWin.webContents.canGoBack()) {
-            event.preventDefault();
-            authWin.webContents.goBack();
-          } else {
-            authWin.loadURL('https://bubble.io/login');
-          }
-        }
-        if (input.key === 'Escape') {
-          const currentUrl = authWin.webContents.getURL();
-          if (!currentUrl.includes('bubble.io/login')) {
-            event.preventDefault();
-            authWin.loadURL('https://bubble.io/login');
-          }
-        }
-      }
-    });
-
-    let resolved = false;
-
-    const checkAuthSuccess = (url: string) => {
-      const isAuthDestination = (url.includes('bubble.io/home') ||
-                                 url.includes('bubble.io/agency') ||
-                                 url.includes('bubble.io/apps') ||
-                                 url.includes('bubble.io/page?id=')) &&
-                                !url.includes('/login') &&
-                                !url.includes('/signup');
-      if (isAuthDestination && !resolved) {
-        resolved = true;
-        clearInterval(authInterval);
-        resolve({ isAuthenticated: true });
-        setTimeout(() => {
-          if (!authWin.isDestroyed()) authWin.close();
-        }, 800);
-      }
-    };
-
-    authWin.webContents.on('did-navigate', (_event, url) => checkAuthSuccess(url));
-    authWin.webContents.on('did-navigate-in-page', (_event, url) => checkAuthSuccess(url));
-
-    const authInterval = setInterval(() => {
-      if (resolved || authWin.isDestroyed()) {
-        clearInterval(authInterval);
-        return;
-      }
-      checkAuthSuccess(authWin.webContents.getURL());
-    }, 600);
-
-    // If user closes the window manually with X without completing login
-    authWin.on('close', () => {
-      clearInterval(authInterval);
-      if (!resolved) {
-        resolved = true;
-        resolve({ isAuthenticated: false });
-      }
-    });
-
-    authWin.once('ready-to-show', () => {
-      authWin.show();
-      authWin.focus();
-      if (process.platform === 'darwin') {
-        app.dock?.show();
-      }
-    });
-
-    authWin.loadURL('https://bubble.io/login');
-  });
-});
-
-ipcMain.handle('bubbleSync:fetchApp', async (_event, appId: string) => {
-  if (!appId) return { success: false, error: 'Application ID is required' };
-
-  return new Promise((resolve) => {
-    const syncWin = new BrowserWindow({
-      width: 1024,
-      height: 768,
-      show: false,
-      webPreferences: {
-        partition: 'persist:bubble_session',
-        nodeIntegration: false,
-        contextIsolation: true,
-        preload: path.join(__dirname, 'syncPreload.js')
-      }
-    });
-
-    let resolved = false;
-
-    const timeout = setTimeout(() => {
-      if (!resolved) {
-        resolved = true;
-        if (!syncWin.isDestroyed()) syncWin.destroy();
-        resolve({ success: false, error: 'Timed out waiting for Bubble Editor to respond' });
-      }
-    }, 45000);
-
-    syncWin.loadURL(`https://bubble.io/page?id=${encodeURIComponent(appId)}&tab=App`);
-
-    syncWin.webContents.on('did-finish-load', async () => {
-      try {
-        const script = `
-          new Promise((res) => {
-            let attempts = 0;
-            const interval = setInterval(() => {
-              attempts++;
-
-              // Check if Bubble popped an alert or permission error
-              const alertMsg = window.__bubble_intercepted_alert || '';
-              if (window.__bubble_has_permission_error || alertMsg.includes('permission') || alertMsg.includes('does not have permission')) {
-                clearInterval(interval);
-                return res({
-                  success: false,
-                  error: 'Access Denied: Your currently logged-in Bubble account does not have permission to view app "' + ${JSON.stringify(appId)} + '". Please verify the App ID or sign into the owner account.'
-                });
-              }
-
-              // Check if redirected to login
-              if (window.location.href.includes('/login') || window.location.href.includes('/signup')) {
-                clearInterval(interval);
-                return res({
-                  success: false,
-                  error: 'Not authenticated with Bubble.io. Please log in first using the "Sign in to Bubble.io" button.'
-                });
-              }
-
-              if (window.app) {
-                let appData = null;
-                try {
-                  if (typeof window.app.get_json_for_export === 'function') {
-                    appData = window.app.get_json_for_export();
-                  } else if (typeof window.app.to_json === 'function') {
-                    appData = window.app.to_json();
-                  } else if (window.app.pages || window.app.user_types || window.app.custom_types) {
-                    const a = window.app;
-                    appData = {
-                      pages: a.pages || a.pages_dict || {},
-                      user_types: a.user_types || a.custom_types || a.types || {},
-                      custom_types: a.custom_types || a.user_types || a.types || {},
-                      option_sets: a.option_sets || a.option_sets_dict || {},
-                      workflows: a.workflows || {},
-                      api_connectors: a.api_connectors || a.plugins || {},
-                      app_version: a.app_version || 'live'
-                    };
-                  }
-
-                  const hasPages = appData && appData.pages && Object.keys(appData.pages).length > 0;
-                  const hasTypes = appData && (
-                    (appData.user_types && Object.keys(appData.user_types).length > 0) ||
-                    (appData.custom_types && Object.keys(appData.custom_types).length > 0)
-                  );
-
-                  if (hasPages || hasTypes) {
-                    clearInterval(interval);
-                    return res({ success: true, app: appData });
-                  }
-                } catch (err) {
-                  // Continue waiting
-                }
-              }
-
-              if (attempts > 35) {
-                clearInterval(interval);
-                const finalAlert = window.__bubble_intercepted_alert || '';
-                res({
-                  success: false,
-                  error: finalAlert || 'Editor data not accessible. Please ensure you are logged into the Bubble account that owns app "' + ${JSON.stringify(appId)} + '".'
-                });
-              }
-            }, 600);
-          });
-        `;
-        const result: any = await syncWin.webContents.executeJavaScript(script);
-        clearTimeout(timeout);
-        if (!resolved) {
-          resolved = true;
-          if (!syncWin.isDestroyed()) syncWin.destroy();
-
-          if (result && result.success && result.app) {
-            const fileName = `${appId}_synced_${Date.now()}.bubble`;
-            let savedFilePath = '';
-            try {
-              const downloadsDir = app.getPath('downloads');
-              savedFilePath = path.join(downloadsDir, fileName);
-              fs.writeFileSync(savedFilePath, JSON.stringify(result.app, null, 2), 'utf8');
-              console.log('[BubbleSync] Auto-saved physical .bubble file to:', savedFilePath);
-            } catch (saveErr) {
-              console.warn('[BubbleSync] Could not save physical file to downloads:', saveErr);
-            }
-
-            resolve({
-              success: true,
-              fileName,
-              filePath: savedFilePath,
-              data: result.app
-            });
-          } else {
-            resolve({
-              success: false,
-              error: result?.error || 'Could not extract application structure from Bubble Editor'
-            });
-          }
-        }
-      } catch (err: any) {
-        clearTimeout(timeout);
-        if (!resolved) {
-          resolved = true;
-          if (!syncWin.isDestroyed()) syncWin.destroy();
-          resolve({ success: false, error: err.message || 'Execution error during app sync' });
-        }
-      }
-    });
-
-    syncWin.webContents.on('did-fail-load', (_event, errorCode, errorDescription, _validatedURL, isMainFrame) => {
-      // Ignore ERR_ABORTED (-3) and non-mainframe failures which happen during redirects
-      if (errorCode === -3 || !isMainFrame) return;
-
-      clearTimeout(timeout);
-      if (!resolved) {
-        resolved = true;
-        if (!syncWin.isDestroyed()) syncWin.destroy();
-        resolve({ success: false, error: `Failed to load Bubble Editor (${errorCode}: ${errorDescription})` });
-      }
-    });
-  });
 });
 
 ipcMain.handle('bubbleSync:showInFolder', async (_event, filePath: string) => {
@@ -963,7 +777,8 @@ function startLocalBridgeServer() {
           if (mainWindow && !mainWindow.isDestroyed()) {
             mainWindow.webContents.send('bubbleSync:browserAppReceived', {
               data: appData,
-              originUrl
+              originUrl,
+              stats: payload.stats
             });
             if (mainWindow.isMinimized()) mainWindow.restore();
             mainWindow.focus();

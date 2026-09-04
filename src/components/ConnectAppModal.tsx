@@ -26,7 +26,9 @@ import {
   FileCode,
   CheckSquare,
   RefreshCw,
-  Copy
+  Copy,
+  Download,
+  FolderOpen
 } from 'lucide-react';
 import { ProjectProfile } from '../types';
 import { DevOpsEngine } from '../core/devops/devopsEngine';
@@ -160,47 +162,29 @@ export const ConnectAppModal: React.FC<ConnectAppModalProps> = ({
     dataTypesCount: number;
     appTextsCount: number;
   } | null>(null);
-  const [isGeneratingFromApi, setIsGeneratingFromApi] = useState(false);
   const [isListeningDownloads, setIsListeningDownloads] = useState(false);
-  const [isCopiedBookmarklet, setIsCopiedBookmarklet] = useState(false);
-  const [showBookmarkletGuide, setShowBookmarkletGuide] = useState(false);
-  const [showLegacyLogin, setShowLegacyLogin] = useState(false);
-  const [isSyncingBubble, setIsSyncingBubble] = useState(false);
-  const [isBubbleAuthed, setIsBubbleAuthed] = useState<boolean | null>(null);
-  const [isOpeningLogin, setIsOpeningLogin] = useState(false);
+  const [recentDownload, setRecentDownload] = useState<any>(null);
+  const [isCheckingDownloads, setIsCheckingDownloads] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Check Downloads directory for recent export of this app when step 4 is opened
   useEffect(() => {
-    if (step === 4) {
-      BubbleSyncEngine.checkAuthStatus().then(res => setIsBubbleAuthed(res.isAuthenticated));
+    if (step === 4 && appId) {
+      setIsCheckingDownloads(true);
+      BubbleSyncEngine.checkRecentDownloads(appId).then((res) => {
+        if (res && res.found) {
+          setRecentDownload(res);
+        }
+      }).finally(() => {
+        setIsCheckingDownloads(false);
+      });
     }
-  }, [step]);
+  }, [step, appId]);
 
-  const handleGenerateFromApi = async () => {
-    if (!appId.trim()) {
-      toast.error('Please enter an Application ID in Step 1 first');
-      return;
-    }
-    setIsGeneratingFromApi(true);
-    try {
-      const tempProject: ProjectProfile = {
-        id: 'temp',
-        name: name.trim() || appId.trim(),
-        appId: appId.trim(),
-        environment,
-        apiToken: apiToken.trim() || undefined,
-        customDomain: customDomain.trim() || undefined,
-        httpBasicUser: httpBasicUser.trim() || undefined,
-        httpBasicPassword: httpBasicPassword.trim() || undefined,
-        createdAt: new Date().toISOString()
-      };
-      const res = await BubbleSyncEngine.generateBlueprintFromApi(tempProject);
-      if (res.success && res.data) {
-        processReceivedAppData(res.data, res.fileName);
-      }
-    } finally {
-      setIsGeneratingFromApi(false);
-    }
+  const handleLoadRecentDownload = () => {
+    if (!recentDownload || !recentDownload.content) return;
+    processReceivedAppData(recentDownload.content, recentDownload.fileName);
+    setRecentDownload(null);
   };
 
   const handleOpenBrowserExport = async () => {
@@ -209,66 +193,11 @@ export const ConnectAppModal: React.FC<ConnectAppModalProps> = ({
       return;
     }
     setIsListeningDownloads(true);
-    await BubbleSyncEngine.openBubbleExportInBrowser(appId.trim(), (fileName, content) => {
-      processReceivedAppData(content, fileName);
-      setIsListeningDownloads(false);
-    });
+    await BubbleSyncEngine.openBubbleInBrowser(appId.trim());
   };
 
-  const handleCopyBookmarklet = () => {
-    const code = BubbleSyncEngine.getBookmarkletCode();
-    navigator.clipboard.writeText(code);
-    setIsCopiedBookmarklet(true);
-    toast.success('1-Click Sync Bookmarklet copied to clipboard!');
-    setTimeout(() => setIsCopiedBookmarklet(false), 3000);
-  };
-
-  const handleOpenBubbleLogin = async () => {
-    setIsOpeningLogin(true);
-    try {
-      const res = await BubbleSyncEngine.login();
-      setIsBubbleAuthed(res.isAuthenticated);
-      if (res.isAuthenticated) {
-        toast.success('Signed in to Bubble.io successfully!');
-      }
-    } finally {
-      setIsOpeningLogin(false);
-    }
-  };
-
-  const handle1ClickBubbleSync = async () => {
-    if (!appId) {
-      toast.error('Please enter an Application ID in Step 1 first');
-      return;
-    }
-    setIsSyncingBubble(true);
-    try {
-      const auth = await BubbleSyncEngine.checkAuthStatus();
-      if (!auth.isAuthenticated) {
-        toast.info('Opening browser window to sign into Bubble.io...');
-        const loginRes = await BubbleSyncEngine.login();
-        setIsBubbleAuthed(loginRes.isAuthenticated);
-        if (!loginRes.isAuthenticated) {
-          setIsSyncingBubble(false);
-          return;
-        }
-      }
-
-      const tempProject: ProjectProfile = {
-        id: 'temp',
-        name: name || appId,
-        appId,
-        environment,
-        createdAt: new Date().toISOString()
-      };
-
-      const res = await BubbleSyncEngine.syncAppFile(tempProject);
-      if (res.success && res.data) {
-        processReceivedAppData(res.data, res.fileName || `${appId}_live.bubble`);
-      }
-    } finally {
-      setIsSyncingBubble(false);
-    }
+  const handleOpenCompanionFolder = async () => {
+    await BubbleSyncEngine.openCompanionFolder();
   };
 
   const processReceivedAppData = useCallback((data: any, sourceName?: string) => {
@@ -281,21 +210,21 @@ export const ConnectAppModal: React.FC<ConnectAppModalProps> = ({
       createdAt: new Date().toISOString()
     };
     try {
-      const fileName = sourceName || `${appId || 'bubble_app'}_browser_synced.bubble`;
+      const fileName = sourceName || `${appId || 'bubble_app'}_synced.bubble`;
       setBlueprintFileName(fileName);
       setBlueprintJson(data);
       const jsonStr = JSON.stringify(data);
       setBlueprintFileSize(jsonStr.length);
+      const parsedStats = BubbleSyncEngine.calculateBlueprintStats(data);
       const parsedSchema = DevOpsEngine.parseBubbleSchemaJson(data, tempProject);
-      const workflows = WorkflowGraphEngine.extractAllWorkflows(data);
       setBlueprintStats({
-        pagesCount: Object.keys(data.pages || {}).length || 1,
-        workflowsCount: workflows.length || 0,
-        elementsCount: Object.keys(data.elements || {}).length || 0,
-        dataTypesCount: parsedSchema.dataTypes.length || 0,
-        appTextsCount: Object.keys(data.app_texts || {}).length || 0
+        pagesCount: parsedStats.pagesCount,
+        workflowsCount: parsedStats.workflowsCount,
+        elementsCount: parsedStats.elementsCount,
+        dataTypesCount: parsedStats.dataTypesCount || parsedSchema.dataTypes.length,
+        appTextsCount: parsedStats.appTextsCount
       });
-      toast.success(`✨ Synced from your default browser! (${fileName})`);
+      toast.success(`✨ Synced ${fileName}! (${parsedStats.pagesCount} Pages, ${parsedStats.workflowsCount} Workflows, ${parsedStats.elementsCount} Elements)`);
     } catch (err: any) {
       toast.error('Failed to parse received application data: ' + err?.message);
     }
@@ -519,26 +448,10 @@ export const ConnectAppModal: React.FC<ConnectAppModalProps> = ({
         let dataTypesCount = 0;
         let appTextsCount = 0;
 
-        if (parsed.pages && typeof parsed.pages === 'object') {
-          pagesCount = Object.keys(parsed.pages).length;
-          for (const p of Object.values<any>(parsed.pages)) {
-            if (p.elements) elementsCount += Object.keys(p.elements).length;
-            if (p.events || p.workflows) workflowsCount += Object.keys(p.events || p.workflows || {}).length;
-          }
-        }
-        if (parsed.workflows) workflowsCount += Object.keys(parsed.workflows).length;
-        if (parsed.types) dataTypesCount = Object.keys(parsed.types).length;
-        if (parsed.app_texts) appTextsCount = Object.keys(parsed.app_texts).length;
+        const stats = BubbleSyncEngine.calculateBlueprintStats(parsed);
+        setBlueprintStats(stats);
 
-        setBlueprintStats({
-          pagesCount: pagesCount || 1,
-          workflowsCount: workflowsCount || 8,
-          elementsCount: elementsCount || 24,
-          dataTypesCount: dataTypesCount || 4,
-          appTextsCount: appTextsCount || 12
-        });
-
-        if (onLog) onLog('system', `Blueprint loaded from ${file.name}: ${pagesCount} pages, ${workflowsCount} workflows parsed.`, 'success');
+        if (onLog) onLog('system', `Blueprint loaded from ${file.name}: ${stats.pagesCount} pages, ${stats.workflowsCount} workflows parsed.`, 'success');
       } catch (err: any) {
         if (onLog) onLog('system', `Could not parse JSON blueprint file: ${err.message}`, 'warn');
       }
@@ -1410,14 +1323,69 @@ export const ConnectAppModal: React.FC<ConnectAppModalProps> = ({
                 </p>
               </div>
 
+              {/* Detected Recent Export Banner from Downloads */}
+              {recentDownload?.found && !blueprintFileName && (
+                <div style={{
+                  padding: '12px 16px',
+                  borderRadius: 'var(--radius-md)',
+                  background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.15) 0%, rgba(6, 182, 212, 0.12) 100%)',
+                  border: '1px solid rgba(16, 185, 129, 0.45)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: '12px',
+                  boxShadow: '0 4px 16px rgba(16, 185, 129, 0.12)',
+                  animation: 'fadeIn 0.3s ease-out'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <div style={{
+                      width: '34px',
+                      height: '34px',
+                      borderRadius: '8px',
+                      background: 'rgba(16, 185, 129, 0.25)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      color: 'var(--accent-emerald)',
+                      flexShrink: 0
+                    }}>
+                      <Download size={18} />
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                        Found Recent Export in Downloads: <code>{recentDownload.fileName}</code>
+                      </div>
+                      <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
+                        {(recentDownload.sizeBytes / (1024 * 1024)).toFixed(1)} MB • {recentDownload.stats?.pagesCount || 1} Pages • {recentDownload.stats?.workflowsCount || 0} Workflows • {recentDownload.stats?.elementsCount || 0} Elements
+                      </div>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleLoadRecentDownload}
+                    className="btn btn-primary btn-sm"
+                    style={{
+                      background: 'linear-gradient(135deg, #10b981 0%, #06b6d4 100%)',
+                      borderColor: 'transparent',
+                      whiteSpace: 'nowrap',
+                      gap: '6px',
+                      fontWeight: 700
+                    }}
+                  >
+                    <Sparkles size={13} />
+                    <span>Load This Export</span>
+                  </button>
+                </div>
+              )}
+
               {/* 2 Primary Modern Action Cards for .bubble Acquisition */}
               <div className="grid-2" style={{ gap: '12px' }}>
-                {/* Option 1: Auto-Generate from Bubble Data API */}
+                {/* Option 1: Chrome Companion Extension (Recommended) */}
                 <div style={{
                   padding: '14px 16px',
                   borderRadius: 'var(--radius-md)',
-                  background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.1) 0%, rgba(6, 182, 212, 0.08) 100%)',
-                  border: '1px solid rgba(99, 102, 241, 0.3)',
+                  background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.12) 0%, rgba(6, 182, 212, 0.08) 100%)',
+                  border: '1px solid rgba(99, 102, 241, 0.35)',
                   display: 'flex',
                   flexDirection: 'column',
                   justifyContent: 'space-between',
@@ -1439,7 +1407,7 @@ export const ConnectAppModal: React.FC<ConnectAppModalProps> = ({
                           <Zap size={15} />
                         </div>
                         <span style={{ fontWeight: 700, fontSize: '0.85rem', color: 'var(--text-primary)' }}>
-                          Option 1: Auto-Generate from API
+                          Option 1: 1-Click Chrome Sync
                         </span>
                       </div>
                       <span style={{ fontSize: '0.65rem', background: 'rgba(16, 185, 129, 0.15)', color: 'var(--accent-emerald)', padding: '2px 6px', borderRadius: '4px', fontWeight: 700 }}>
@@ -1447,23 +1415,41 @@ export const ConnectAppModal: React.FC<ConnectAppModalProps> = ({
                       </span>
                     </div>
                     <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', margin: 0, lineHeight: 1.4 }}>
-                      Directly generates a valid <code>.bubble</code> file from your Bubble Data API & Swagger schema. Zero browser windows or Google login needed!
+                      Stream the full 11MB AST directly from your open Bubble Editor in Chrome/Edge. Zero downloads or file hunting needed.
                     </p>
                   </div>
 
-                  <button
-                    type="button"
-                    onClick={handleGenerateFromApi}
-                    disabled={isGeneratingFromApi || !appId}
-                    className="btn btn-primary btn-sm"
-                    style={{ width: '100%', justifyContent: 'center', gap: '6px', fontWeight: 600 }}
-                  >
-                    <RefreshCw size={13} className={isGeneratingFromApi ? 'spin' : ''} />
-                    <span>{isGeneratingFromApi ? 'Synthesizing Blueprint...' : '⚡ Generate .bubble from Data API'}</span>
-                  </button>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <button
+                        type="button"
+                        onClick={handleOpenBrowserExport}
+                        disabled={!appId}
+                        className="btn btn-primary btn-sm"
+                        style={{ flex: 1, justifyContent: 'center', gap: '6px', fontWeight: 600 }}
+                      >
+                        <ExternalLink size={13} />
+                        <span>Open in Chrome</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleOpenCompanionFolder}
+                        className="btn btn-secondary btn-sm"
+                        style={{ justifyContent: 'center', gap: '5px', fontSize: '0.75rem', padding: '0 10px' }}
+                        title="Install Companion Extension in Chrome (Takes 15s)"
+                      >
+                        <FolderOpen size={13} />
+                        <span>Install Companion</span>
+                      </button>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.7rem', color: 'var(--accent-emerald)' }}>
+                      <Activity size={12} className="spin" />
+                      <span>Bridge listening on port 41890 (ready to receive AST)</span>
+                    </div>
+                  </div>
                 </div>
 
-                {/* Option 2: Browser Auto-Export */}
+                {/* Option 2: Browser Auto-Export (Auto-Catch) */}
                 <div style={{
                   padding: '14px 16px',
                   borderRadius: 'var(--radius-md)',
@@ -1490,11 +1476,11 @@ export const ConnectAppModal: React.FC<ConnectAppModalProps> = ({
                         <Globe size={15} />
                       </div>
                       <span style={{ fontWeight: 700, fontSize: '0.85rem', color: 'var(--text-primary)' }}>
-                        Option 2: Browser Auto-Export
+                        Option 2: Browser Auto-Catch
                       </span>
                     </div>
                     <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', margin: 0, lineHeight: 1.4 }}>
-                      Opens Bubble in your default browser (Chrome/Edge) where you are already signed into Google. Auto-imports file upon export.
+                      Opens Settings &gt; General in your browser. When you click "Export", Dev Studio automatically detects and imports the .bubble file.
                     </p>
                   </div>
 
@@ -1511,7 +1497,7 @@ export const ConnectAppModal: React.FC<ConnectAppModalProps> = ({
                     }}
                   >
                     <ExternalLink size={13} color={isListeningDownloads ? 'var(--accent-emerald)' : 'var(--accent-cyan)'} />
-                    <span>{isListeningDownloads ? '👂 Listening to Downloads Folder...' : '🚀 Open Bubble Export in Browser'}</span>
+                    <span>{isListeningDownloads ? '👂 Watching Downloads Folder...' : '🚀 Open Bubble Settings > General'}</span>
                   </button>
                 </div>
               </div>
@@ -1533,67 +1519,9 @@ export const ConnectAppModal: React.FC<ConnectAppModalProps> = ({
                     <Activity size={14} className="spin" />
                     <span>Watching your <strong>Downloads</strong> folder. In Bubble, click <strong>"Export"</strong> under <em>Settings &gt; General</em>!</span>
                   </div>
-                  <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Auto-Import Ready</span>
+                  <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Auto-Import Active</span>
                 </div>
               )}
-
-              {/* Option 3 Helper: 1-Click Browser Sync Helper (Bookmarklet) */}
-              <div style={{
-                padding: '10px 14px',
-                borderRadius: 'var(--radius-md)',
-                background: 'var(--bg-input)',
-                border: '1px solid var(--border-subtle)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                flexWrap: 'wrap',
-                gap: '8px'
-              }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.775rem', color: 'var(--text-secondary)' }}>
-                  <Sparkles size={14} color="var(--primary)" />
-                  <span>Have Bubble Editor open right now in Chrome?</span>
-                </div>
-
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <button
-                    type="button"
-                    onClick={handleCopyBookmarklet}
-                    className="btn btn-secondary btn-sm"
-                    style={{ fontSize: '0.725rem', padding: '4px 10px', gap: '5px' }}
-                  >
-                    {isCopiedBookmarklet ? <Check size={12} color="var(--accent-emerald)" /> : <Copy size={12} />}
-                    <span>{isCopiedBookmarklet ? 'Copied to Clipboard!' : 'Copy 1-Click Sync Script'}</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setShowBookmarkletGuide(!showBookmarkletGuide)}
-                    style={{
-                      background: 'none',
-                      border: 'none',
-                      color: 'var(--accent-cyan)',
-                      fontSize: '0.725rem',
-                      cursor: 'pointer',
-                      padding: 0
-                    }}
-                  >
-                    {showBookmarkletGuide ? 'Hide Instructions' : 'How to use?'}
-                  </button>
-                </div>
-
-                {showBookmarkletGuide && (
-                  <div style={{
-                    width: '100%',
-                    paddingTop: '8px',
-                    marginTop: '6px',
-                    borderTop: '1px solid var(--border-subtle)',
-                    fontSize: '0.725rem',
-                    color: 'var(--text-muted)',
-                    lineHeight: 1.5
-                  }}>
-                    Paste this snippet into your browser console (Press <strong>F12 ➔ Console</strong>) while viewing your Bubble app, or create a Bookmark with this code as the URL. Clicking it will stream your full UI elements and workflows directly into Bubble Dev Studio over port 41890!
-                  </div>
-                )}
-              </div>
 
               {/* Upload Dropzone */}
               <div
@@ -1633,7 +1561,7 @@ export const ConnectAppModal: React.FC<ConnectAppModalProps> = ({
                 {blueprintFileName ? (
                   <div>
                     <div style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: '0.9rem' }}>
-                      {blueprintFileName} ({Math.round(blueprintFileSize / 1024)} KB)
+                      {blueprintFileName} ({blueprintFileSize >= 1024 * 1024 ? `${(blueprintFileSize / (1024 * 1024)).toFixed(1)} MB` : `${Math.round(blueprintFileSize / 1024)} KB`})
                     </div>
                     <div style={{ fontSize: '0.75rem', color: 'var(--accent-emerald)', marginTop: '2px' }}>
                       ✓ Blueprint parsed and ready for AST analysis! Click to change file.
@@ -1657,26 +1585,26 @@ export const ConnectAppModal: React.FC<ConnectAppModalProps> = ({
                   display: 'grid',
                   gridTemplateColumns: 'repeat(4, 1fr)',
                   gap: '8px',
-                  padding: '10px',
+                  padding: '12px',
                   background: 'rgba(0,0,0,0.25)',
                   borderRadius: 'var(--radius-md)',
                   border: '1px solid var(--border-subtle)'
                 }}>
                   <div style={{ textAlign: 'center' }}>
                     <div style={{ fontSize: '0.675rem', color: 'var(--text-muted)' }}>PAGES</div>
-                    <div style={{ fontSize: '1.15rem', fontWeight: 800, color: 'var(--accent-cyan)' }}>{blueprintStats.pagesCount}</div>
+                    <div style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--accent-cyan)' }}>{blueprintStats.pagesCount}</div>
                   </div>
                   <div style={{ textAlign: 'center' }}>
                     <div style={{ fontSize: '0.675rem', color: 'var(--text-muted)' }}>WORKFLOWS</div>
-                    <div style={{ fontSize: '1.15rem', fontWeight: 800, color: 'var(--primary)' }}>{blueprintStats.workflowsCount}</div>
+                    <div style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--primary)' }}>{blueprintStats.workflowsCount}</div>
                   </div>
                   <div style={{ textAlign: 'center' }}>
                     <div style={{ fontSize: '0.675rem', color: 'var(--text-muted)' }}>ELEMENTS</div>
-                    <div style={{ fontSize: '1.15rem', fontWeight: 800, color: 'var(--accent-emerald)' }}>{blueprintStats.elementsCount}</div>
+                    <div style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--accent-emerald)' }}>{blueprintStats.elementsCount}</div>
                   </div>
                   <div style={{ textAlign: 'center' }}>
-                    <div style={{ fontSize: '0.675rem', color: 'var(--text-muted)' }}>APP TEXTS</div>
-                    <div style={{ fontSize: '1.15rem', fontWeight: 800, color: 'var(--accent-amber)' }}>{blueprintStats.appTextsCount}</div>
+                    <div style={{ fontSize: '0.675rem', color: 'var(--text-muted)' }}>DATA TYPES</div>
+                    <div style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--accent-amber)' }}>{blueprintStats.dataTypesCount}</div>
                   </div>
                 </div>
               )}
