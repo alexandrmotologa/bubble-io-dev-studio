@@ -3,7 +3,7 @@ export const CLOUD_SYNC_CONFIG = {
   defaultServerUrl: 'http://158.178.147.13:8080',
   
   // Official Collaborator Bot Account to be invited in Bubble Settings > Collaboration
-  botEmail: 'agent@bubbledevstudio.com',
+  botEmail: 'bubbledevstudio.bot.bot@gmail.com',
 
   /**
    * Retrieves active server endpoint (uses official Oracle cloud endpoint by default)
