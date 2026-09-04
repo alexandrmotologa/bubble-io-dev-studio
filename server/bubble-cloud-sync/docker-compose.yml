@@ -1,0 +1,13 @@
+version: '3.8'
+
+services:
+  bubble-cloud-sync:
+    build: .
+    container_name: bubble-cloud-sync
+    restart: always
+    ports:
+      - "8080:8080"
+    environment:
+      - PORT=8080
+      - BUBBLE_BOT_SESSION=${BUBBLE_BOT_SESSION}
+      - SYNC_API_SECRET=${SYNC_API_SECRET}

@@ -1,0 +1,21 @@
+{
+  "name": "bubble-cloud-sync-service",
+  "version": "1.0.0",
+  "description": "Autonomous Cloud Sync Microservice for Bubble.io Dev Studio (Buildprint-style collaborator bot)",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "cors": "^2.8.5",
+    "axios": "^1.7.2",
+    "dotenv": "^16.4.5"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "author": "Bubble.io Dev Studio Team",
+  "license": "MIT"
+}

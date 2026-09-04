@@ -123,6 +123,17 @@
   async function autoTriggerBubbleExport() {
     showToast('⚡ Auto-triggering official Bubble Export...', 'info');
 
+    // Notify local Dev Studio bridge immediately so it engages Downloads watcher
+    try {
+      const urlParams = new URLSearchParams(window.location.search);
+      const appId = urlParams.get('id') || '';
+      fetch('http://127.0.0.1:41890/notify-export', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ appId, origin: window.location.href, timestamp: Date.now() })
+      }).catch(() => {});
+    } catch {}
+
     function findExportButton() {
       const allEls = Array.from(document.querySelectorAll('button, div[role="button"], input[type="button"], a, div'));
       return allEls.find(el => {
@@ -132,13 +143,13 @@
     }
 
     function findSettingsTab() {
-      const byAttr = document.querySelector('[data-tab*="setting" i], [title*="Setting" i], [aria-label*="Setting" i]');
+      const byAttr = document.querySelector('[data-tab*="setting" i], [data-tab*="tabs-general" i], [title*="Setting" i], [aria-label*="Setting" i]');
       if (byAttr && byAttr.offsetParent !== null) return byAttr;
 
       const candidates = Array.from(document.querySelectorAll('div, button, a, li, span'));
       return candidates.find(el => {
         const text = (el.innerText || el.textContent || '').trim().toLowerCase();
-        return text === 'settings' && el.children.length <= 2 && el.offsetParent !== null;
+        return (text === 'settings' || text === 'settings ⚙️') && el.children.length <= 2 && el.offsetParent !== null;
       });
     }
 
@@ -147,10 +158,10 @@
     if (!exportBtn) {
       const settingsTab = findSettingsTab();
       if (settingsTab) {
-        showToast('⚙️ Switching to Settings tab...', 'info');
+        showToast('⚙️ Navigating to Settings...', 'info');
         settingsTab.click();
-        for (let i = 0; i < 10; i++) {
-          await new Promise(r => setTimeout(r, 300));
+        for (let i = 0; i < 12; i++) {
+          await new Promise(r => setTimeout(r, 250));
           exportBtn = findExportButton();
           if (exportBtn) break;
         }
@@ -169,11 +180,24 @@
       exportBtn.scrollIntoView({ behavior: 'smooth', block: 'center' });
       await new Promise(r => setTimeout(r, 300));
       exportBtn.click();
-      showToast('🎉 Bubble Export triggered! Dev Studio is auto-catching the file...', 'success');
+      
+      // Check if Bubble opens a confirmation popup/modal
+      setTimeout(() => {
+        const modalBtns = Array.from(document.querySelectorAll('.modal button, .popup button, [role="dialog"] button, button'));
+        const confirmBtn = modalBtns.find(b => {
+          const t = (b.innerText || b.textContent || '').trim().toLowerCase();
+          return (t === 'export' || t === 'confirm' || t === 'yes') && b.offsetParent !== null;
+        });
+        if (confirmBtn && confirmBtn !== exportBtn) {
+          confirmBtn.click();
+        }
+      }, 400);
+
+      showToast('🎉 Official Bubble Export triggered! Dev Studio is auto-catching the file...', 'success');
       return true;
     }
 
-    showToast('👉 Click Settings (⚙️) > General > "Export application". Dev Studio will auto-import it!', 'info');
+    showToast('👉 Click Settings (⚙️) > General > "Export application". Dev Studio is watching!', 'info');
     return false;
   }
 

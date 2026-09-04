@@ -247,6 +247,83 @@ export class BubbleSyncEngine {
   }
 
   /**
+   * Checks the connectivity and health of the Cloud Sync microservice (Oracle / Self-hosted)
+   */
+  public static async checkCloudServerHealth(serverUrl: string): Promise<{ ok: boolean; version?: string; error?: string }> {
+    if (!serverUrl) return { ok: false, error: 'No URL provided' };
+    try {
+      const cleanUrl = serverUrl.replace(/\/+$/, '');
+      const res = await fetch(`${cleanUrl}/health`, { method: 'GET' });
+      if (res.ok) {
+        const data = await res.json();
+        return { ok: true, version: data.version };
+      }
+      return { ok: false, error: `HTTP ${res.status}` };
+    } catch (e: any) {
+      return { ok: false, error: e.message || 'Unreachable' };
+    }
+  }
+
+  /**
+   * Syncs application AST directly from the Cloud Sync microservice (Oracle Cloud / Buildprint mode)
+   */
+  public static async syncFromCloudServer(
+    serverUrl: string,
+    appId: string,
+    branch: string = 'test',
+    apiSecret?: string
+  ): Promise<BubbleSyncResult> {
+    if (!serverUrl || !appId) {
+      toast.error('Cloud server URL and App ID are required.');
+      return { success: false, error: 'Missing serverUrl or appId' };
+    }
+
+    const cleanUrl = serverUrl.replace(/\/+$/, '');
+    const endpoint = `${cleanUrl}/v1/sync`;
+
+    toast.info(`Connecting to Cloud Sync Bot at ${cleanUrl}...`);
+
+    try {
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json'
+      };
+      if (apiSecret) {
+        headers['Authorization'] = `Bearer ${apiSecret}`;
+      }
+
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ appId: appId.trim(), branch: branch.trim() })
+      });
+
+      if (!response.ok) {
+        const errJson = await response.json().catch(() => ({}));
+        throw new Error(errJson.error || `Server responded with status ${response.status}`);
+      }
+
+      const result = await response.json();
+      if (!result.success || !result.data) {
+        throw new Error(result.error || 'Server did not return application data');
+      }
+
+      const stats = result.stats || this.calculateBlueprintStats(result.data);
+      toast.success(`✨ Cloud Sync completed! (${stats.pagesCount} Pages, ${stats.workflowsCount} Workflows)`);
+
+      return {
+        success: true,
+        fileName: `${appId}-${branch}-cloud-sync.bubble`,
+        data: result.data,
+        stats
+      };
+    } catch (err: any) {
+      const msg = err.message || 'Failed to connect to Cloud Sync server';
+      toast.error(`Cloud Sync Failed: ${msg}`);
+      return { success: false, error: msg };
+    }
+  }
+
+  /**
    * Sync app file helper for backward compatibility
    */
   public static async syncAppFile(

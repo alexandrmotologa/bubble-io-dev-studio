@@ -856,6 +856,27 @@ function startLocalBridgeServer() {
       return;
     }
 
+    if (req.method === 'POST' && req.url === '/notify-export') {
+      let body = '';
+      req.on('data', chunk => { body += chunk; });
+      req.on('end', () => {
+        try {
+          const payload = body ? JSON.parse(body) : {};
+          if (mainWindow && !mainWindow.isDestroyed()) {
+            mainWindow.webContents.send('bubbleSync:exportTriggered', payload);
+            if (mainWindow.isMinimized()) mainWindow.restore();
+            mainWindow.focus();
+          }
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ success: true, message: 'Export notification received' }));
+        } catch {
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ success: true }));
+        }
+      });
+      return;
+    }
+
     if (req.method === 'GET' && req.url === '/status') {
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ status: 'ready', port: BRIDGE_PORT, app: 'Bubble.io Dev Studio' }));

@@ -45,6 +45,7 @@ export interface ElectronAPI {
   }>;
   onBubbleFileDetected: (callback: (data: { fileName: string; content: any; stats?: any }) => void) => () => void;
   onBrowserAppReceived: (callback: (data: { data: any; originUrl?: string; stats?: any }) => void) => () => void;
+  onExportTriggered: (callback: (data: { appId?: string; timestamp?: number }) => void) => () => void;
 }
 
 const api: ElectronAPI = {
@@ -133,6 +134,13 @@ const api: ElectronAPI = {
     ipcRenderer.on('bubbleSync:browserAppReceived', subscription);
     return () => {
       ipcRenderer.removeListener('bubbleSync:browserAppReceived', subscription);
+    };
+  },
+  onExportTriggered: (callback: (data: { appId?: string; timestamp?: number }) => void) => {
+    const subscription = (_event: any, data: any) => callback(data);
+    ipcRenderer.on('bubbleSync:exportTriggered', subscription);
+    return () => {
+      ipcRenderer.removeListener('bubbleSync:exportTriggered', subscription);
     };
   }
 };

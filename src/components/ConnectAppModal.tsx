@@ -28,7 +28,8 @@ import {
   RefreshCw,
   Copy,
   Download,
-  FolderOpen
+  FolderOpen,
+  Cloud
 } from 'lucide-react';
 import { ProjectProfile } from '../types';
 import { DevOpsEngine } from '../core/devops/devopsEngine';
@@ -167,6 +168,48 @@ export const ConnectAppModal: React.FC<ConnectAppModalProps> = ({
   const [isCheckingDownloads, setIsCheckingDownloads] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Option 3: Cloud Direct Sync State (Oracle / Buildprint Mode)
+  const [cloudServerUrl, setCloudServerUrl] = useState<string>(() => {
+    return localStorage.getItem('bds_cloud_sync_url') || 'http://localhost:8080';
+  });
+  const [cloudBranch, setCloudBranch] = useState<string>('test');
+  const [cloudApiSecret, setCloudApiSecret] = useState<string>(() => {
+    return localStorage.getItem('bds_cloud_sync_secret') || '';
+  });
+  const [isCloudSyncing, setIsCloudSyncing] = useState<boolean>(false);
+  const [isCloudExpanded, setIsCloudExpanded] = useState<boolean>(false);
+  const [cloudServerStatus, setCloudServerStatus] = useState<'idle' | 'checking' | 'online' | 'offline'>('idle');
+
+  const handleCloudSync = async () => {
+    if (!appId.trim()) {
+      toast.error('Please enter an Application ID in Step 1 first');
+      return;
+    }
+    setIsCloudSyncing(true);
+    localStorage.setItem('bds_cloud_sync_url', cloudServerUrl);
+    if (cloudApiSecret) localStorage.setItem('bds_cloud_sync_secret', cloudApiSecret);
+    try {
+      const res = await BubbleSyncEngine.syncFromCloudServer(cloudServerUrl, appId.trim(), cloudBranch, cloudApiSecret);
+      if (res.success && res.data) {
+        processReceivedAppData(res.data, res.fileName);
+      }
+    } finally {
+      setIsCloudSyncing(false);
+    }
+  };
+
+  const handleCheckCloudHealth = async () => {
+    setCloudServerStatus('checking');
+    const health = await BubbleSyncEngine.checkCloudServerHealth(cloudServerUrl);
+    if (health.ok) {
+      setCloudServerStatus('online');
+      toast.success(`Cloud Sync Bot is ONLINE (v${health.version || '1.0.0'})`);
+    } else {
+      setCloudServerStatus('offline');
+      toast.warn(`Cloud server unreachable: ${health.error}`);
+    }
+  };
+
   // Check Downloads directory for recent export of this app when step 4 is opened
   useEffect(() => {
     if (step === 4 && appId) {
@@ -247,11 +290,27 @@ export const ConnectAppModal: React.FC<ConnectAppModalProps> = ({
       }
     });
 
+    // Listen for companion extension auto-export trigger notification
+    const unsubExportTriggered = (window.electronAPI as any)?.onExportTriggered?.(() => {
+      setIsListeningDownloads(true);
+      toast.info('⚡ Official Bubble export triggered from Chrome! Dev Studio is auto-catching the file...');
+      setTimeout(() => {
+        if (appId) {
+          BubbleSyncEngine.checkRecentDownloads(appId).then((res) => {
+            if (res && res.found && res.content) {
+              processReceivedAppData(res.content, res.fileName);
+            }
+          });
+        }
+      }, 1800);
+    });
+
     window.electronAPI?.bubbleSyncSetDownloadsWatcher?.(true);
 
     return () => {
       unsubBrowser?.();
       unsubFile?.();
+      unsubExportTriggered?.();
     };
   }, [isOpen, processReceivedAppData, appId]);
 
@@ -1498,6 +1557,139 @@ export const ConnectAppModal: React.FC<ConnectAppModalProps> = ({
                   >
                     <ExternalLink size={13} color={isListeningDownloads ? 'var(--accent-emerald)' : 'var(--accent-cyan)'} />
                     <span>{isListeningDownloads ? '👂 Watching Downloads Folder...' : '🚀 Open Bubble Settings > General'}</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Option 3: Cloud Direct Sync (Buildprint Mode / Oracle Cloud Bot) */}
+              <div style={{
+                padding: '14px 16px',
+                borderRadius: 'var(--radius-md)',
+                background: 'linear-gradient(135deg, rgba(236, 72, 153, 0.08) 0%, rgba(168, 85, 247, 0.08) 100%)',
+                border: '1px solid rgba(236, 72, 153, 0.3)',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '12px',
+                transition: 'all 0.2s ease'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <div style={{
+                      width: '28px',
+                      height: '28px',
+                      borderRadius: '6px',
+                      background: 'linear-gradient(135deg, #ec4899, #a855f7)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      color: '#fff'
+                    }}>
+                      <Cloud size={15} />
+                    </div>
+                    <div>
+                      <span style={{ fontWeight: 700, fontSize: '0.85rem', color: 'var(--text-primary)' }}>
+                        Option 3: Cloud Direct Sync (Buildprint Mode)
+                      </span>
+                      <p style={{ fontSize: '0.725rem', color: 'var(--text-secondary)', margin: '2px 0 0 0' }}>
+                        Sync 24/7 cloud-to-cloud via your Oracle VM collaborator bot. Zero browser interaction required.
+                      </p>
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ fontSize: '0.65rem', background: 'rgba(236, 72, 153, 0.15)', color: '#f472b6', padding: '2px 6px', borderRadius: '4px', fontWeight: 700 }}>
+                      PRO / CLOUD BOT
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setIsCloudExpanded(!isCloudExpanded)}
+                      className="btn btn-ghost btn-xs"
+                      style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}
+                    >
+                      {isCloudExpanded ? 'Hide Settings' : 'Configure Server'}
+                    </button>
+                  </div>
+                </div>
+
+                {isCloudExpanded && (
+                  <div style={{
+                    padding: '10px 12px',
+                    borderRadius: 'var(--radius-sm)',
+                    background: 'rgba(0, 0, 0, 0.25)',
+                    border: '1px solid rgba(255, 255, 255, 0.08)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '10px'
+                  }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '10px' }}>
+                      <div>
+                        <label style={{ fontSize: '0.7rem', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>
+                          Oracle Cloud / Server URL:
+                        </label>
+                        <input
+                          type="text"
+                          value={cloudServerUrl}
+                          onChange={(e) => setCloudServerUrl(e.target.value)}
+                          placeholder="http://your-oracle-ip:8080"
+                          className="input-text input-sm"
+                          style={{ width: '100%', fontSize: '0.75rem', fontFamily: 'monospace' }}
+                        />
+                      </div>
+                      <div>
+                        <label style={{ fontSize: '0.7rem', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>
+                          Branch:
+                        </label>
+                        <input
+                          type="text"
+                          value={cloudBranch}
+                          onChange={(e) => setCloudBranch(e.target.value)}
+                          placeholder="test"
+                          className="input-text input-sm"
+                          style={{ width: '100%', fontSize: '0.75rem', fontFamily: 'monospace' }}
+                        />
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.7rem' }}>
+                        <span style={{
+                          width: '8px',
+                          height: '8px',
+                          borderRadius: '50%',
+                          background: cloudServerStatus === 'online' ? 'var(--accent-emerald)' : cloudServerStatus === 'offline' ? '#ef4444' : 'var(--text-muted)'
+                        }} />
+                        <span style={{ color: 'var(--text-secondary)' }}>
+                          {cloudServerStatus === 'online' ? 'Bot Server Online' : cloudServerStatus === 'offline' ? 'Server Unreachable' : 'Server not tested'}
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleCheckCloudHealth}
+                        className="btn btn-secondary btn-xs"
+                        style={{ fontSize: '0.7rem', padding: '2px 8px' }}
+                      >
+                        Ping Server
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button
+                    type="button"
+                    onClick={handleCloudSync}
+                    disabled={isCloudSyncing || !appId}
+                    className="btn btn-primary btn-sm"
+                    style={{
+                      flex: 1,
+                      justifyContent: 'center',
+                      gap: '6px',
+                      fontWeight: 600,
+                      background: 'linear-gradient(135deg, #ec4899 0%, #a855f7 100%)',
+                      borderColor: 'transparent'
+                    }}
+                  >
+                    <Cloud size={14} className={isCloudSyncing ? 'spin' : ''} />
+                    <span>{isCloudSyncing ? 'Syncing with Oracle Cloud...' : '⚡ Sync from Cloud'}</span>
                   </button>
                 </div>
               </div>
