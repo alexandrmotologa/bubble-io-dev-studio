@@ -98,10 +98,11 @@ export class BubbleExtractor {
     };
 
     for (const [containerName, containerData] of Object.entries<any>(allContainers)) {
+      const cleanContainerName = containerData?.name || containerData?.properties?.name || containerName;
       if (containerData?.elements) {
         const elEntries = Array.isArray(containerData.elements) ? containerData.elements.entries() : Object.entries(containerData.elements);
         for (const [elKey, el] of elEntries) {
-          crawlElement(el, `${containerName}_${elKey}`);
+          crawlElement(el, `${cleanContainerName}_${elKey}`);
         }
       }
     }

@@ -1,7 +1,7 @@
 {
   "name": "bubble-io-dev-studio",
   "private": true,
-  "version": "3.3.10",
+  "version": "3.3.11",
   "description": "Bubble.io Developer Studio - Modern local companion suite for Bubble developers (DevOps, Schema, Dead Code Audit, AI Translation, Visual QA)",
   "main": "dist-electron/main.js",
   "author": {

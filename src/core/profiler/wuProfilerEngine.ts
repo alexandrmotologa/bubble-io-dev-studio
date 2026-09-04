@@ -18,9 +18,23 @@ export class WuProfilerEngine {
     const actualSchema = schema || (rawBlueprintJson ? DevOpsEngine.parseBubbleSchemaJson(rawBlueprintJson) : null);
     const realTypes = actualSchema?.dataTypes || [];
     const rawPages = rawBlueprintJson?.pages 
-      ? Object.entries<any>(rawBlueprintJson.pages).map(([k, v]) => v?.name || v?.properties?.name || k) 
+      ? Object.entries<any>(rawBlueprintJson.pages)
+          .map(([k, v]) => String(v?.name || v?.properties?.name || k).trim())
+          .filter(Boolean)
       : [];
-    const pageList = rawPages.length > 0 ? rawPages : (realTypes.length > 0 ? ['index', 'dashboard', 'admin_portal', 'user_profile', 'checkout'] : ['index', 'dashboard']);
+
+    // Prioritize high-traffic core pages like index, dashboard for realistic WU distribution
+    const sortedPages = [...rawPages].sort((a, b) => {
+      const aLower = a.toLowerCase();
+      const bLower = b.toLowerCase();
+      if (aLower === 'index') return -1;
+      if (bLower === 'index') return 1;
+      if (aLower.includes('dashboard') || aLower.includes('home')) return -1;
+      if (bLower.includes('dashboard') || bLower.includes('home')) return 1;
+      return 0;
+    });
+
+    const pageList = sortedPages.length > 0 ? sortedPages : (realTypes.length > 0 ? ['index', 'dashboard', 'admin_portal', 'user_profile', 'checkout'] : ['index', 'dashboard']);
 
     const bottlenecks: WuBottleneck[] = [];
     const topConsumingPages: { pageName: string; wuPercent: number; estimatedWu: number }[] = [];
