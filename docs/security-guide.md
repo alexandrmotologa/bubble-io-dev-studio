@@ -1,4 +1,4 @@
-# 🛡️ Security & Privacy Rules Auditor Guide (v3.0.0)
+# 🛡️ Security & Privacy Rules Auditor Guide (v3.3.8)
 
 The **Security & Privacy Rules Auditor** is an enterprise security and compliance suite that protects Bubble applications against data leaks, unauthenticated public API scraping, and exposed sensitive records.
 
@@ -106,3 +106,27 @@ Backend Workflows (`/api/1.1/wf/[name]`) are inspected for dangerous flags:
 
 * **Executive Markdown (`.md`)**: Complete summary with scorecards, compliance tables, and step-by-step remediation recipes.
 * **SARIF 2.1.0 JSON (`.sarif.json`)**: Industry standard format for direct ingestion into **GitHub CodeQL**, GitLab Security Dashboard, and CI/CD security pipelines.
+
+---
+
+## 8. 🔒 Platform Security & Cloud Sync Data Privacy
+
+Developers often ask whether connecting an external IDE or microservice could compromise their Bubble applications. Bubble.io Dev Studio enforces strict security and privacy standards:
+
+### 1. Zero Live User Record Access in Cloud Sync
+The Cloud Sync Microservice and collaborator bot (`bubbledevstudio.bot@gmail.com`) only communicate with Bubble Editor definition endpoints (`/appeditor/export/...` and `/appeditor/load_multiple_paths`).
+* **What is retrieved**: UI element definitions, workflow logic, action properties, custom data type schemas, and Option Sets (AST).
+* **What is NEVER retrieved**: Live user records, emails, passwords, credit cards, or personal customer data from the Bubble database.
+
+### 2. Isolated Bot Credentials on Oracle Cloud VM
+* The bot session cookie (`BUBBLE_BOT_SESSION`) resides exclusively in an uncommitted `.env` file on our private, hardened Oracle Cloud Linux VM.
+* No session cookies, bot tokens, or credentials are ever stored in the open-source repository or sent down to the desktop client.
+* The server's SSH key is strictly held on the system administrator's secure device.
+
+### 3. IP-Based Sliding Window Rate Limiting
+To prevent denial-of-service or scraping abuse, the Cloud Sync endpoint enforces a strict rate limit of **30 requests per 15 minutes** per IP address.
+
+### 4. Local-First Desktop Execution
+* All AST analysis, Dead Code Detection, ERD generation, and AI Copilot indexing happen **locally on your machine**.
+* Your Bubble API bearer tokens are encrypted on disk using OS hardware-backed cryptographic APIs (`safeStorage`).
+* No project data, schema definitions, or database records are ever uploaded to third-party tracking servers or telemetry platforms.

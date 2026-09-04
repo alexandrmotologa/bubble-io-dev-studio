@@ -1,4 +1,4 @@
-# ⚡ Workload Units (WU) & Query Profiler Guide (v3.0.0)
+# ⚡ Workload Units (WU) & Query Profiler Guide (v3.3.8)
 
 The **Workload Units (WU) & Query Profiler** helps you monitor, optimize, and reduce hosting costs on Bubble.io by pinpointing unindexed searches, nested loops, and memory-heavy workflows.
 
@@ -23,15 +23,20 @@ $$\text{Estimated Monthly WU} = \sum (\text{Search Volume} \times \text{Row Weig
 
 The profiler identifies performance bottlenecks across your app:
 
-1. **Unconstrained Repeating Group Searches**:
-   - *Detection*: Repeating groups searching all records without pagination limits.
-   - *Fix*: Set a fixed `Items per page` limit and add a search constraint.
-2. **Heavy Backend API Workflows**:
-   - *Detection*: Workflows executing multiple consecutive database updates per event.
-   - *Fix*: Combine multiple `Make changes to thing` actions into a single atomic change step.
+1. **Unconstrained Searches**:
+   - *Detection*: Searches without constraints that pull an unbounded number of rows to the client.
+   - *Fix*: Add strict indexed constraints or limit results with `:items until #`.
+2. **Heavy Repeating Groups**:
+   - *Detection*: Repeating groups displaying large media or nested data types without pagination.
+   - *Fix*: Enable "Show items as they load" or implement infinite scroll pagination.
+3. **Redundant Workflow Triggers**:
+   - *Detection*: Workflows firing multiple times per user action.
+   - *Fix*: Debounce input events and add condition boundaries (`Only when...`).
 
 ---
 
-## 3. Client vs. Server Processing Ratio
+## 3. Cost Projection & WU Estimator
 
-The dashboard illustrates the balance between browser-rendered queries and server-executed jobs. Maintaining a 20% Client / 80% Server ratio ensures optimal mobile performance and minimal client memory consumption.
+* Projected monthly consumption tier based on active users and data volume.
+* Recommended Bubble hosting plan (Starter, Growth, Team, Enterprise).
+* Actionable optimization checklist ranked by potential WU dollar savings.

@@ -1,6 +1,6 @@
 # 🚀 Bubble.io Dev Studio
 
-[![Version](https://img.shields.io/badge/Version-3.1.2-brightgreen.svg)]()
+[![Version](https://img.shields.io/badge/Version-3.3.8-brightgreen.svg)]()
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.7-blue.svg?style=flat&logo=typescript)](https://www.typescriptlang.org/)
 [![Electron](https://img.shields.io/badge/Electron-34-47848F.svg?style=flat&logo=electron)](https://www.electronjs.org/)
 [![React](https://img.shields.io/badge/React-18-61DAFB.svg?style=flat&logo=react)](https://react.dev/)
@@ -12,42 +12,44 @@
 
 ---
 
-## 📥 Download Desktop App (v3.1.2 Pre-Built Binaries)
+## 📥 Download Desktop App (v3.3.8 Pre-Built Binaries)
 
 For developers and teams who want to run the desktop application directly without compiling from source:
 
-| Platform | Download Link (v3.1.2 Production Stable) | Package Format | Architecture |
+| Platform | Download Link (v3.3.8 Production Stable) | Package Format | Architecture |
 | :--- | :--- | :--- | :--- |
-| **🪟 Windows** | [**Bubble.io-Dev-Studio-Setup-3.1.2.exe**](https://github.com/alexandrmotologa/bubble-io-dev-studio/releases/download/v3.1.2/Bubble.io-Dev-Studio-Setup-3.1.2.exe) • [Portable .exe](https://github.com/alexandrmotologa/bubble-io-dev-studio/releases/download/v3.1.2/Bubble.io-Dev-Studio-3.1.2.exe) | NSIS Setup / Portable | x64 |
-| **🍎 macOS** | [**Bubble.io-Dev-Studio-3.1.2.dmg**](https://github.com/alexandrmotologa/bubble-io-dev-studio/releases/download/v3.1.2/Bubble.io-Dev-Studio-3.1.2.dmg) • [.zip](https://github.com/alexandrmotologa/bubble-io-dev-studio/releases/download/v3.1.2/Bubble.io-Dev-Studio-3.1.2-mac.zip) | Apple Disk Image / ZIP | Apple Silicon (M1/M2/M3/M4) & Intel |
-| **🐧 Linux** | [**Bubble.io-Dev-Studio-3.1.2.AppImage**](https://github.com/alexandrmotologa/bubble-io-dev-studio/releases/download/v3.1.2/Bubble.io-Dev-Studio-3.1.2.AppImage) | AppImage format | x64 |
+| **🪟 Windows** | [**Bubble.io-Dev-Studio-Setup-3.3.8.exe**](https://github.com/alexandrmotologa/bubble-io-dev-studio/releases/download/v3.3.8/Bubble.io-Dev-Studio-Setup-3.3.8.exe) • [Portable .exe](https://github.com/alexandrmotologa/bubble-io-dev-studio/releases/download/v3.3.8/Bubble.io-Dev-Studio-3.3.8.exe) | NSIS Setup / Portable | x64 |
+| **🍎 macOS** | [**Bubble.io-Dev-Studio-3.3.8.dmg**](https://github.com/alexandrmotologa/bubble-io-dev-studio/releases/download/v3.3.8/Bubble.io-Dev-Studio-3.3.8.dmg) • [.zip](https://github.com/alexandrmotologa/bubble-io-dev-studio/releases/download/v3.3.8/Bubble.io-Dev-Studio-3.3.8-mac.zip) | Apple Disk Image / ZIP | Apple Silicon (M1–M4) & Intel |
+| **🐧 Linux** | [**Bubble.io-Dev-Studio-3.3.8.AppImage**](https://github.com/alexandrmotologa/bubble-io-dev-studio/releases/download/v3.3.8/Bubble.io-Dev-Studio-3.3.8.AppImage) | AppImage format | x64 |
 
-> 🚀 **GitHub Release Hub**: [**View Official v3.1.2 Release & Changelog on GitHub**](https://github.com/alexandrmotologa/bubble-io-dev-studio/releases/tag/v3.1.2) | [Latest Release](https://github.com/alexandrmotologa/bubble-io-dev-studio/releases/latest)
+> 🚀 **GitHub Release Hub**: [**View Official v3.3.8 Release & Changelog on GitHub**](https://github.com/alexandrmotologa/bubble-io-dev-studio/releases/tag/v3.3.8) | [Latest Release](https://github.com/alexandrmotologa/bubble-io-dev-studio/releases/latest)
 >
-> 💡 **First-Time Windows Installation Note**: Because this is an open-source/indie release that is not signed with an expensive enterprise EV certificate, Windows SmartScreen may show a blue prompt saying *"Windows protected your PC"*. Simply click **"More info"** ➔ **"Run anyway"** to launch the installer.
+> 💡 **First-Time Windows Installation Note**: Because this is an open-source/indie release that is not signed with an enterprise EV certificate, Windows SmartScreen may show a prompt saying *"Windows protected your PC"*. Simply click **"More info"** ➔ **"Run anyway"** to launch the installer.
 
 ---
 
 ## 📚 Table of Contents
-- [📥 Download Desktop App](#-download-desktop-app-pre-built-binaries)
+- [📥 Download Desktop App](#-download-desktop-app-v338-pre-built-binaries)
 - [🌟 Architecture & Modules Overview](#-architecture--modules-overview)
+- [⚡ Complete Blueprint Synchronization Matrix](#-complete-blueprint-synchronization-matrix)
+- [🚀 Step-by-Step Quick Start Guide](#-step-by-step-quick-start-guide)
 - [✨ Core Features & Capabilities](#-core-features--capabilities)
-  - [1. DevOps & Database Studio](#1-devops--database-studio-2-tier-categorized-architecture)
-  - [2. Visual Workflow Flowchart & Logic Visualizer](#2-visual-workflow-flowchart--logic-visualizer)
-  - [3. Security & Privacy Rules Auditor (RBAC & Sandbox)](#3-security--privacy-rules-auditor-rbac--sandbox)
-  - [4. Workload Units (WU) & Query Profiler](#4-workload-units-wu--query-profiler)
-  - [5. AST Dead Code Detector & Health Scorer](#5-ast-dead-code-detector--health-scorer)
-  - [6. AI Localization Studio (7x Providers)](#6-ai-localization-studio-7x-providers)
-  - [7. Visual QA & Multi-Viewport Suite](#7-visual-qa--multi-viewport-suite)
-  - [8. Webhooks, cURL & Plugin Action SDK Builder](#8-webhooks-curl--plugin-action-sdk-builder)
-  - [9. 1-Click Developer Documentation Book (DocGen) with AI Narratives](#9-1-click-developer-documentation-book-docgen-with-ai-narratives)
-  - [10. In-App .bubble Auto-Download & Direct Cloud Sync](#10-in-app-bubble-auto-download--direct-cloud-sync)
-  - [11. In-App Auto-Update System](#11-in-app-auto-update-system)
+  - [1. ⚡ 1-Click Cloud Direct Sync & Collaborator Bot](#1-1-click-cloud-direct-sync--collaborator-bot)
+  - [2. 🛠️ DevOps & Database Studio](#2-devops--database-studio-4-domain-architecture)
+  - [3. 🔀 Visual Workflow Flowchart & Logic Visualizer](#3-visual-workflow-flowchart--logic-visualizer)
+  - [4. 🛡️ Security & Privacy Rules Auditor (RBAC & Sandbox)](#4-security--privacy-rules-auditor-rbac--sandbox)
+  - [5. ⚡ Workload Units (WU) & Query Profiler](#5-workload-units-wu--query-profiler)
+  - [6. 🩺 AST Dead Code Detector & Health Scorer](#6-ast-dead-code-detector--health-scorer)
+  - [7. 🌐 AI Localization Studio (7x Providers)](#7-ai-localization-studio-7x-providers)
+  - [8. 📸 Visual QA & Multi-Viewport Suite](#8-visual-qa--multi-viewport-suite)
+  - [9. 🔌 Webhooks, cURL & Plugin Action SDK Builder](#9-webhooks-curl--plugin-action-sdk-builder)
+  - [10. 📚 1-Click Developer Documentation Book (DocGen)](#10-1-click-developer-documentation-book-docgen)
+  - [11. 🔄 Native Auto-Update & Zero-Data-Loss Relaunch](#11-native-auto-update--zero-data-loss-relaunch)
 - [⌨️ Global Keyboard Shortcuts](#️-global-keyboard-shortcuts)
 - [📖 In-Depth Documentation Guides (`docs/`)](#-in-depth-documentation-guides-docs)
 - [💻 Tech Stack](#-tech-stack)
-- [🚀 Getting Started](#-getting-started)
-- [📦 Packaging & Distribution](#-packaging--distribution)
+- [🛠️ Local Development & Build](#️-local-development--build)
+- [📄 License & Credits](#-license--credits)
 
 ---
 
@@ -63,94 +65,138 @@ For developers and teams who want to run the desktop application directly withou
 │   • Snapshots DB  │   • Mermaid Export│   • Public Scanner│   • N+1 Loop Check│   • Safe Purge  │
 │   • CI/CD Presets │   • Step Drawer   │   • SARIF Reports │   • Optimizer     │   • Manifest    │
 ├───────────────────┼───────────────────┼───────────────────┼───────────────────┼─────────────────┤
-│ 🌐 AI Translation │ 📸 Visual QA      │ 🔌 Webhooks & SDK │ 📚 DocGen Book    │ 🤖 AI Copilot   │
-│   • 7x AI Models  │   • Pixel Diff    │   • Webhook Logs  │   • Data Dict     │   • Query Gen   │
-│   • Memory Cache  │   • Basic Auth    │   • cURL to Bubble│   • Markdown/HTML │   • Regex Helper│
-│   • Bubble CSV    │   • Viewports     │   • Plugin Action │   • PDF Print     │   • AST Insights│
+│ 🌐 AI Translation │ 📸 Visual QA      │ 🔌 Webhooks & SDK │ 📚 DocGen Book    │ ⚡ Cloud Sync   │
+│   • 7x AI Models  │   • Pixel Diff    │   • Webhook Logs  │   • Data Dict     │   • Bot Direct  │
+│   • Memory Cache  │   • Basic Auth    │   • cURL to Bubble│   • Markdown/HTML │   • Downloads   │
+│   • Bubble CSV    │   • Viewports     │   • Plugin Action │   • PDF Print     │   • Companion   │
 └───────────────────┴───────────────────┴───────────────────┴───────────────────┴─────────────────┘
 ```
 
 ---
 
+## ⚡ Complete Blueprint Synchronization Matrix
+
+Bubble.io Dev Studio supports **4 versatile synchronization pathways** to ingest your application's AST (UI elements, workflows, pages, and database schemas) into the desktop workspace:
+
+| Method | Mechanism | Prerequisites | Setup Effort | Target Use Case |
+| :--- | :--- | :--- | :---: | :--- |
+| **⚡ 1-Click Cloud Direct Sync** | Dedicated Oracle Cloud VM microservice (`158.178.147.13:8080`) communicates via our collaborator bot (`bubbledevstudio.bot@gmail.com`). | Invite bot under Bubble *Settings ➔ Collaboration*. | ~30 seconds | Automated 1-click cloud sync without leaving the desktop IDE. |
+| **🔌 Companion Extension** | Unpacked Chrome / Edge extension with floating "⚡ Sync to Dev Studio" button streaming to local port `41890`. | Google Chrome or Microsoft Edge. | ~15 seconds | Instant sync for apps on Bubble Free or Paid plans. |
+| **📁 Local Auto-Detect Watcher** | Dev Studio background file watcher monitoring the OS `~/Downloads` directory. | None. Click *"Export application"* in Bubble *Settings ➔ General*. | Zero setup | Zero-configuration auto-import when manually exporting in browser. |
+| **📄 Manual File Import** | Built-in drag-and-drop file dropzone. | Existing `.bubble` or `.json` file on disk. | Zero setup | Completely offline environments and historical version diffs. |
+
+👉 *For full technical specifications, read the [Cloud Direct Sync Guide](docs/cloud-sync-guide.md).*
+
+---
+
+## 🚀 Step-by-Step Quick Start Guide
+
+### Step 1: Connect Your Bubble Application
+1. Launch **Bubble.io Dev Studio**.
+2. Click **Connect Application** (or press `Ctrl+N` / `Cmd+N`) to open the **5-Step Connection Wizard**:
+   - **Step 1: App Identity**: Enter your Application Name, Bubble App ID (or editor URL), Target Environment (`version-test` or `version-live`), and optional Custom Domain. Dev Studio runs an instant HTTP reachability test.
+   - **Step 2: Authentication & Security**: Enter your Private API Bearer Token from Bubble (*Settings ➔ API ➔ Generate new API token*). Toggle Data API, automated backups, and PII privacy checks. Includes optional Agency Plan HTTP Basic Auth.
+   - **Step 3: AI Model & Localization**: Select your preferred AI provider (Ollama for 100% offline free use, or Google Gemini, OpenAI, Claude, Groq, DeepSeek, xAI). Click *Test Connection* to verify credentials.
+   - **Step 4: Application Blueprint (.bubble / JSON)**: Choose your sync method:
+     - Click **⚡ 1-Click Cloud Sync** (after inviting `bubbledevstudio.bot@gmail.com` in Bubble *Settings ➔ Collaboration*), OR
+     - Click **Open Bubble Settings > General** to trigger the Downloads Watcher and click *Export application* in Bubble, OR
+     - Drag and drop your `.bubble` file into the dropzone.
+   - **Step 5: Verification & Launch**: Review pre-flight diagnostic checklist and launch your workspace!
+
+### Step 2: Manage Live Data in Data Studio
+1. Open **DevOps & Database Studio ➔ Data Studio**.
+2. Browse live database records in an Airtable/Supabase-style grid.
+3. Double-click any cell to edit (`PATCH`), use the **Smart CSV/JSON Batch Importer**, or seed relational records using `@alias` foreign keys.
+
+### Step 3: Run Security & Privacy Audits
+1. Open **Security & RBAC Auditor**.
+2. Inspect the **Role-Based Access Control (RBAC) Matrix** to find unauthenticated table exposures.
+3. Switch personas in the **Role Access Simulator** (*Guest*, *Owner*, *Admin*) to view live record masking.
+4. Copy ready-to-paste Bubble privacy expressions or export a **SARIF 2.1.0 JSON** report for GitHub CodeQL.
+
+### Step 4: Detect Dead Code & Optimize Workload Units (WU)
+1. Open **AST Dead Code Detector** to inspect your application health score (0–100%).
+2. View unreferenced visual elements, unused custom events, and generate safe purge manifests.
+3. Open **WU Cost Profiler** to identify unconstrained searches and N+1 repeating group loops.
+
+---
+
 ## ✨ Core Features & Capabilities
 
-### 1. DevOps & Database Studio (2-Tier Categorized Architecture)
-* **Categorized 4-Domain Layout**: Structured into **Data Studio**, **Schema & Flow**, **Backups & DevOps**, and **Dev Tools & CI/CD** for zero cognitive clutter.
-* **Interactive Data Studio (Live Grid)**: Airtable/Supabase-style visual grid for live Bubble Data API records. Includes inline cell editing (`PATCH`), new record modal, multi-column sorting, search, deep record inspection drawer, and CSV/JSON export.
-* **📥 Smart CSV & JSON Batch Importer**: Upload `.csv` or `.json` files with automated column mapping, type conversion, live progress tracking, and batch creation.
-* **🌱 Relational Data Seeder (DAG & 2-Pass Resolution)**: Seed interconnected multi-table datasets using `_ref: "@alias"` references with automatic topological sorting and circular link resolution.
-* **Interactive Visual SVG ERD**: Visual entity-relationship diagram with smooth Pan, Zoom In/Out, SVG export, and copyable Mermaid diagram script.
-* **TypeScript & Zod Studio**: Generate production-grade `.d.ts` definitions, Zod validation schemas, and a zero-dependency **Type-Safe Bubble API Client SDK**.
-* **Backup & Restore Hub (IndexedDB Persisted)**: Run full or selective micro-backups with table scoping, tamper-proof **SHA-256 integrity checksums**, AES-256 passphrase encryption, local storage, and JSON archive import/restore.
-* **Point-in-Time Database Snapshots & Differential Search**: Capture table states before risky operations, search differential changes in real-time, and download Markdown (`.md`) or JSON audit diffs.
-* **Schema Migrations (Schema-as-Code)**: Declarative lockfiles (`schema.lock.json`), multi-dialect DDL generators (**PostgreSQL/Supabase**, **MySQL/PlanetScale**, **SQLite/Turso**, **Google BigQuery**), and automated **DOWN Rollback SQL scripts**.
-* **Dev vs Live Sync & Sign-off**: Real-time schema drift comparisons between `version-test` and `live`, dynamic drift risk indicator (`HIGH/MEDIUM/LOW`), 0-100% pre-release checklist, and downloadable Markdown Sign-Off report.
-* **CI/CD Pipeline Generator**: 4 production presets (*Nightly Automated Backup, PR Schema Drift Gate, PII Security Gate, Supabase/PostgreSQL Continuous Sync*) with GitHub Actions / GitLab CI export and 1-click `.yml` download.
-* **Integration Template Scaffolder**: Instant boilerplate generator for Bubble Plugin Server-Side Actions (Node.js), CRUD API Connectors (TypeScript), Webhook Receivers (Express), and Type-Safe SDK Quickstarts with 1-click `.ts` download.
+### 1. ⚡ 1-Click Cloud Direct Sync & Collaborator Bot
+* **Autonomous Microservice**: Hosted on a secure, high-availability Oracle Cloud Infrastructure (OCI) VM (`158.178.147.13:8080`).
+* **Official Export Protocol Priority**: Extracts application definitions directly via `https://bubble.io/appeditor/export/${branch}/${appId}.bubble`, providing 100% full AST fidelity (all pages, workflows, UI elements, and data models).
+* **Compact Storage Optimization**: Files are saved directly to `~/Downloads/[appId]-cloud-sync.bubble` as compact JSON (~10.8 MB instead of 29.4 MB formatted), matching Bubble's official export size byte-for-byte.
+* **Strict Security & Zero Data Leakage**: The bot **never** reads, queries, or touches live user records from your database. Bot session credentials reside in an isolated `.env` file on the private VM, protected by IP-based rate limiting (30 req / 15 min).
 
-### 2. Visual Workflow Flowchart & Logic Visualizer
-* **Interactive Node Graphs**: Renders sequential workflow chains with color-coded nodes for *Triggers, Database Writes, Emails, API Calls, and Navigation*.
+### 2. 🛠️ DevOps & Database Studio (4-Domain Architecture)
+* **Categorized 4-Domain Layout**: Structured into **Data Studio**, **Schema & Flow**, **Backups & DevOps**, and **Dev Tools & CI/CD**.
+* **Interactive Data Studio (Live Grid)**: Live CRUD explorer, inline cell editing (`PATCH`), record drawer, multi-column sorting, and JSON/CSV export.
+* **Smart CSV & JSON Batch Importer**: Upload files with automatic column mapping, type conversion, and live batch progress tracking.
+* **Relational Data Seeder (DAG & 2-Pass)**: Seed interconnected multi-table records using `_ref: "@alias"` references with automatic topological sorting and circular link resolution.
+* **Interactive Visual SVG ERD**: Entity-relationship diagram with smooth Pan, Zoom, SVG export, and copyable Mermaid script.
+* **TypeScript & Zod Studio**: Generate production `.d.ts` definitions, runtime Zod validation schemas, and a zero-dependency **Type-Safe Bubble API Client SDK**.
+* **Selective Micro-Backups & Archival Hub**: Run full or table-scoped backups with **SHA-256 integrity checksums**, AES-256 encryption, and local JSON archive restore.
+* **Point-in-Time Database Snapshots & Differential Search**: Capture table states before risky operations, search differential changes, and download Markdown/JSON audit diffs.
+* **Schema Migrations (Schema-as-Code)**: Declarative lockfiles (`schema.lock.json`), multi-dialect DDL generators (**PostgreSQL/Supabase**, **MySQL/PlanetScale**, **SQLite/Turso**, **Google BigQuery**), and automated **DOWN Rollback SQL scripts**.
+* **Dev vs Live Cross-Environment Sync**: Real-time schema drift comparison between `version-test` and `live`, dynamic drift risk indicator (`HIGH/MEDIUM/LOW`), and pre-release sign-off checklists.
+* **CI/CD Pipeline Generator**: 4 production presets with 1-click `.yml` export for GitHub Actions and GitLab CI.
+
+### 3. 🔀 Visual Workflow Flowchart & Logic Visualizer
+* **Interactive Node Graphs**: Renders sequential workflow chains with color-coded nodes (*Triggers, Database Writes, Emails, API Calls, Navigation*).
 * **Conditional Branch Inspector**: Visualizes `"Only when..."` constraints attached to workflows and individual actions.
 * **Step-by-Step Action Drawer**: Lateral inspection drawer breaking down individual actions, properties, parameters, and expressions.
 * **Performance Advisor**: Flags client-blocking actions (e.g. synchronous email sending on the frontend) and suggests server backend scheduling.
 * **Mermaid Flowchart Export**: Copy-pasteable diagram syntax for pull requests and documentation.
 
-### 3. Security & Privacy Rules Auditor (RBAC & Sandbox)
-* **RBAC Access Matrix**: Automatic permission mapping across *Admin*, *Authenticated User*, and *Guest / Everyone Else* with filtered views (`Restricted Only`) and detail inspection modals.
-* **🎛️ Role Access Simulator & Security Sandbox**: Interactive persona switcher (*Guest*, *Other Authenticated User*, *Record Owner*, *System Administrator*) with live visual record payload simulation (🟢 VISIBLE, 🟡 MASKED, 🔴 REDACTED) and search query verdicts.
-* **🚨 "Everyone Else" Public Risk Scanner**: Detects unauthenticated table scraping risks via `/api/1.1/obj/` and categorizes tables into `CRITICAL RISK`, `UNPROTECTED`, and `HARDENED`.
-* **💡 Bubble Privacy Rules Generator**: Step-by-step remediation recipes with copyable Bubble rule expressions for the Bubble Data > Privacy editor.
-* **⚖️ Regulatory Compliance Posture**: Live compliance scorecard across **GDPR (Articles 5 & 32)**, **SOC 2 Type II**, **PCI-DSS**, and **HIPAA**.
+### 4. 🛡️ Security & Privacy Rules Auditor (RBAC & Sandbox)
+* **RBAC Access Matrix**: Automatic permission mapping across *Admin*, *Authenticated User*, and *Guest / Everyone Else*.
+* **Role Access Simulator & Security Sandbox**: Interactive persona switcher (*Guest*, *Logged-in User*, *Record Owner*, *System Admin*) with visual record payload simulation (🟢 VISIBLE, 🟡 MASKED, 🔴 REDACTED).
+* **"Everyone Else" Public Risk Scanner**: Detects unauthenticated table scraping risks via `/api/1.1/obj/` and categorizes tables into `CRITICAL RISK`, `UNPROTECTED`, and `HARDENED`.
+* **Bubble Privacy Rules Generator**: Step-by-step remediation recipes with copyable Bubble rule expressions for the Bubble Data > Privacy editor.
+* **Regulatory Compliance Posture**: Live compliance scorecard across **GDPR (Articles 5 & 32)**, **SOC 2 Type II**, **PCI-DSS**, and **HIPAA**.
 * **Multi-Format Export**: Generates comprehensive **Executive Markdown Reports (.md)** and **SARIF 2.1.0 JSON** for GitHub CodeQL / CI/CD security scanning.
 
-### 4. Workload Units (WU) & Query Profiler
+### 5. ⚡ Workload Units (WU) & Query Profiler
 * **WU Monthly Cost Estimator**: Estimates monthly Workload Units and hosting costs based on data complexity.
 * **Unconstrained Search Detection**: Identifies `Do a search for` queries lacking server-side constraints.
 * **Client vs. Server Ratio**: Optimizes resource distribution between browser-executed queries and backend workers.
 
-### 5. AST Dead Code Detector & Health Scorer
+### 6. 🩺 AST Dead Code Detector & Health Scorer
 * **Health Score & Grade**: Visual gauge (0–100%) with letter grading (`A+` to `F`).
 * **Deep AST Scanner**: Traverses nested groups, popups, repeating groups, workflows, custom events, styles, and plugins.
 * **DAG Dependency Graph**: Interactive visual tree displaying element-to-workflow relational dependencies.
 * **Safe Cleanup Assistant**: Generates actionable purge manifests for unreferenced elements.
 
-### 6. AI Localization Studio (7x Providers)
+### 7. 🌐 AI Localization Studio (7x Providers)
 * **Recursive `.bubble` String Extractor**: Extracts 100% of UI texts, input placeholders, button labels, tooltips, Option Sets, and workflow alerts.
 * **7 AI Providers Supported**: Google Gemini, OpenAI (GPT-4o), Anthropic Claude (3.7 Sonnet), DeepSeek (V3/R1), Groq (Llama 3.3 70B), OpenRouter, and local Ollama.
 * **Translation Memory**: IndexedDB hash caching to prevent duplicate translations and eliminate token waste.
 * **Brand Glossary**: Enforces non-translatable brand terms and dynamic Bubble tokens (`[Current User]`).
 * **Bubble CSV Export**: 1-Click export formatted for immediate import in Bubble Language Settings.
 
-### 7. Visual QA & Multi-Viewport Suite
+### 8. 📸 Visual QA & Multi-Viewport Suite
 * **Multi-Device Matrix**: Synchronized testing across Desktop (`1920x1080`), Laptop (`1440x900`), Tablet (`768x1024`), and Mobile (`375x812`).
 * **Pixel Regression Engine**: Pixel-by-pixel visual diff with pass/fail threshold indicators.
-* **3 Inspection Modes**: Split-Screen Slider, Side-by-Side Zoom, and Onion Skin Overlay (0–100% opacity).
+* **4 Inspection Modes**: Split-Screen Slider, Side-by-Side Zoom, Onion Skin Overlay (0–100% opacity), and Heatmap Discrepancy Highlight.
 * **Agency Plan HTTP Basic Auth Bypass**: Seamless credential injection for password-protected Bubble apps.
 
-### 8. Webhooks, cURL & Plugin Action SDK Builder
+### 9. 🔌 Webhooks, cURL & Plugin Action SDK Builder
 * **Live Webhook Inspector**: Inspect incoming payloads, query parameters, and execution response codes.
 * **cURL ➔ Bubble Connector Parser**: Convert standard curl snippets into Bubble API Connector configurations.
 * **Plugin Action SDK Generator**: Generates typed Server-Side Actions (SSA), Client-Side Actions (CSA), TypeScript types, and `package.json` for Bubble Plugin Builder.
 
-### 9. 1-Click Developer Documentation Book (DocGen) with AI Narratives
+### 10. 📚 1-Click Developer Documentation Book (DocGen)
 * **Dual-Mode Documentation**: Switch seamlessly between **[✨ AI Narrative Book]** (meaningful, business-oriented architectural manual) and **[📋 Raw Data Dictionary]** (concise table/field specs).
 * **Semantic Domain Classifier**: Automatically classifies applications (*E-Commerce*, *B2B SaaS*, *CRM*, *Social Communities*) and deduces business missions and primary actor personas.
-* **Narrative Architecture Chapters**:
-  1. *Executive Summary & Architectural Vision*
-  2. *Data Architecture, Entity Lifecycles & State Machines*
-  3. *User Journeys & Workflow Automation Chains*
-  4. *Zero-Trust Security Governance & Privacy Boundaries*
-* **Multi-Provider AI or Offline**: Compatible with **Google Gemini**, **OpenAI**, **Anthropic Claude**, **Groq**, local **Ollama** (`llama3:8b`), plus a built-in semantic heuristic engine for 100% offline generation.
-* **Multi-Format Export**: Searchable in-app reader, **Markdown (.md)**, **Standalone HTML Manual** with embedded Mermaid ERD, and **Print-to-PDF**.
+* **Narrative Architecture Chapters**: Executive Summary, Data Architecture & Entity Lifecycles, User Journeys & Workflow Automation Chains, and Zero-Trust Security Governance.
+* **Multi-Format Export**: In-app reader, **Markdown (.md)**, **Standalone HTML Manual** with embedded Mermaid ERD, and **Print-to-PDF**.
 
-### 10. In-App .bubble Auto-Download & Direct Cloud Sync
-* **⚡ 1-Click Cloud Sync**: Directly extracts the latest application file (`.bubble` / JSON AST) from your active Bubble Editor session—no manual browser downloading or file hunting needed.
-* **Downloads Folder Auto-Watcher**: Monitors your operating system's `Downloads` folder in the background. As soon as you click *Export application* in any browser, Dev Studio instantly catches, verifies, and auto-syncs the new file to your active workspace.
-* **Isolated Security Session**: Native persistent session partition (`persist:bubble_session`) keeps your Bubble credentials safe and separate.
-
-### 11. In-App Auto-Update System
+### 11. 🔄 Native Auto-Update & Zero-Data-Loss Relaunch
 * **Seamless Distribution**: Powered by `electron-updater` and connected to official GitHub Releases (`alexandrmotologa/bubble-io-dev-studio`).
-* **Background Check & Download**: Notifies you of new versions automatically, downloads releases with real-time transfer progress, and provides a 1-click "Restart & Install" experience.
+* **Live Progress Tracking**: Displays real-time download speed (MB/s) and percentage.
+* **Sticky Relaunch Button**: Prominent `[ Restart & Install v3.3.8 ]` button invokes `autoUpdater.quitAndInstall(false, true)`.
+* **Zero Data Loss Guarantee**: App executable binaries reside in `%LOCALAPPDATA%\Programs\bubble-io-dev-studio\`, while all user workspaces, API keys, database snapshots, and IndexedDB stores reside in `%APPDATA%\bubble-io-dev-studio\` and remain 100% intact across updates.
 
 ---
 
@@ -167,18 +213,19 @@ For developers and teams who want to run the desktop application directly withou
 
 ## 📖 In-Depth Documentation Guides (`docs/`)
 
-Explore detailed engineering specifications and user manuals in the [`docs/`](file:///b:/workgit/bubble-io-dev-studio/docs) directory:
+Explore detailed engineering specifications and user manuals in the [`docs/`](docs/) directory:
 
-- 🏛️ [System Architecture & Storage Specifications](file:///b:/workgit/bubble-io-dev-studio/docs/architecture.md)
-- 🛠️ [DevOps & Database Studio Guide](file:///b:/workgit/bubble-io-dev-studio/docs/devops-guide.md)
-- 🔀 [Workflow Flowchart & Logic Visualizer Guide](file:///b:/workgit/bubble-io-dev-studio/docs/workflows-guide.md)
-- 🛡️ [Security & Privacy Rules Auditor Guide](file:///b:/workgit/bubble-io-dev-studio/docs/security-guide.md)
-- ⚡ [Workload Units (WU) Profiler Guide](file:///b:/workgit/bubble-io-dev-studio/docs/wu-profiler-guide.md)
-- 🌐 [AI Localization & Translation Studio Guide](file:///b:/workgit/bubble-io-dev-studio/docs/ai-localization-guide.md)
-- 🔌 [Webhooks & API Studio Guide](file:///b:/workgit/bubble-io-dev-studio/docs/api-studio-guide.md)
-- 📸 [Visual QA & Multi-Viewport Suite Guide](file:///b:/workgit/bubble-io-dev-studio/docs/visual-qa-guide.md)
-- 📚 [DocGen Developer Book Guide](file:///b:/workgit/bubble-io-dev-studio/docs/docgen-guide.md)
-- ⚙️ [Settings & Integrations Hub Guide](file:///b:/workgit/bubble-io-dev-studio/docs/settings-guide.md)
+- ⚡ [1-Click Cloud Direct Sync & Collaborator Bot Guide](docs/cloud-sync-guide.md)
+- 🏛️ [System Architecture & Storage Specifications](docs/architecture.md)
+- 🛠️ [DevOps & Database Studio Guide](docs/devops-guide.md)
+- 🔀 [Workflow Flowchart & Logic Visualizer Guide](docs/workflows-guide.md)
+- 🛡️ [Security & Privacy Rules Auditor Guide](docs/security-guide.md)
+- ⚡ [Workload Units (WU) Profiler Guide](docs/wu-profiler-guide.md)
+- 🌐 [AI Localization & Translation Studio Guide](docs/ai-localization-guide.md)
+- 🔌 [Webhooks & API Studio Guide](docs/api-studio-guide.md)
+- 📸 [Visual QA & Multi-Viewport Suite Guide](docs/visual-qa-guide.md)
+- 📚 [DocGen Developer Book Guide](docs/docgen-guide.md)
+- ⚙️ [Settings & Integrations Hub Guide](docs/settings-guide.md)
 
 ---
 
@@ -189,11 +236,13 @@ Explore detailed engineering specifications and user manuals in the [`docs/`](fi
 * **Styling**: Native High-Performance CSS Variables & Modern Glassmorphism
 * **Visual Graph Engines**: [Mermaid.js](https://mermaid.js.org/) (Interactive SVG Zoom & Flowcharts) + [Lucide Icons](https://lucide.dev/)
 * **Local Persistence**: IndexedDB (Backups, Snapshots, Translation Memory) + LocalStorage (Project Store)
-* **Testing & Automation**: Vitest + Native Headless Chromium QA Suite
+* **Cloud Sync Microservice**: Node.js 20+ Express Microservice on Oracle Cloud Infrastructure
+* **Companion Extension**: Chrome Manifest V3 Extension with Local HTTP Bridge (`127.0.0.1:41890`)
+* **Distribution & Updates**: `electron-updater` + GitHub Releases CI/CD
 
 ---
 
-## 🚀 Getting Started
+## 🛠️ Local Development & Build
 
 ### Prerequisites
 * **Node.js**: `v20.0.0` or higher
@@ -201,7 +250,7 @@ Explore detailed engineering specifications and user manuals in the [`docs/`](fi
 
 ### Local Development
 ```bash
-# 1. Clone the repository
+# 1. Clone repository
 git clone https://github.com/alexandrmotologa/bubble-io-dev-studio.git
 cd bubble-io-dev-studio
 
@@ -217,7 +266,7 @@ npm run dev
 # Run TypeScript compilation check
 npm run typecheck
 
-# Build Vite web bundle
+# Build Vite bundle
 npm run build:vite
 
 # Package Windows desktop installer
@@ -226,11 +275,9 @@ npm run dist:win
 
 ---
 
-## 📄 License
+## 📄 License & Credits
 
-Distributed under the **MIT License**. See [LICENSE](file:///b:/workgit/bubble-io-dev-studio/LICENSE) for more information.
-
----
+Distributed under the **MIT License**. See [LICENSE](LICENSE) for more information.
 
 <p align="center">
   <b>Bubble.io Dev Studio</b> • Built with ❤️ by <b><a href="https://mtlg.site">Alexandr Motologa</a></b> | <b><a href="https://mtlglabs.space">MTLG Labs</a></b>

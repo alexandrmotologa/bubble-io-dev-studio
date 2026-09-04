@@ -1,44 +1,75 @@
-# ⚙️ Settings & Integrations Hub Guide (v3.1.2)
+# ⚙️ Settings & Integrations Hub Guide (v3.3.8)
 
-The **Settings & Integrations Hub** manages multi-provider AI credentials, Bubble workspace connections, auto-update releases, zero-telemetry security storage, and client-side system diagnostics.
+The **Settings & Integrations Hub** manages multi-provider AI credentials, Bubble workspace connections, 1-click cloud sync configurations, auto-update releases, and zero-data-loss system persistence.
 
 ---
 
 ## 1. Subtabs Overview
 
+```
+┌────────────────────────────────────────────────────────────────────────────────────────┐
+│                             Settings & Integrations Hub                                │
+├────────────────────┬────────────────────┬────────────────────┬─────────────────────────┤
+│ 🔑 AI Providers    │ 🗂️ Bubble Apps     │ 🎨 Preferences     │ 🔄 Updates & System     │
+│   • 7x Providers   │   • 5-Step Wizard  │   • Themes (2x)    │   • Auto-Updater        │
+│   • Local Ollama   │   • Cloud Sync     │   • Auto Reports   │   • Zero-Loss Relaunch  │
+│   • Latency Ping   │   • Downloads Watch│   • Storage Purge  │   • System Diagnostics  │
+│   • Model Select   │   • Companion Ext  │                    │   • Diagnostic Bundle   │
+└────────────────────┴────────────────────┴────────────────────┴─────────────────────────┘
+```
+
+---
+
+## 2. Detailed Settings Modules
+
 ### 1. 🔑 AI Providers & Keys (`keys`)
-- **Multi-Provider LLM Engine**: Configure API keys for **Google Gemini** (Gemini 2.0 Flash / Pro), **Anthropic Claude** (Claude 3.7 Sonnet / Haiku), **OpenAI** (GPT-4o / 4o-mini), **Groq** (Llama 3.3 70B), **xAI** (Grok 2), **OpenCode Router**, **OpenRouter**, and **Ollama** (Local/Offline on `http://localhost:11434`).
+- **Multi-Provider LLM Gateway**: Configure API keys for:
+  - **Google Gemini** (`gemini-2.0-flash`, `gemini-1.5-pro`)
+  - **Anthropic Claude** (`claude-3-7-sonnet`, `claude-3-5-haiku`)
+  - **OpenAI** (`gpt-4o`, `gpt-4o-mini`, `o3-mini`)
+  - **Groq** (`llama-3.3-70b-versatile`, ultra-low latency LPU)
+  - **DeepSeek** (`deepseek-chat`, `deepseek-reasoner`)
+  - **xAI** (`grok-2`)
+  - **OpenRouter** (Unified multi-model aggregator)
+  - **Ollama** (100% private, local execution on `http://localhost:11434` with automated local model tag discovery via `/api/tags`).
 - **Live AI Connection Test**: Test connectivity, round-trip latency (ms), and model accessibility with 1 click.
 - **Show/Hide Key Toggle**: Mask or unmask API keys for secure screen-sharing.
 
 ### 2. 🗂️ Bubble Apps & Workspaces (`workspaces`)
-- **Bubble.io Direct Sync Hub**:
-  - Connect your Bubble.io account securely via native session window (`persist:bubble_session`).
-  - **Auto-Detect Downloads (ON/OFF)**: Background file watcher monitoring your local `Downloads` folder for newly exported `.bubble` or `.json` files, auto-linking them to your active workspace.
-  - **⚡ 1-Click Sync**: Pull the application file directly from your open Bubble Editor session without manual downloads.
-- **Workspace Manager**: View all connected Bubble applications with environment badges (`VERSION-TEST`, `LIVE`), custom domains, and App IDs.
-- **Manual Workspace Editor Modal (`Edit Details`)**: Directly edit application title, Bubble App ID, target environment, custom domain, Data API URL, private bearer API token, and Agency Plan HTTP Basic Auth credentials (username & password).
+- **5-Step Connect App Wizard**:
+  - **Step 1: App Identity**: Enter Application Name, App ID (or URL), Target Environment (`version-test` vs `version-live`), and Custom Domain. Runs live reachability test.
+  - **Step 2: Authentication & Security**: Enter Private Bearer API Token (from Bubble *Settings ➔ API*), toggle Data API, automated backups, and PII auditing. Includes optional Agency Plan HTTP Basic Auth. Runs live token verification.
+  - **Step 3: AI Setup & Model Selection**: Pick an AI provider (Ollama by default) or cloud LLM with live connection testing.
+  - **Step 4: Blueprint & Schema Export File**: Choose between:
+    - **⚡ 1-Click Cloud Sync**: Autonomous sync via collaborator bot (`bubbledevstudio.bot@gmail.com`) and Oracle Cloud VM microservice.
+    - **📁 Local Auto-Detect**: Monitors `~/Downloads` folder while you click *"Export application"* in Bubble.
+    - **📄 Manual Dropzone**: Drag-and-drop `.bubble` or `.json` files directly.
+  - **Step 5: Pre-Flight Checklist & Launch**: Complete verification summary before opening workspace.
+- **Browser Companion Extension**:
+  - Quick link to open the `extensions/bubble-dev-studio-companion` folder for loading into Chrome or Edge (`chrome://extensions`).
+- **Workspace Manager**: View all connected Bubble applications with environment badges, latency indicators, and quick-switching.
 - **Full Workspace Bundle Archive (`.bds`)**: 1-Click export and import of portable workspace configurations (schemas, credentials, snapshots, and attached blueprints).
-- **Live Health & Ping**: Real-time HTTP reachability check and latency measurement.
-- **5-Step Verification Pills**: Visual verification status across App Reachability, Token Security, AI Provider, Blueprint sync, and Audit readiness.
 
 ### 3. 🎨 Theme & Studio Preferences (`preferences`)
 - **Theme Mode**: Switch between **Cyber Slate** (Dark Theme) and **Clean Studio** (Light Theme).
 - **Automated Report Saving**: Toggle automatic local persistence for HTML, SARIF, and JSON test reports.
-- **Local Storage Controller**: Manage and purge IndexedDB and localStorage caches.
+- **Local Storage Controller**: Inspect cache size and safely purge IndexedDB and localStorage records.
 
-### 4. 🔄 Application Updates & Releases (`general` / `diagnostics`)
-- **In-App Auto-Update System**: Integrated with official GitHub Releases.
-- **Background Check**: Notifies you when new updates are available.
-- **Live Progress Bar**: Displays download percentage, transfer speed (KB/s or MB/s), and total package size.
-- **1-Click Restart & Install**: Automatically updates the desktop application upon completion.
+### 4. 🔄 Application Updates & Auto-Updater (`general` / `diagnostics`)
+- **Native Auto-Update System**: Powered by `electron-updater` and connected to GitHub Releases (`alexandrmotologa/bubble-io-dev-studio`).
+- **Background Checks**: Automatically verifies if a newer version is available.
+- **Live Progress Tracking**: Displays real-time download percentage, transfer speed (MB/s), and total payload size.
+- **Sticky Restart & Install**: Once downloaded, click **"Restart & Install vX.X.X"** to immediately patch the application.
+- **Zero Data Loss Guarantee**:
+  - Updating replaces only the runtime binaries located in `%LOCALAPPDATA%\Programs\bubble-io-dev-studio\`.
+  - Your user profiles, connected projects, API tokens, snapshots, and IndexedDB stores located in `%APPDATA%\bubble-io-dev-studio\` are completely untouched and 100% preserved.
 
 ### 5. 💻 System Diagnostics (`diagnostics`)
-- **Diagnostic Metrics**: Quick glance at Studio Version, Connected Workspaces count, and Active AI Model.
-- **Environment Summary**: Complete runtime details including IndexedDB status and client platform.
-- **Export Diagnostics JSON**: 1-Click download of a diagnostic bundle for troubleshooting and bug reporting.
+- **Diagnostic Metrics**: Overview of Studio Version, Connected Workspaces count, and Active AI Model.
+- **Environment Summary**: Complete runtime details including IndexedDB status, Electron, Node, and Chrome versions.
+- **Export Diagnostics JSON**: 1-Click download of a diagnostic bundle for troubleshooting and GitHub issues.
 
 ### 6. ℹ️ About & Credits (`about`)
-- **Release Edition**: Version `v3.1.0` (Production Stable Suite).
+- **Release Edition**: Version `v3.3.8` (Production Stable Suite).
 - **Author Credits**: Designed and built by **Alexandr Motologa | MTLG Labs** ([mtlglabs.space](https://mtlglabs.space) • [mtlg.site](https://mtlg.site)).
-- **Ecosystem & Support Links**: MTLG Labs Ecosystem, Personal Portfolio Hub, GitHub repository, Buy Me a Coffee, and direct email (`contact@mtlglabs.space`).
+- **Ecosystem & Support Links**: MTLG Labs Ecosystem, Personal Portfolio Hub, GitHub repository, and direct email support (`contact@mtlglabs.space`).

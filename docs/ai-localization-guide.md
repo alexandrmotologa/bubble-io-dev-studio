@@ -1,4 +1,4 @@
-# 🌐 AI Localization Studio Guide (v3.0.0)
+# 🌐 AI Localization Studio Guide (v3.3.8)
 
 The **AI Localization Studio** provides multi-provider AI translation, recursive string extraction from `.bubble` files, translation memory caching, brand glossary protection, and real-time cost estimation.
 
@@ -23,32 +23,13 @@ The **AI Localization Studio** contains 5 specialized subtabs:
    - Metrics: Cached strings count, characters saved, and accumulated API dollar savings.
    - 1-click cache purge controller.
 
-4. **🧪 Pseudo-Localization & UI Stress Testing**:
-   - Interactive live input tester with configurable text expansion (20%, 30%, 40%, 50%).
-   - Simulates accented glyphs (`[!! Ŝȧṽē Ċħȧñɠēş !!]`) to detect layout clipping in Bubble responsive groups.
+4. **💰 Cost Estimator & Token Analytics**:
+   - Calculate projected token consumption and API costs across 7 providers before launching bulk jobs.
+   - Compare pricing across Google Gemini, OpenAI, Claude, DeepSeek, and Groq.
 
-5. **💰 Token & Cost Estimator**:
-   - Real-time cost estimates for current strings across Google Gemini, OpenAI, Anthropic (Claude 3.7 Sonnet), DeepSeek V3, Groq, and Ollama (Local/Offline).
-   - Multiplied projections based on the number of selected target languages.
-
----
-
-## 2. Multi-Provider AI Gateway
-
-| Provider | Recommended Models | Strengths |
-| :--- | :--- | :--- |
-| **Google Gemini** | `gemini-2.0-flash`, `gemini-1.5-pro` | High context window, natural fluency |
-| **Anthropic Claude** | `claude-3-7-sonnet`, `claude-3-5-haiku` | Nuanced tone and brand adaptation |
-| **OpenAI** | `gpt-4o`, `gpt-4o-mini` | Consistent grammar and dialect accuracy |
-| **DeepSeek** | `deepseek-chat`, `deepseek-reasoner` | High quality at disruptive token economics |
-| **Groq** | `llama-3.3-70b-versatile` | Real-time ultra-fast batch translation |
-| **Ollama** | `llama3`, `mistral`, `qwen2.5` | 100% private, offline, on-premise translation |
-
----
-
-## 3. Exporting to Bubble.io
-
-1. Select your target language(s).
-2. Click **"Export Bubble CSV"** (or **"Export N CSVs"** / **"JSON Bundle"**).
-3. Open your **Bubble Editor** ➔ **Settings** ➔ **Languages**.
-4. Upload the CSV via **"Import CSV"** to apply all translations across your app in seconds.
+5. **📤 Bubble CSV Exporter**:
+   - Export translations directly formatted for Bubble's native language settings:
+     ```csv
+     Bubble Text ID,Original Text,French,German,Spanish
+     ```
+   - Ready for 1-click import into **Bubble Editor ➔ Settings ➔ Languages**.

@@ -1,4 +1,4 @@
-# 🔀 Visual Workflow Flowchart & Logic Guide (v3.0.0)
+# 🔀 Visual Workflow Flowchart & Logic Guide (v3.3.8)
 
 The **Visual Workflow Flowchart** module parses raw Bubble action chains into interactive node graphs, illustrating execution sequences, conditional branches, and potential performance bottlenecks.
 
@@ -31,7 +31,16 @@ flowchart TD
 
 ---
 
-## 2. Performance & Bottleneck Diagnostics
+## 2. Step-by-Step Lateral Action Drawer
+
+Clicking any node opens the lateral inspection drawer:
+* View target element name, action category, and execution index.
+* Inspect action parameters, dynamic expressions, and evaluated fields.
+* Review `"Only when..."` conditional expressions.
+
+---
+
+## 3. Performance & Bottleneck Diagnostics
 
 The workflow analyzer inspects action sequences for Bubble best-practice anti-patterns:
 
@@ -46,6 +55,6 @@ The workflow analyzer inspects action sequences for Bubble best-practice anti-pa
 
 ---
 
-## 3. Mermaid Diagram Export
+## 4. Mermaid Diagram Export
 
-Click **"Copy Diagram"** to copy the GitHub-Flavored Mermaid flowchart code directly into your team's technical documentation or pull requests.
+Click **"Copy Diagram"** to copy the GitHub-Flavored Mermaid flowchart code directly into your team's technical documentation, Architecture Decision Records (ADR), or pull requests.

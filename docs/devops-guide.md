@@ -1,4 +1,4 @@
-# 🛠️ DevOps & Database Studio Guide (v3.1.2)
+# 🛠️ DevOps & Database Studio Guide (v3.3.8)
 
 The **DevOps & Database Studio** is an enterprise-grade toolchain for managing Bubble.io database schemas, live records, TypeScript bindings, automated backups, and environment releases.
 
@@ -14,11 +14,12 @@ To provide a clean, distraction-free workflow, the module is organized into **4 
 ├────────────────────┬────────────────────┬────────────────────┬─────────────────────────┤
 │ 📊 Data Studio     │ 📑 Schema & Flow   │ 💾 Backups & DevOps│ 🛠️ Dev Tools & CI/CD   │
 │   • Live Data Grid │   • Schema Explorer│   • Selective Back │   • 4x CI/CD Presets    │
-│   • REPL Query     │   • 1-Click Sync   │   • SHA-256 Hashes │   • Multi-SQL Migration │
-│   • Relational Seed│   • Interactive ERD│   • Snapshots Diff │   • SDK Scaffolder      │
-│   • CSV/JSON Import│   • Step Flowchart │   • Down Rollbacks │   • Mock API & Trigger  │
-│                    │   • TypeScript/Zod │   • Dev vs Live    │                         │
-│                    │   • API Client SDK │                    │                         │
+│   • REPL Query     │   • 1-Click Cloud  │   • SHA-256 Hashes │   • Multi-SQL Migration │
+│   • Relational Seed│   • Companion Ext  │   • Snapshots Diff │   • SDK Scaffolder      │
+│   • CSV/JSON Import│   • Downloads Watch│   • Down Rollbacks │   • Mock API & Trigger  │
+│                    │   • Interactive ERD│   • Dev vs Live    │                         │
+│                    │   • Step Flowchart │                    │                         │
+│                    │   • TypeScript/Zod │                    │                         │
 └────────────────────┴────────────────────┴────────────────────┴─────────────────────────┘
 ```
 
@@ -43,10 +44,21 @@ To provide a clean, distraction-free workflow, the module is organized into **4 
 
 ## 2. Domain 2: Schema & Flow (`Architecture & Types`)
 
-### ⚡ 1-Click Cloud Sync & Downloads Watcher
-* **⚡ 1-Click Sync from Bubble.io**: Directly pulls the application AST from your active Bubble Editor session without leaving Dev Studio. Automatically parses all custom data types, option sets, and fields.
-* **Downloads Auto-Watcher**: When toggled on, Dev Studio automatically catches `.bubble` files exported from your browser and attaches them to the active project in real time.
-* **Manual Import**: Still allows drag-and-drop or file picker selection of `.bubble` and `.json` files.
+### ⚡ Complete Application Blueprint Synchronization
+Dev Studio provides 4 ingestion pathways to synchronize your application structure:
+
+1. **⚡ 1-Click Cloud Direct Sync**:
+   - Uses our Oracle Cloud microservice and collaborator bot (`bubbledevstudio.bot@gmail.com`).
+   - Retrieves the full AST via Bubble's official export protocol.
+   - Automatically writes a compact JSON file to `~/Downloads/[appId]-cloud-sync.bubble` (~10.8 MB).
+2. **🔌 Browser Companion Extension**:
+   - Injects a floating sync button inside the Bubble Editor.
+   - Streams live AST directly to local port `41890`.
+3. **📁 Downloads Folder Auto-Watcher**:
+   - Monitors `~/Downloads` for `.bubble` or `.json` files exported from Bubble *Settings ➔ General*.
+   - Auto-attaches and parses newly detected exports without manual file picking.
+4. **📄 Manual File Import**:
+   - Drag-and-drop or select any existing `.bubble` or `.json` file from your hard drive.
 
 ### 📑 Schema Explorer & Option Sets
 * Inspect custom data types, fields, nullability, list relations, and Option Sets with clean visual badges.

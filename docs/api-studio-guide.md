@@ -1,4 +1,4 @@
-# 🌐 Webhooks & API Studio Guide (v3.0.0)
+# 🌐 Webhooks & API Studio Guide (v3.3.8)
 
 The **Webhooks & API Studio** simplifies external integrations, cURL importing, OpenAPI 3.0 specification mapping, Bubble API Connector scaffolding, and Bubble Plugin Builder action development.
 
@@ -28,51 +28,23 @@ The **Webhooks & API Studio** simplifies external integrations, cURL importing, 
 Paste any standard or complex cURL command from external API documentation (Stripe, Twilio, SendGrid, OpenAI, etc.):
 
 ```bash
-curl -X POST https://api.stripe.com/v1/payment_intents \
-  -H "Authorization: Bearer sk_test_..." \
-  -H "Content-Type: application/json" \
-  -d '{"amount": 2000, "currency": "usd", "customer": "cus_991823"}'
+curl -X POST https://api.stripe.com/v1/customers \
+  -u sk_test_...: \
+  -d "email=jenny.rosen@example.com"
 ```
 
-* **Multi-Format Support**: Automatically parses headers, query parameters, basic authentication (`-u user:pass`), bearer tokens, multipart/form-data (`-F`), `--data-urlencode`, and JSON body payloads.
-* **Interactive Flag Editors**: Configure `Private`, `Optional`, and `Send in Querystring` toggles for each header and parameter.
-* **One-Click Export**: Copy Bubble API Connector JSON configuration or reverse-engineer executable cURL syntax.
+The parser automatically decomposes the snippet into Bubble API Connector fields:
+* **Method & URL**: `POST` to `https://api.stripe.com/v1/customers`
+* **Headers**: `Authorization: Basic ...`
+* **Parameters / Body**: Form-encoded body parameters mapped to key-value rows.
+* **1-Click Copy**: Formatted configuration ready to paste into Bubble Plugin or API Connector.
 
 ---
 
-## 3. Swagger / OpenAPI 3.0 Importer
+## 3. Bubble Plugin Builder SDK Scaffolder
 
-* **Multi-Format Input**: Upload `.json`, `.yaml`, or `.yml` files, fetch via URL, or paste raw specification text.
-* **Tag-Based Explorer**: Interactive breakdown of all endpoints grouped by OpenAPI Tags or Paths.
-* **Selective Batch Export**: Select specific endpoints or entire categories with checkboxes and batch-export directly to Bubble API Connector schema format.
-* **Seamless Scaffolding**: Send any selected OpenAPI operation directly to the API Connector Scaffolder with one click.
-
----
-
-## 4. API Connector Schema & Query Scaffolder
-
-* **Visual Configurator**: Design API calls with URL parameters, headers, and dynamic body structures.
-* **JSON Schema Validator**: Validate JSON response payloads against expected types, detecting missing fields and schema discrepancies.
-* **Multi-Target Code Snippets**:
-  - 🖥️ **Bubble Client-Side**: JavaScript Toolbox / HTML element fetch dispatcher.
-  - ⚡ **Bubble Server-Side (SSA)**: Node.js async backend execution.
-  - 📡 **cURL Command**: Reverse-engineered command line syntax.
-  - 📦 **API Connector JSON**: Ready for direct import into Bubble.io settings.
-
----
-
-## 5. Bubble Plugin Action SDK Builder
-
-Generate production-grade code for custom Bubble plugins (Server-Side Actions & Client-Side Actions):
-
-1. **Choose Template / Action Name**: Stripe Payment, OpenAI Chat, SendGrid Mailer, or Custom REST.
-2. **Input & Return Parameters**: Strongly typed fields (`text`, `number`, `boolean`, `date`, `object`, `list_text`, `list_number`, `file`).
-3. **Advanced Security & Reliability**:
-   - 🔑 Inject Bubble Private API Keys (`context.keys`).
-   - 🔄 Automatic retry policy with exponential backoff.
-   - ⏱️ Configurable execution timeout with `AbortController`.
-4. **Export Artifacts**:
-   - ⚡ **Server-Side Action (SSA)** with async fetch and input validation.
-   - 🖥️ **Client-Side Action (CSA)** with browser custom event dispatchers.
-   - 📝 **TypeScript Interfaces** for full type-safety.
-   - 📦 **`package.json`** snippet with recommended dependencies (`axios`, `zod`, `p-retry`).
+Generate complete code templates for custom Bubble plugins:
+* **Server-Side Actions (SSA)**: Node.js 18+ asynchronous handlers with typing and error boundaries.
+* **Client-Side Actions (CSA)**: Browser JavaScript functions with element access.
+* **Parameter Manifest**: JSON definition for parameters, return values, and input types.
+* **TypeScript Quickstart**: 1-click download of `.ts` boilerplate and `package.json`.

@@ -1,6 +1,6 @@
-# 🏛️ Bubble.io Dev Studio — Architecture & Technical Specifications (v3.0.0)
+# 🏛️ Bubble.io Dev Studio — Architecture & Technical Specifications (v3.3.8)
 
-This document outlines the internal architecture, data flow, storage strategies, and engineering design patterns powering **Bubble.io Dev Studio**.
+This document outlines the internal architecture, data flow, storage strategies, synchronization pathways, and engineering design patterns powering **Bubble.io Dev Studio**.
 
 ---
 
@@ -9,23 +9,37 @@ This document outlines the internal architecture, data flow, storage strategies,
 ```mermaid
 graph TD
     subgraph "External Ecosystem"
-        BA[Bubble.io Data API]
-        BM[Bubble Meta / Swagger API]
-        BB[Raw .bubble Blueprint JSON]
+        BA[Bubble.io Data API: /api/1.1/obj/]
+        BM[Bubble Meta & Swagger API]
+        BE_EXP[Bubble Editor Official Export API: /appeditor/export/]
         AI[7x AI Providers: Gemini, OpenAI, Claude, DeepSeek, Groq, OpenRouter, Ollama]
+        GH[GitHub Releases API: alexandrmotologa/bubble-io-dev-studio]
     end
 
-    subgraph "Bubble.io Dev Studio Core"
-        ST[Project & Settings Store]
+    subgraph "Cloud Synchronization Layer"
+        OVM[Oracle Cloud VM Microservice: 158.178.147.13:8080]
+        BOT[Collaborator Bot: bubbledevstudio.bot@gmail.com]
+    end
+
+    subgraph "Local Companion & Ingestion Layer"
+        EXT[Chrome / Edge Companion Extension]
+        BS[Local Bridge Server: 127.0.0.1:41890]
+        DW[Downloads Folder Watcher: ~/Downloads/*.bubble]
+    end
+
+    subgraph "Bubble.io Dev Studio Desktop Core (Electron 34 + React 18)"
+        IPC[Electron IPC Bridge & SafeStorage]
+        UPD[Native Auto-Updater: electron-updater]
         IDB[(Native IndexedDB Multi-Store)]
-        
-        subgraph "AST & Parsing Layer"
+        DISK[(Local Disk Backup: ~/Downloads/*.bubble)]
+
+        subgraph "AST & Parsing Engine Layer"
             BP[BubbleParser / AST Crawler]
             BE[BubbleExtractor]
             WG[WorkflowGraphEngine]
         end
 
-        subgraph "Engines Layer"
+        subgraph "Application Logic & Diagnostic Engines"
             DE[DevOpsEngine & DataGridEngine]
             AE[AuditEngine & Dead Code Scorer]
             SE[SecurityEngine & RBAC Matrix]
@@ -38,32 +52,56 @@ graph TD
         end
 
         subgraph "Presentation Layer"
-            UI[React 18 + TypeScript + Vite]
+            UI[Modern React UI + Glassmorphism]
+            MODAL[Connect App 5-Step Wizard]
             CP[Command Palette Ctrl+K]
             CD[AI Copilot Ctrl+I]
-            TD[Global Terminal Drawer]
+            TD[Global Log Console Drawer Ctrl+`]
         end
     end
 
+    %% Sync connections
+    BE_EXP --> BOT
+    BOT --> OVM
+    OVM -->|POST /v1/sync| IPC
+    EXT -->|HTTP POST /sync| BS
+    BS --> IPC
+    DW --> IPC
+
+    %% Core connections
     BA --> DE
     BM --> DE
-    BB --> BP
+    GH --> UPD
+    IPC --> IDB & DISK & BP
     BP --> BE & WG & AE & SE & WP & DG
     AI --> TE & CD
-    
+
     DE & AE & SE & WP & TE & VE & AS & DG & SN --> IDB
     IDB --> UI
 ```
 
 ---
 
-## 2. Multi-Store IndexedDB Persistence Architecture
+## 2. The 4 Application Blueprint Ingestion Pathways
+
+To provide unmatched flexibility regardless of the developer's Bubble hosting tier, Dev Studio supports **4 distinct synchronization pathways**:
+
+| Pathway | Mechanism | Target User | Network Flow |
+| :--- | :--- | :--- | :--- |
+| **⚡ 1-Click Cloud Direct Sync** | Oracle Cloud VM Microservice (`158.178.147.13:8080`) via collaborator bot (`bubbledevstudio.bot@gmail.com`). | Teams on Paid Bubble Plans wanting 1-click cloud sync. | `Bubble Official Export ➔ Oracle VM ➔ Desktop App` |
+| **🔌 Browser Companion Extension** | Chrome/Edge extension injecting a floating sync button directly in Bubble Editor. | Developers on Free or Paid plans wanting instant sync. | `Browser Tab ➔ Local Bridge (127.0.0.1:41890) ➔ Desktop App` |
+| **📁 Downloads Auto-Watcher** | Background file watcher listening to OS `~/Downloads` directory. | Zero-setup users using manual *"Export application"*. | `Browser Download ➔ Local File Watcher ➔ Desktop App` |
+| **📄 Manual File Import** | Native file dropzone accepting `.bubble` or `.json` files. | Offline environments or archival review. | `Drag-and-Drop ➔ Desktop App` |
+
+---
+
+## 3. Multi-Store IndexedDB Persistence Architecture
 
 To eliminate browser `localStorage` 5MB quota restrictions and ensure enterprise data safety, the studio operates an asynchronous Promise-based IndexedDB storage layer (`IndexedDbStore` with `DB_VERSION = 4`):
 
 | Object Store | Key Path | Payload Description | Purpose |
 | :--- | :--- | :--- | :--- |
-| `settings` | `key` | Global preferences, active project ID, AI credentials, UI themes | Settings persistence across restarts |
+| `settings` | `key` | Global preferences, active project ID, AI credentials, UI themes | Settings persistence across app sessions |
 | `blueprints` | `projectId` | Complete `.bubble` JSON blueprint exports (up to 50MB+) | Offline AST analysis, zero re-upload |
 | `translations` | `key` | Translation Memory cache (`hash(sourceText + targetLang)`) and Glossary | Deduplication, token cost savings |
 | `backups` | `backupId` | Full table JSON dumps, schema snapshots, and row metadata | Disaster recovery and sandbox imports |
@@ -73,7 +111,33 @@ To eliminate browser `localStorage` 5MB quota restrictions and ensure enterprise
 
 ---
 
-## 3. AST Parsing & Deep Extraction
+## 4. Zero Data Loss Architecture Across Application Updates
+
+A critical architectural guarantee of Bubble.io Dev Studio is that **updating the application will NEVER wipe or alter existing user projects, databases, or credentials**.
+
+### Separation of Binaries and User Data:
+* **Executable Binaries (Replaced during update)**:
+  - Windows: `%LOCALAPPDATA%\Programs\bubble-io-dev-studio\`
+  - macOS: `/Applications/Bubble.io Dev Studio.app/`
+  - Linux: Application AppImage or `/opt/`
+* **Persistent User Data (Untouched during update)**:
+  - Windows: `%APPDATA%\bubble-io-dev-studio\`
+  - macOS: `~/Library/Application Support/bubble-io-dev-studio/`
+  - Linux: `~/.config/bubble-io-dev-studio/`
+
+This directory houses the Chromium profile containing:
+1. All **IndexedDB databases** (`blueprints`, `backups`, `snapshots`, `translations`).
+2. LocalStorage settings (`projects`, active workspace ID, window bounds).
+3. Securely encrypted credentials via native OS keyring (DPAPI on Windows, Keychain on macOS, Secret Service on Linux).
+
+When `autoUpdater.quitAndInstall(false, true)` executes:
+1. The NSIS installer silently patches only the executable files in `%LOCALAPPDATA%`.
+2. The user profile in `%APPDATA%` is completely decoupled and 100% preserved.
+3. The app relaunches with all projects, history, and tokens immediately accessible.
+
+---
+
+## 5. AST Parsing & Deep Extraction
 
 Bubble exports applications in nested JSON format. The AST parser (`src/core/audit/bubbleParser.ts` and `src/core/translator/bubbleExtractor.ts`) utilizes recursive depth-first tree traversal:
 
@@ -84,7 +148,7 @@ Bubble exports applications in nested JSON format. The AST parser (`src/core/aud
 
 ---
 
-## 4. Multi-Provider AI Architecture
+## 6. Multi-Provider AI Architecture
 
 The studio implements a unified AI Gateway (`src/core/ai/aiProviders.ts` and `src/core/translator/translationEngine.ts`) supporting 7 industry-leading LLM providers:
 
@@ -94,16 +158,15 @@ The studio implements a unified AI Gateway (`src/core/ai/aiProviders.ts` and `sr
 - **DeepSeek**: `deepseek-chat` (DeepSeek V3), `deepseek-reasoner` (DeepSeek R1)
 - **Groq**: Ultra-low-latency `llama-3.3-70b-versatile`, `deepseek-r1-distill-llama-70b`, `mixtral-8x7b-32768`
 - **OpenRouter**: Access to 100+ open and proprietary models
-- **Ollama**: 100% private, local on-premise execution (`llama3`, `mistral`, `qwen2.5`)
+- **Ollama**: 100% private, local on-premise execution (`llama3:8b`, `mistral`, `qwen2.5`) with automated local model discovery via `http://localhost:11434/api/tags`.
 
 ---
 
-## 5. Electron vs Browser Hybrid Runtime
+## 7. Electron Desktop Security & Preview Sandbox
 
-The studio operates both as a web application and a native desktop Electron application:
-
-* **In Electron Desktop**:
-  - `session.defaultSession.webRequest.onHeadersReceived` intercepts response headers and strips `X-Frame-Options` and `Content-Security-Policy: frame-ancestors` to allow live embedded previews of all Bubble applications without editor modifications.
-  - Native `app.on('login')` intercepts and authenticates HTTP Basic Auth credentials for Agency Plan protected applications.
-* **In Web Browser**:
-  - Full sandbox support with fallback URL synchronization and direct cross-origin guidance.
+* **Frame-Ancestors & CSP Stripping**:
+  `session.defaultSession.webRequest.onHeadersReceived` intercepts response headers and strips `X-Frame-Options` and `Content-Security-Policy: frame-ancestors` to allow live embedded previews of all Bubble applications without editor modifications.
+* **Agency Plan Basic Auth Injection**:
+  Native `app.on('login')` intercepts and authenticates HTTP Basic Auth credentials for Agency Plan password-protected applications.
+* **Native Encryption**:
+  Hardware-backed credential encryption via `safeStorage.encryptString()` protects sensitive Bubble API bearer tokens and database keys before storing them to disk.
