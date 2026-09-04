@@ -115,6 +115,23 @@ export const App: React.FC = () => {
         if (payload?.status === 'available' || payload?.status === 'downloaded') {
           setHasUpdateAvailable(true);
         }
+        if (payload?.status === 'downloaded') {
+          toast.success(
+            'Update Ready to Install',
+            `Version v${payload.version || ''} has been downloaded. Restart now to apply update and reopen automatically.`,
+            {
+              label: 'Restart Now',
+              onClick: () => {
+                if ((window as any).electronAPI?.installUpdate) {
+                  (window as any).electronAPI.installUpdate();
+                } else if ((window as any).electronAPI?.sendToMain) {
+                  (window as any).electronAPI.sendToMain('updater:install');
+                }
+              }
+            },
+            Infinity
+          );
+        }
       });
       return () => {
         unsubNew && unsubNew();

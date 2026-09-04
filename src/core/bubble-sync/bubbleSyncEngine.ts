@@ -281,7 +281,7 @@ export class BubbleSyncEngine {
     const cleanUrl = serverUrl.replace(/\/+$/, '');
     const endpoint = `${cleanUrl}/v1/sync`;
 
-    toast.info(`Connecting to Cloud Sync Bot at ${cleanUrl}...`);
+    toast.info('Connecting to Cloud Sync Bot...');
 
     try {
       const headers: Record<string, string> = {
@@ -310,16 +310,31 @@ export class BubbleSyncEngine {
       const stats = result.stats || this.calculateBlueprintStats(result.data);
       toast.success(`✨ Cloud Sync completed! (${stats.pagesCount} Pages, ${stats.workflowsCount} Workflows)`);
 
+      const fileName = `${appId}-${branch}-cloud-sync.bubble`;
+
+      // Auto-save a local copy to Downloads folder if running in Electron
+      if (typeof window !== 'undefined' && window.electronAPI?.bubbleSyncExportBlueprintToDisk) {
+        try {
+          const exportRes = await window.electronAPI.bubbleSyncExportBlueprintToDisk(fileName, result.data);
+          if (exportRes.success) {
+            toast.info(`💾 Saved local copy to Downloads: ${fileName}`);
+          }
+        } catch (e) {
+          console.warn('Could not auto-save blueprint to disk:', e);
+        }
+      }
+
       return {
         success: true,
-        fileName: `${appId}-${branch}-cloud-sync.bubble`,
+        fileName,
         data: result.data,
         stats
       };
     } catch (err: any) {
-      const msg = err.message || 'Failed to connect to Cloud Sync server';
-      toast.error(`Cloud Sync Failed: ${msg}`);
-      return { success: false, error: msg };
+      const rawMsg = err.message || 'Failed to connect to Cloud Sync server';
+      const sanitizedMsg = rawMsg.replace(/\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}(:\d+)?\b/g, 'Cloud Bot');
+      toast.error(`Cloud Sync Failed: ${sanitizedMsg}`);
+      return { success: false, error: sanitizedMsg };
     }
   }
 

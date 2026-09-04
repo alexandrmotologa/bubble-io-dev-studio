@@ -30,10 +30,39 @@ class BubbleCloudClient {
       'Referer': `https://bubble.io/page?id=${encodeURIComponent(cleanAppId)}&tab=tabs-general`
     };
 
-    // --- STRATEGY 1: Internal Bubble Editor protocol (/appeditor/load_multiple_paths) ---
-    // Works on ALL plans (Free, Starter, Team, Enterprise)
+    // --- STRATEGY 1: Official export endpoint (/appeditor/export/...) ---
+    // Full application AST with 100% fidelity (all workflows, elements, data types, settings, option sets)
     try {
-      console.log(`[BubbleClient] Probing /appeditor/load_multiple_paths for ${cleanAppId} (${cleanBranch})...`);
+      console.log(`[BubbleClient] Probing /appeditor/export for ${cleanAppId} (${cleanBranch})...`);
+      const exportUrl = `https://bubble.io/appeditor/export/${encodeURIComponent(cleanBranch)}/${encodeURIComponent(cleanAppId)}.bubble`;
+      const exportRes = await axios.get(exportUrl, {
+        headers: {
+          ...headers,
+          'Accept': '*/*'
+        },
+        timeout: 35000,
+        validateStatus: (status) => status < 400
+      });
+
+      if (exportRes.status === 200 && exportRes.data && (typeof exportRes.data === 'object')) {
+        console.log(`[BubbleClient] Successfully retrieved full official export for ${cleanAppId}`);
+        const stats = this.calculateStats(exportRes.data);
+        return {
+          success: true,
+          appId: cleanAppId,
+          branch: cleanBranch,
+          stats,
+          data: exportRes.data
+        };
+      }
+    } catch (err) {
+      console.warn(`[BubbleClient] Strategy 1 (/appeditor/export) fallback:`, err.message);
+    }
+
+    // --- STRATEGY 2: Internal Bubble Editor protocol (/appeditor/load_multiple_paths) ---
+    // Fallback if export endpoint is restricted
+    try {
+      console.log(`[BubbleClient] Probing /appeditor/load_multiple_paths fallback for ${cleanAppId} (${cleanBranch})...`);
       const loadUrl = `https://bubble.io/appeditor/load_multiple_paths/${encodeURIComponent(cleanAppId)}/${encodeURIComponent(cleanBranch)}`;
       
       const initRes = await axios.post(loadUrl, {
@@ -55,7 +84,7 @@ class BubbleCloudClient {
         const styles = initRes.data.data[2]?.data || {};
 
         if (Object.keys(idToPath).length > 0 || Object.keys(userTypes).length > 0) {
-          console.log(`[BubbleClient] Successfully connected via editor protocol (${Object.keys(idToPath).length} symbols, ${Object.keys(userTypes).length} types)`);
+          console.log(`[BubbleClient] Connected via editor protocol (${Object.keys(idToPath).length} symbols, ${Object.keys(userTypes).length} types)`);
 
           const pageKeys = new Set();
           const edKeys = new Set();
@@ -123,34 +152,7 @@ class BubbleCloudClient {
         }
       }
     } catch (err) {
-      console.warn(`[BubbleClient] Strategy 1 (/appeditor/load_multiple_paths) failed:`, err.message);
-    }
-
-    // --- STRATEGY 2: Official export endpoint (/appeditor/export/...) ---
-    try {
-      console.log(`[BubbleClient] Probing /appeditor/export for ${cleanAppId}...`);
-      const exportUrl = `https://bubble.io/appeditor/export/${encodeURIComponent(cleanBranch)}/${encodeURIComponent(cleanAppId)}.bubble`;
-      const exportRes = await axios.get(exportUrl, {
-        headers: {
-          ...headers,
-          'Accept': '*/*'
-        },
-        timeout: 30000,
-        validateStatus: (status) => status < 400
-      });
-
-      if (exportRes.status === 200 && exportRes.data && (typeof exportRes.data === 'object')) {
-        const stats = this.calculateStats(exportRes.data);
-        return {
-          success: true,
-          appId: cleanAppId,
-          branch: cleanBranch,
-          stats,
-          data: exportRes.data
-        };
-      }
-    } catch (err) {
-      console.warn(`[BubbleClient] Strategy 2 (/appeditor/export) failed:`, err.message);
+      console.warn(`[BubbleClient] Strategy 2 (/appeditor/load_multiple_paths) failed:`, err.message);
     }
 
     throw new Error('Could not extract application AST. Ensure the bot account is added as a Collaborator to this Bubble app (Settings -> Collaboration).');
@@ -192,8 +194,14 @@ class BubbleCloudClient {
         if (ed && typeof ed === 'object') {
           if (ed['%el']) elementsCount += Object.keys(ed['%el']).length;
           if (ed['%wf']) workflowsCount += Object.keys(ed['%wf']).length;
+          if (ed.elements) elementsCount += Object.keys(ed.elements).length;
+          if (ed.workflows) workflowsCount += Object.keys(ed.workflows).length;
         }
       }
+    }
+
+    if (data.workflows && typeof data.workflows === 'object') {
+      workflowsCount += Object.keys(data.workflows).length;
     }
 
     const typesObj = data.user_types || data.custom_types || data.types;

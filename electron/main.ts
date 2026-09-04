@@ -397,13 +397,6 @@ function initAutoUpdater() {
       status: 'downloaded',
       version: info.version
     });
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send('toast:show', {
-        type: 'success',
-        title: 'Update Ready to Install',
-        message: `Version v${info.version} has been downloaded. Restart the application to apply.`
-      });
-    }
   });
 
   autoUpdater.on('error', (err) => {
