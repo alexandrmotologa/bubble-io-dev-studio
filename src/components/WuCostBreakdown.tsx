@@ -23,8 +23,8 @@ interface WuCostBreakdownProps {
 }
 
 export const WuCostBreakdown: React.FC<WuCostBreakdownProps> = ({ report }) => {
-  // Mode switch: Simulated Projection vs Baseline App Code
-  const [advisorMode, setAdvisorMode] = useState<'simulated' | 'baseline'>('simulated');
+  // Mode switch: Start on 'baseline' so user first sees their actual app footprint
+  const [advisorMode, setAdvisorMode] = useState<'simulated' | 'baseline'>('baseline');
 
   // Interactive Traffic Simulation Sliders
   const [mau, setMau] = useState<number>(2500);
@@ -89,6 +89,9 @@ export const WuCostBreakdown: React.FC<WuCostBreakdownProps> = ({ report }) => {
     const overageCostUsd = Math.round((overageWu / 100000) * plan.additionalCostPer100kWu);
     const totalEstMonthlyBill = plan.basePriceUsd + overageCostUsd;
 
+    // Baseline utilization for dual-comparison
+    const baselineUtilization = Math.round((report.totalEstimatedMonthlyWu / plan.monthlyWuAllowance) * 100);
+
     // Intelligent recommendation logic based on workload threshold and cost-effectiveness
     let isRecommended = false;
     if (activeWu <= 175000 && plan.id === 'starter') isRecommended = true;
@@ -99,6 +102,7 @@ export const WuCostBreakdown: React.FC<WuCostBreakdownProps> = ({ report }) => {
     return {
       ...plan,
       utilizationPercent,
+      baselineUtilization,
       isExceeded,
       overageWu,
       overageCostUsd,
@@ -112,17 +116,19 @@ export const WuCostBreakdown: React.FC<WuCostBreakdownProps> = ({ report }) => {
     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
       {/* 5 KPI Metric Cards */}
       <div className="grid-4">
-        {/* Metric 1: Monthly WU */}
+        {/* Metric 1: Real Baseline Monthly WU */}
         <div className="card" style={{ background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.12) 0%, rgba(6, 182, 212, 0.08) 100%)', border: '1px solid var(--border-active)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-            <span style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-muted)' }}>ESTIMATED MONTHLY WU</span>
-            <Zap size={16} color="var(--primary)" />
+            <span style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-muted)' }}>CURRENT APP BASELINE WU</span>
+            <span className="badge badge-indigo" style={{ fontSize: '0.65rem', padding: '1px 6px' }}>
+              ACTUAL CODEBASE
+            </span>
           </div>
           <div style={{ fontSize: '1.65rem', fontWeight: 800, color: 'var(--text-primary)' }}>
             {report.totalEstimatedMonthlyWu.toLocaleString()} <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-muted)' }}>WU</span>
           </div>
           <div style={{ fontSize: '0.75rem', color: 'var(--accent-cyan)', marginTop: '4px', fontWeight: 600 }}>
-            ~${report.estimatedMonthlyCostUsd} USD / mo at standard tier
+            ~${report.estimatedMonthlyCostUsd} USD / mo (Current detected load)
           </div>
         </div>
 
@@ -183,9 +189,15 @@ export const WuCostBreakdown: React.FC<WuCostBreakdownProps> = ({ report }) => {
       {/* Interactive Traffic & Load Forecast Sliders */}
       <div className="card" style={{ background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.08) 0%, rgba(234, 179, 8, 0.05) 100%)', border: '1px solid var(--border-active)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap', gap: '8px' }}>
-          <div className="card-title" style={{ margin: 0 }}>
-            <Sliders size={16} color="var(--primary)" />
-            <span>Interactive Traffic & User Growth Calculator</span>
+          <div>
+            <div className="card-title" style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Sliders size={16} color="var(--primary)" />
+              <span>Interactive Traffic & User Growth Calculator</span>
+              <span className="badge badge-indigo" style={{ fontSize: '0.65rem' }}>WHAT-IF SIMULATION</span>
+            </div>
+            <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '3px' }}>
+              Simulate future user growth and backend spikes to test capacity limits without altering your real app baseline.
+            </div>
           </div>
 
           <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
@@ -220,7 +232,7 @@ export const WuCostBreakdown: React.FC<WuCostBreakdownProps> = ({ report }) => {
               className="btn btn-xs btn-secondary"
               style={{ fontSize: '0.68rem', padding: '2px 8px', color: 'var(--accent-amber)' }}
             >
-              Reset to Baseline
+              Reset to Real Baseline
             </button>
           </div>
         </div>
@@ -321,23 +333,13 @@ export const WuCostBreakdown: React.FC<WuCostBreakdownProps> = ({ report }) => {
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <Zap size={16} color="var(--accent-amber)" />
             <span>Bubble Capacity & Tier Headroom Advisor</span>
-            <span className="badge badge-indigo" style={{ fontSize: '0.7rem' }}>
-              Live Evaluation
+            <span className={`badge ${advisorMode === 'baseline' ? 'badge-emerald' : 'badge-amber'}`} style={{ fontSize: '0.68rem' }}>
+              {advisorMode === 'baseline' ? 'Mode: Real App Baseline' : 'Mode: Simulated Growth'}
             </span>
           </div>
 
           {/* Mode Switch: Simulated Traffic vs Baseline */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'var(--bg-input)', padding: '3px 4px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)' }}>
-            <button 
-              type="button"
-              onClick={() => setAdvisorMode('simulated')}
-              className={`btn btn-xs ${advisorMode === 'simulated' ? 'btn-primary' : 'btn-secondary'}`}
-              style={{ fontSize: '0.72rem', padding: '3px 10px', border: 'none' }}
-              title="Calculate headroom based on the interactive sliders above"
-            >
-              <Sliders size={12} />
-              Simulated Traffic ({dynamicTotalWu.toLocaleString()} WU)
-            </button>
             <button 
               type="button"
               onClick={() => setAdvisorMode('baseline')}
@@ -347,6 +349,16 @@ export const WuCostBreakdown: React.FC<WuCostBreakdownProps> = ({ report }) => {
             >
               <Cpu size={12} />
               Current Baseline ({report.totalEstimatedMonthlyWu.toLocaleString()} WU)
+            </button>
+            <button 
+              type="button"
+              onClick={() => setAdvisorMode('simulated')}
+              className={`btn btn-xs ${advisorMode === 'simulated' ? 'btn-primary' : 'btn-secondary'}`}
+              style={{ fontSize: '0.72rem', padding: '3px 10px', border: 'none' }}
+              title="Calculate headroom based on the interactive sliders above"
+            >
+              <Sliders size={12} />
+              Simulated Traffic ({dynamicTotalWu.toLocaleString()} WU)
             </button>
           </div>
         </div>
@@ -399,7 +411,7 @@ export const WuCostBreakdown: React.FC<WuCostBreakdownProps> = ({ report }) => {
 
                   <div style={{ marginBottom: '8px' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.72rem', marginBottom: '4px', color: 'var(--text-muted)' }}>
-                      <span>Utilization</span>
+                      <span>{advisorMode === 'simulated' ? 'Simulated Utilization' : 'Current App Utilization'}</span>
                       <span style={{ 
                         fontWeight: 700, 
                         color: plan.isExceeded ? 'var(--accent-rose)' : plan.utilizationPercent > 80 ? 'var(--accent-amber)' : 'var(--accent-emerald)' 
@@ -418,6 +430,26 @@ export const WuCostBreakdown: React.FC<WuCostBreakdownProps> = ({ report }) => {
                       />
                     </div>
                   </div>
+
+                  {/* Dual Comparison Row: Always show real baseline footprint when simulating */}
+                  {advisorMode === 'simulated' && (
+                    <div style={{ 
+                      display: 'flex', 
+                      justifyContent: 'space-between', 
+                      alignItems: 'center', 
+                      fontSize: '0.68rem', 
+                      color: 'var(--text-muted)', 
+                      background: 'rgba(255, 255, 255, 0.03)', 
+                      padding: '3px 6px', 
+                      borderRadius: '4px',
+                      marginBottom: '6px'
+                    }}>
+                      <span>Actual App Baseline:</span>
+                      <span style={{ color: 'var(--accent-emerald)', fontWeight: 600 }}>
+                        {plan.baselineUtilization}% ({report.totalEstimatedMonthlyWu.toLocaleString()} WU)
+                      </span>
+                    </div>
+                  )}
 
                   {/* Headroom / Overage Details */}
                   {plan.isExceeded ? (
