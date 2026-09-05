@@ -1,6 +1,6 @@
 # 🚀 Bubble.io Dev Studio
 
-[![Version](https://img.shields.io/badge/Version-3.3.9-brightgreen.svg)]()
+[![Version](https://img.shields.io/badge/Version-3.3.15-brightgreen.svg)]()
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.7-blue.svg?style=flat&logo=typescript)](https://www.typescriptlang.org/)
 [![Electron](https://img.shields.io/badge/Electron-34-47848F.svg?style=flat&logo=electron)](https://www.electronjs.org/)
 [![React](https://img.shields.io/badge/React-18-61DAFB.svg?style=flat&logo=react)](https://react.dev/)
@@ -167,12 +167,14 @@ Bubble.io Dev Studio supports **3 streamlined synchronization pathways** to inge
 * **DAG Dependency Graph**: Interactive visual tree displaying element-to-workflow relational dependencies.
 * **Safe Cleanup Assistant**: Generates actionable purge manifests for unreferenced elements.
 
-### 7. 🌐 AI Localization Studio (7x Providers)
-* **Recursive `.bubble` String Extractor**: Extracts 100% of UI texts, input placeholders, button labels, tooltips, Option Sets, and workflow alerts.
-* **7 AI Providers Supported**: Google Gemini, OpenAI (GPT-4o), Anthropic Claude (3.7 Sonnet), DeepSeek (V3/R1), Groq (Llama 3.3 70B), OpenRouter, and local Ollama.
-* **Translation Memory**: IndexedDB hash caching to prevent duplicate translations and eliminate token waste.
-* **Brand Glossary**: Enforces non-translatable brand terms and dynamic Bubble tokens (`[Current User]`).
-* **Bubble CSV Export**: 1-Click export formatted for immediate import in Bubble Language Settings.
+### 7. 🌐 AI Localization Studio (9x Providers)
+* **Recursive `.bubble` String & Option Set Extractor**: Extracts 100% of UI texts, input placeholders, button labels, tooltips, Option Sets, and workflow alerts from attached project blueprints.
+* **Smart CSV Merge & Blueprint Isolation**: Import external Bubble App Text or live Database CSVs with intelligent merge (preserving existing Option Sets without duplicate entries). Importing files never modifies or overwrites the project's attached `.bubble` blueprint.
+* **1-Click Blueprint Re-Sync (`Sync .bubble`)**: Dedicated toolbar button to reload original clean Option Sets and strings directly from the attached `.bubble` blueprint at any time.
+* **Standardized 42px Uniform UI Controls**: Pixel-perfect aligned form inputs, AI Provider dropdowns, Model selectors, and Category pickers across all subtabs.
+* **Simultaneous Matrix Translation & Guardrails**: Concurrent multi-language batch execution, Row-level Matrix AI sparkles, editable English prompt guidelines with anti-jailbreak safety checks, and JSON bundle export.
+* **9 AI Providers Supported**: Google Gemini, OpenAI (GPT-4o / o3-mini), Anthropic Claude (3.7 / 3.5), DeepSeek (V3 / R1), Groq (Ultra-Fast LPUs), xAI (Grok 2), OpenCode, OpenRouter, and local Ollama.
+* **Translation Memory & Brand Glossary**: IndexedDB hash caching to prevent duplicate translations and dynamic Bubble token glossary protection (`[Current User]`).
 
 ### 8. 📸 Visual QA & Multi-Viewport Suite
 * **Multi-Device Matrix**: Synchronized testing across Desktop (`1920x1080`), Laptop (`1440x900`), Tablet (`768x1024`), and Mobile (`375x812`).

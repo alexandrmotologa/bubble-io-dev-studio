@@ -483,8 +483,26 @@ export const TranslatorView: React.FC<TranslatorViewProps> = ({
       const content = event.target?.result as string;
       if (file.name.endsWith('.csv')) {
         const parsed = TranslatorEngine.parseBubbleCsv(content);
-        setItems(parsed);
-        toast.success(`Imported ${parsed.length} strings from Bubble CSV`);
+        setItems(prev => {
+          if (!prev || prev.length === 0) return parsed;
+          const existingMap = new Map(prev.map(it => [it.key, it]));
+          const combined = [...prev];
+          let newCount = 0;
+          for (const item of parsed) {
+            if (!existingMap.has(item.key)) {
+              combined.push(item);
+              newCount++;
+            } else {
+              const existing = existingMap.get(item.key)!;
+              if (item.translatedText && !existing.translatedText) {
+                existing.translatedText = item.translatedText;
+              }
+              existing.translations = { ...(existing.translations || {}), ...(item.translations || {}) };
+            }
+          }
+          toast.success(`Imported ${parsed.length} strings (${newCount} new added, ${prev.length} existing preserved)`);
+          return combined;
+        });
         onLog('translator', `Imported ${parsed.length} strings from Bubble CSV: ${file.name}`, 'success');
       } else {
         try {
@@ -701,6 +719,23 @@ export const TranslatorView: React.FC<TranslatorViewProps> = ({
 
           {/* Top Actions */}
           <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+            {activeProject?.blueprintExportJson && (
+              <button
+                type="button"
+                onClick={() => {
+                  const extracted = TranslatorEngine.extractFromBlueprint(activeProject.blueprintExportJson);
+                  setItems(extracted);
+                  toast.success(`Restored ${extracted.length} strings from attached .bubble blueprint`);
+                  onLog('translator', `Reloaded ${extracted.length} strings from ${activeProject.name}'s blueprint (${activeProject.blueprintFileName || 'export.bubble'})`, 'info');
+                }}
+                className="btn btn-secondary btn-sm"
+                title={`Reload Option Sets and strings from attached ${activeProject.blueprintFileName || '.bubble blueprint'}`}
+              >
+                <RefreshCw size={13} />
+                <span>Sync .bubble</span>
+              </button>
+            )}
+
             <label className="btn btn-secondary btn-sm" style={{ cursor: 'pointer', margin: 0 }}>
               <Upload size={13} />
               <span>Import CSV / .bubble</span>
@@ -831,7 +866,7 @@ export const TranslatorView: React.FC<TranslatorViewProps> = ({
         <div className="grid-4" style={{ marginTop: '12px', alignItems: 'flex-start', gap: '14px', position: 'relative', zIndex: 50 }}>
           {/* 1. Target Languages Multi-select */}
           <div style={{ gridColumn: 'span 2', position: 'relative', zIndex: 60 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px', height: '18px' }}>
               <label className="input-label" style={{ margin: 0 }}>
                 Target Languages ({selectedTargetLangs.length} Selected of {BUBBLE_LANGUAGES.length})
               </label>
@@ -848,8 +883,21 @@ export const TranslatorView: React.FC<TranslatorViewProps> = ({
 
           {/* 2. Provider Selector */}
           <div>
-            <label className="input-label">AI Provider</label>
-            <select value={provider} onChange={e => handleProviderChange(e.target.value as any)} className="select select-premium">
+            <div style={{ display: 'flex', alignItems: 'center', marginBottom: '6px', height: '18px' }}>
+              <label className="input-label" style={{ margin: 0 }}>AI Provider</label>
+            </div>
+            <select
+              value={provider}
+              onChange={e => handleProviderChange(e.target.value as any)}
+              className="select select-premium"
+              style={{
+                height: '42px',
+                minHeight: '42px',
+                fontSize: '0.85rem',
+                padding: '0 32px 0 14px',
+                boxSizing: 'border-box'
+              }}
+            >
               <option value="gemini">Google Gemini (Gemini 2.0 / 1.5)</option>
               <option value="openai">OpenAI (GPT-4o / GPT-4o-mini / o3-mini)</option>
               <option value="anthropic">Anthropic (Claude 3.7 / 3.5 Sonnet & Haiku)</option>
@@ -864,7 +912,7 @@ export const TranslatorView: React.FC<TranslatorViewProps> = ({
 
           {/* 3. Model Selector & Custom Model Input */}
           <div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px', height: '18px' }}>
               <label className="input-label" style={{ margin: 0 }}>Model for {provider.toUpperCase()}</label>
               <button
                 type="button"
@@ -904,6 +952,13 @@ export const TranslatorView: React.FC<TranslatorViewProps> = ({
                   }
                 }}
                 className="select select-premium"
+                style={{
+                  height: '42px',
+                  minHeight: '42px',
+                  fontSize: '0.85rem',
+                  padding: '0 32px 0 14px',
+                  boxSizing: 'border-box'
+                }}
               >
                 {PROVIDER_MODELS[provider]?.map(m => (
                   <option key={m.id} value={m.id}>{m.name}</option>
@@ -922,7 +977,14 @@ export const TranslatorView: React.FC<TranslatorViewProps> = ({
                     setModel(val.trim());
                   }}
                   className="input"
-                  style={{ borderColor: 'var(--accent-cyan)', fontSize: '0.85rem' }}
+                  style={{
+                    height: '42px',
+                    minHeight: '42px',
+                    borderColor: 'var(--accent-cyan)',
+                    fontSize: '0.85rem',
+                    padding: '0 14px',
+                    boxSizing: 'border-box'
+                  }}
                   autoFocus
                 />
                 <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginTop: '3px' }}>
@@ -1283,12 +1345,12 @@ export const TranslatorView: React.FC<TranslatorViewProps> = ({
           <div className="card" style={{ padding: '14px 18px' }}>
             <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-end', flexWrap: 'wrap' }}>
               <div style={{ width: '180px' }}>
-                <label className="input-label">App Text Key</label>
-                <input type="text" placeholder="e.g. btn_submit" value={newKey} onChange={e => setNewKey(e.target.value)} className="input" />
+                <label className="input-label" style={{ marginBottom: '6px' }}>App Text Key</label>
+                <input type="text" placeholder="e.g. btn_submit" value={newKey} onChange={e => setNewKey(e.target.value)} className="input" style={{ height: '42px', minHeight: '42px', boxSizing: 'border-box' }} />
               </div>
               <div style={{ width: '140px' }}>
-                <label className="input-label">Category</label>
-                <select value={newCategory} onChange={e => setNewCategory(e.target.value as any)} className="select select-premium">
+                <label className="input-label" style={{ marginBottom: '6px' }}>Category</label>
+                <select value={newCategory} onChange={e => setNewCategory(e.target.value as any)} className="select select-premium" style={{ height: '42px', minHeight: '42px', fontSize: '0.85rem', boxSizing: 'border-box' }}>
                   <option value="ui">UI Label</option>
                   <option value="error">Error Message</option>
                   <option value="notification">Notification</option>
@@ -1297,10 +1359,10 @@ export const TranslatorView: React.FC<TranslatorViewProps> = ({
                 </select>
               </div>
               <div style={{ flex: 1, minWidth: '240px' }}>
-                <label className="input-label">English / Source Text</label>
-                <input type="text" placeholder="Type text to translate..." value={newSourceText} onChange={e => setNewSourceText(e.target.value)} className="input" onKeyDown={e => e.key === 'Enter' && handleAddItem()} />
+                <label className="input-label" style={{ marginBottom: '6px' }}>English / Source Text</label>
+                <input type="text" placeholder="Type text to translate..." value={newSourceText} onChange={e => setNewSourceText(e.target.value)} className="input" style={{ height: '42px', minHeight: '42px', boxSizing: 'border-box' }} onKeyDown={e => e.key === 'Enter' && handleAddItem()} />
               </div>
-              <button onClick={handleAddItem} className="btn btn-secondary btn-sm" style={{ height: '38px' }}>
+              <button onClick={handleAddItem} className="btn btn-secondary btn-sm" style={{ height: '42px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
                 <Plus size={14} />
                 <span>Add Text</span>
               </button>
@@ -1682,14 +1744,14 @@ export const TranslatorView: React.FC<TranslatorViewProps> = ({
 
             <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-end', flexWrap: 'wrap' }}>
               <div style={{ flex: 1, minWidth: '180px' }}>
-                <label className="input-label">Protected Source Word / Token</label>
-                <input type="text" placeholder="e.g. Bubble or [Current User's Name]" value={newGlossaryTerm} onChange={e => setNewGlossaryTerm(e.target.value)} className="input" />
+                <label className="input-label" style={{ marginBottom: '6px' }}>Protected Source Word / Token</label>
+                <input type="text" placeholder="e.g. Bubble or [Current User's Name]" value={newGlossaryTerm} onChange={e => setNewGlossaryTerm(e.target.value)} className="input" style={{ height: '42px', minHeight: '42px', boxSizing: 'border-box' }} />
               </div>
               <div style={{ flex: 1, minWidth: '180px' }}>
-                <label className="input-label">Replacement in Target (Optional)</label>
-                <input type="text" placeholder="Leave empty to keep exact" value={newGlossaryRepl} onChange={e => setNewGlossaryRepl(e.target.value)} className="input" />
+                <label className="input-label" style={{ marginBottom: '6px' }}>Replacement in Target (Optional)</label>
+                <input type="text" placeholder="Leave empty to keep exact" value={newGlossaryRepl} onChange={e => setNewGlossaryRepl(e.target.value)} className="input" style={{ height: '42px', minHeight: '42px', boxSizing: 'border-box' }} />
               </div>
-              <button onClick={handleAddGlossaryTerm} className="btn btn-primary btn-sm" style={{ height: '38px' }}>
+              <button onClick={handleAddGlossaryTerm} className="btn btn-primary btn-sm" style={{ height: '42px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
                 <Plus size={13} />
                 <span>Add Protected Rule</span>
               </button>
@@ -1806,12 +1868,13 @@ export const TranslatorView: React.FC<TranslatorViewProps> = ({
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
               <div>
-                <label className="input-label">Test Input Text</label>
+                <label className="input-label" style={{ marginBottom: '6px' }}>Test Input Text</label>
                 <input
                   type="text"
                   value={pseudoCustomInput}
                   onChange={e => setPseudoCustomInput(e.target.value)}
                   className="input"
+                  style={{ height: '42px', minHeight: '42px', boxSizing: 'border-box' }}
                 />
               </div>
 

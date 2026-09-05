@@ -89,8 +89,8 @@ export const SearchableLanguageSelect: React.FC<SearchableLanguageSelectProps> =
       <div
         onClick={() => setIsOpen(!isOpen)}
         style={{
-          minHeight: '40px',
-          padding: '6px 12px',
+          minHeight: '42px',
+          padding: '4px 12px',
           background: 'var(--bg-input)',
           border: isOpen ? '1px solid var(--border-active)' : '1px solid var(--border-subtle)',
           borderRadius: 'var(--radius-md)',
@@ -99,7 +99,8 @@ export const SearchableLanguageSelect: React.FC<SearchableLanguageSelectProps> =
           justifyContent: 'space-between',
           alignItems: 'center',
           gap: '8px',
-          transition: 'all 0.15s ease'
+          transition: 'all 0.15s ease',
+          boxSizing: 'border-box'
         }}
       >
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', alignItems: 'center', flex: 1 }}>
