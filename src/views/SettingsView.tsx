@@ -1418,8 +1418,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   value={formData.theme}
                   onChange={(e) => {
                     const newTheme = e.target.value as ThemeMode;
-                    setFormData({ ...formData, theme: newTheme });
+                    const updated: GlobalSettings = { ...formData, theme: newTheme };
+                    setFormData(updated);
                     document.documentElement.setAttribute('data-theme', newTheme);
+                    onSaveSettings(updated);
                   }}
                   className="select select-premium"
                 >
@@ -1433,7 +1435,11 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   type="checkbox"
                   id="autosave"
                   checked={formData.autoSaveReports}
-                  onChange={(e) => setFormData({ ...formData, autoSaveReports: e.target.checked })}
+                  onChange={(e) => {
+                    const updated: GlobalSettings = { ...formData, autoSaveReports: e.target.checked };
+                    setFormData(updated);
+                    onSaveSettings(updated);
+                  }}
                   style={{ width: '16px', height: '16px', accentColor: 'var(--primary)' }}
                 />
                 <label htmlFor="autosave" style={{ fontSize: '0.85rem', color: 'var(--text-primary)', cursor: 'pointer' }}>

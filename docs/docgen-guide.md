@@ -27,8 +27,11 @@ In v3.3.9, DocGen offers a top toolbar mode switcher:
 The **DocGen Book** suite provides 4 specialized subtabs:
 
 1. **📖 Interactive Book Reader**:
-   - Multi-chapter technical specification reader with markdown preview, rendered Mermaid diagrams, code formatting, and search filter.
-   - Comprehensive summary metrics: Total Database Entities, Mapped Workflows, API Endpoints, and Security RBAC Rules.
+   - **Rich Formatted Document View**: High-fidelity HTML renderer parsing markdown tables, headers, blockquotes, code badges, and lists into publication-grade layouts.
+   - **1-Click Raw MD Toggle**: Instant switch between **[Formatted]** preview and **[Raw MD]** source view.
+   - **Per-Chapter AI Re-generation**: Single-click `[Re-generate with AI]` button on the active chapter header to re-synthesize only the current chapter with fresh AST data.
+   - **Interactive AI Refinement Bar**: Expandable instruction field to guide AI focus (e.g. *"Emphasize GDPR compliance"*, *"Detail payment webhook retry policy"*).
+   - Summary metric cards: Total Database Entities, Mapped Workflows, API Endpoints, and Security RBAC Rules.
 
 2. **📊 Architecture & Diagram Studio**:
    - **System Architecture Context Diagram**: High-level topology (Browser Client ➔ Cloud CDN ➔ Bubble App Engine ➔ PostgreSQL Database & External APIs).
@@ -36,6 +39,7 @@ The **DocGen Book** suite provides 4 specialized subtabs:
    - **Backend Workflow Sequence Diagram**: Multi-actor event execution flow from client trigger to DB mutation.
 
 3. **✏️ Custom Chapter Composer**:
+   - **AI Chapter Co-Pilot**: Generate entire technical chapters using AI presets (*Deployment & Rollback Runbook*, *Stripe Webhook & Idempotency Guide*, *Disaster Recovery & Backup Plan*, *User Acceptance Testing Checklist*) or custom prompts.
    - Enable, disable, or reorder chapters in the generated documentation book.
    - Add custom technical sections:
      - *Architecture Decision Records (ADR)*

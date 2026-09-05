@@ -109,6 +109,66 @@ export class CopilotEngine {
       } catch (err) {
         console.warn('[CopilotEngine] Live Gemini regex generation failed, applying heuristic fallback:', err);
       }
+    } else if (keys?.groqApiKey || keys?.openaiApiKey) {
+      const isGroq = Boolean(keys?.groqApiKey);
+      const endpoint = isGroq ? 'https://api.groq.com/openai/v1/chat/completions' : 'https://api.openai.com/v1/chat/completions';
+      const key = keys?.groqApiKey || keys?.openaiApiKey;
+      const model = isGroq ? 'qwen/qwen3.8-27b' : 'gpt-4o-mini';
+
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 8000);
+
+        const res = await fetch(endpoint, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${key}`
+          },
+          signal: controller.signal,
+          body: JSON.stringify({
+            model,
+            messages: [
+              {
+                role: 'system',
+                content: `You are a Regex & Bubble.io Expression Expert. Return ONLY a valid JSON object with:
+{
+  "pattern": "regex pattern without enclosing slashes",
+  "flags": "i or g or empty",
+  "bubbleFormula": "Input's value :extract with Regex (...):first item is not empty",
+  "explanation": "brief plain text explanation",
+  "sampleMatches": ["match1", "match2"],
+  "sampleNonMatches": ["nonmatch1", "nonmatch2"]
+}`
+              },
+              { role: 'user', content: `Task: Generate a regex pattern for: "${prompt}"` }
+            ],
+            temperature: 0.1,
+            response_format: { type: 'json_object' }
+          })
+        });
+        clearTimeout(timeoutId);
+
+        if (res.ok) {
+          const data = await res.json();
+          const content = data?.choices?.[0]?.message?.content;
+          if (content) {
+            const parsed = JSON.parse(content);
+            if (parsed.pattern) {
+              return {
+                pattern: parsed.pattern,
+                flags: parsed.flags || '',
+                bubbleFormula: parsed.bubbleFormula || `Input's value :extract with Regex (${parsed.pattern}):first item is not empty`,
+                explanation: parsed.explanation || `Matches patterns for: ${prompt}`,
+                sampleMatches: Array.isArray(parsed.sampleMatches) ? parsed.sampleMatches : [],
+                sampleNonMatches: Array.isArray(parsed.sampleNonMatches) ? parsed.sampleNonMatches : []
+              };
+            }
+          }
+        }
+      } catch (err) {
+        console.warn('[CopilotEngine] Live LLM regex generation failed, applying heuristic fallback:', err);
+      }
     }
 
     // 2. Heuristic rule-based pattern matching (Fast offline mode)

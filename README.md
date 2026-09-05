@@ -187,9 +187,12 @@ Bubble.io Dev Studio supports **3 streamlined synchronization pathways** to inge
 
 ### 10. 📚 1-Click Developer Documentation Book (DocGen)
 * **Dual-Mode Documentation**: Switch seamlessly between **[✨ AI Narrative Book]** (meaningful, business-oriented architectural manual) and **[📋 Raw Data Dictionary]** (concise table/field specs).
+* **Interactive Formatted Reader**: In-app rich HTML preview with GitBook/Stripe-quality tables, typography, and badges, plus 1-click toggle to raw Markdown source.
+* **Per-Chapter AI Re-generation & Refinement**: Re-synthesize individual chapters with live AI on demand, complete with an optional prompt refinement bar for custom focus (e.g. GDPR, security runbooks, webhook retry policies).
+* **AI Chapter Co-Pilot**: Draft custom technical runbooks, disaster recovery plans, or integration guides with 1-click AI presets in the Custom Chapter Composer.
 * **Semantic Domain Classifier**: Automatically classifies applications (*E-Commerce*, *B2B SaaS*, *CRM*, *Social Communities*) and deduces business missions and primary actor personas.
 * **Narrative Architecture Chapters**: Executive Summary, Data Architecture & Entity Lifecycles, User Journeys & Workflow Automation Chains, and Zero-Trust Security Governance.
-* **Multi-Format Export**: In-app reader, **Markdown (.md)**, **Standalone HTML Manual** with embedded Mermaid ERD, and **Print-to-PDF**.
+* **Multi-Format Export**: In-app reader, **Markdown (.md)**, **Standalone HTML Manual** with embedded Mermaid ERD, **JSON Architecture Spec**, and **Print-to-PDF**.
 
 ### 11. 🔄 Native Auto-Update & Zero-Data-Loss Relaunch
 * **Seamless Distribution**: Powered by `electron-updater` and connected to official GitHub Releases (`alexandrmotologa/bubble-io-dev-studio`).

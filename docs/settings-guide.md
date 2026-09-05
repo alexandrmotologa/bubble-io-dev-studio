@@ -27,11 +27,12 @@ The **Settings & Integrations Hub** manages multi-provider AI credentials, Bubbl
   - **Google Gemini** (`gemini-2.0-flash`, `gemini-1.5-pro`)
   - **Anthropic Claude** (`claude-3-7-sonnet`, `claude-3-5-haiku`)
   - **OpenAI** (`gpt-4o`, `gpt-4o-mini`, `o3-mini`)
-  - **Groq** (`llama-3.3-70b-versatile`, ultra-low latency LPU)
+  - **Groq** (`qwen/qwen3.8-27b`, `openai/gpt-oss-20b/120b`, `llama-3.3-70b-versatile`, ultra-low latency LPU)
   - **DeepSeek** (`deepseek-chat`, `deepseek-reasoner`)
   - **xAI** (`grok-2`)
   - **OpenRouter** (Unified multi-model aggregator)
   - **Ollama** (100% private, local execution on `http://localhost:11434` with automated local model tag discovery via `/api/tags`).
+- **Custom Model Name / ID Support**: Type any custom model identifier, open-weights variant, or private fine-tune for any provider.
 - **Live AI Connection Test**: Test connectivity, round-trip latency (ms), and model accessibility with 1 click.
 - **Show/Hide Key Toggle**: Mask or unmask API keys for secure screen-sharing.
 

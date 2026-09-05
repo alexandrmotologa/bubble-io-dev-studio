@@ -462,7 +462,7 @@ Keep the tone authoritative, clear, and structured in Markdown.`;
   /**
    * Helper to execute prompt against live AI provider (Gemini, OpenAI, Claude, Groq, etc.)
    */
-  private static async executeLlmPrompt(prompt: string, config?: AiNarrativeConfig): Promise<string | null> {
+  public static async executeLlmPrompt(prompt: string, config?: AiNarrativeConfig): Promise<string | null> {
     const provider = config?.provider || 'gemini';
     const apiKey = config?.apiKey?.trim();
 
@@ -492,6 +492,9 @@ Keep the tone authoritative, clear, and structured in Markdown.`;
         if (res.ok) {
           const data = await res.json();
           return data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || null;
+        } else {
+          const errText = await res.text();
+          console.warn(`[AiDocNarrativeEngine] Gemini API returned HTTP ${res.status}:`, errText);
         }
       }
 
@@ -519,6 +522,9 @@ Keep the tone authoritative, clear, and structured in Markdown.`;
         if (res.ok) {
           const data = await res.json();
           return data?.choices?.[0]?.message?.content?.trim() || null;
+        } else {
+          const errText = await res.text();
+          console.warn(`[AiDocNarrativeEngine] OpenAI API returned HTTP ${res.status}:`, errText);
         }
       }
 
@@ -548,6 +554,9 @@ Keep the tone authoritative, clear, and structured in Markdown.`;
         if (res.ok) {
           const data = await res.json();
           return data?.content?.[0]?.text?.trim() || null;
+        } else {
+          const errText = await res.text();
+          console.warn(`[AiDocNarrativeEngine] Anthropic API returned HTTP ${res.status}:`, errText);
         }
       }
 
@@ -559,12 +568,17 @@ Keep the tone authoritative, clear, and structured in Markdown.`;
         if (provider === 'opencode') endpoint = 'https://api.opencode.ai/v1/chat/completions';
         if (provider === 'deepseek') endpoint = 'https://api.deepseek.com/chat/completions';
 
-        const defaultModel = provider === 'groq' ? 'llama-3.1-8b-instant'
+        const defaultModel = provider === 'groq' ? 'qwen/qwen3.8-27b'
           : provider === 'deepseek' ? 'deepseek-chat'
           : provider === 'opencode' ? 'opencode-go-pro'
           : provider === 'openrouter' ? 'deepseek/deepseek-r1'
           : 'grok-2-latest';
-        const model = config?.model || defaultModel;
+        let model = config?.model || defaultModel;
+        // If Groq and legacy model specified that returns 404 on current tiers, normalize to active qwen model
+        if (provider === 'groq' && (model === 'llama-3.1-8b-instant' || !model)) {
+          model = 'qwen/qwen3.8-27b';
+        }
+
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 35000);
 
@@ -584,7 +598,34 @@ Keep the tone authoritative, clear, and structured in Markdown.`;
 
         if (res.ok) {
           const data = await res.json();
-          return data?.choices?.[0]?.message?.content?.trim() || null;
+          const content = data?.choices?.[0]?.message?.content?.trim();
+          if (content) return content;
+        } else {
+          const errText = await res.text();
+          console.warn(`[AiDocNarrativeEngine] ${provider.toUpperCase()} API returned HTTP ${res.status}:`, errText);
+
+          // Resilient fallback for Groq: if 404 model not found, try qwen/qwen3.8-27b or openai/gpt-oss-20b
+          if (provider === 'groq' && res.status === 404 && model !== 'qwen/qwen3.8-27b') {
+            try {
+              const fallbackRes = await fetch(endpoint, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${apiKey}`
+                },
+                body: JSON.stringify({
+                  model: 'qwen/qwen3.8-27b',
+                  messages: [{ role: 'user', content: prompt }]
+                })
+              });
+              if (fallbackRes.ok) {
+                const fbData = await fallbackRes.json();
+                return fbData?.choices?.[0]?.message?.content?.trim() || null;
+              }
+            } catch (fbErr) {
+              console.warn('[AiDocNarrativeEngine] Resilient Groq fallback failed:', fbErr);
+            }
+          }
         }
       }
 
@@ -614,6 +655,9 @@ Keep the tone authoritative, clear, and structured in Markdown.`;
         if (res.ok) {
           const data = await res.json();
           return data?.message?.content?.trim() || null;
+        } else {
+          const errText = await res.text();
+          console.warn(`[AiDocNarrativeEngine] Ollama returned HTTP ${res.status}:`, errText);
         }
       }
     } catch (err) {

@@ -29,6 +29,7 @@ import {
   Activity,
   Maximize2
 } from 'lucide-react';
+import { marked } from 'marked';
 import { BubbleSchema, DocBookProject, DocSection, ProjectProfile, GlobalSettings } from '../types';
 import { toast } from '../core/toast/toastManager';
 import { DocGenEngine } from '../core/doc-gen/docGenEngine';
@@ -37,7 +38,8 @@ import { AuditEngine } from '../core/audit/auditEngine';
 import { SecurityEngine } from '../core/security/securityEngine';
 import { MermaidViewer } from '../components/MermaidViewer';
 import { getProviderForModel, getDefaultModelForProvider } from '../core/ai/aiProviders';
-import { AiEnhanceProgress } from '../core/doc-gen/aiDocNarrativeEngine';
+import { AiDocNarrativeEngine, AiEnhanceProgress } from '../core/doc-gen/aiDocNarrativeEngine';
+import { WorkflowGraphEngine } from '../core/workflows/workflowGraphEngine';
 
 interface DocGenViewProps {
   activeProject?: ProjectProfile;
@@ -55,9 +57,21 @@ export const DocGenView: React.FC<DocGenViewProps> = ({ activeProject, settings,
   const [copied, setCopied] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
 
+  // Reader View Mode: Formatted HTML vs Raw Markdown
+  const [readerViewMode, setReaderViewMode] = useState<'rich' | 'raw'>('rich');
+
   // Community Feature #3: AI Narrative vs Compact Technical mode
   const [docMode, setDocMode] = useState<'narrative' | 'technical'>('narrative');
   const [aiProgress, setAiProgress] = useState<AiEnhanceProgress | null>(null);
+
+  // Custom AI Co-Pilot State
+  const [aiChapterPrompt, setAiChapterPrompt] = useState('');
+  const [isGeneratingAiChapter, setIsGeneratingAiChapter] = useState(false);
+
+  // Per-Chapter AI Regeneration State
+  const [isRegeneratingChapter, setIsRegeneratingChapter] = useState(false);
+  const [showRefineBar, setShowRefineBar] = useState(false);
+  const [refineInstruction, setRefineInstruction] = useState('');
 
   // Custom Sections State
   const [customSections, setCustomSections] = useState<DocSection[]>([
@@ -223,6 +237,159 @@ export const DocGenView: React.FC<DocGenViewProps> = ({ activeProject, settings,
     setNewSectionContent('');
     toast.success(`Added chapter: ${newSec.title}`);
     compileDocumentation();
+  };
+
+  const handleGenerateAiCustomChapter = async () => {
+    if (!aiChapterPrompt.trim() || !activeProject) return;
+    setIsGeneratingAiChapter(true);
+    onLog('system', `AI Co-Pilot is drafting chapter: "${aiChapterPrompt}"...`);
+    try {
+      const aiConfig = getEffectiveAiConfig();
+      const prompt = `You are a Lead Software Architect writing a technical documentation chapter for a Bubble.io application named "${activeProject.name}".
+Environment: ${activeProject.environment}.
+Task / Chapter Topic: ${aiChapterPrompt.trim()}.
+
+Requirements:
+- Provide an authoritative, high-quality chapter in GitHub-Flavored Markdown.
+- Use clear sections (##, ###), bullet points, and clean technical tables or checklists where applicable.
+- Make it practical, production-ready, and directly applicable to Bubble.io and modern cloud web architectures.
+- The first line MUST be the chapter title as a level 2 heading (e.g. ## Title).`;
+
+      const result = await AiDocNarrativeEngine.executeLlmPrompt(prompt, aiConfig);
+      if (result && result.trim().length > 50) {
+        const lines = result.trim().split('\n');
+        const firstLine = lines[0] || '';
+        const cleanTitle = firstLine.replace(/^#+\s*/, '').trim() || aiChapterPrompt.slice(0, 40);
+        
+        setNewSectionTitle(cleanTitle);
+        setNewSectionContent(result.trim());
+        toast.success(`Generated chapter draft: "${cleanTitle}"`);
+        onLog('system', `AI Co-Pilot generated chapter "${cleanTitle}" (${result.length} characters).`, 'success');
+      } else {
+        toast.error('AI synthesis returned empty response. Check your API key and network connection.');
+      }
+    } catch (err) {
+      console.error('Error generating AI chapter:', err);
+      toast.error('Failed to generate chapter with AI.');
+    } finally {
+      setIsGeneratingAiChapter(false);
+    }
+  };
+
+  const handleRegenerateActiveChapter = async (customInstruction?: string) => {
+    const currentSection = docBook?.sections.find(s => s.id === selectedSectionId) || docBook?.sections[0];
+    if (!activeProject || !docBook || !currentSection) return;
+
+    setIsRegeneratingChapter(true);
+    onLog('system', `Re-generating chapter "${currentSection.title}" with AI...`);
+
+    try {
+      const aiConfig = getEffectiveAiConfig();
+      const schema = loadedSchema || (await DevOpsEngine.fetchSchema(activeProject));
+      if (!loadedSchema && schema) setLoadedSchema(schema);
+
+      const rawBlueprint = activeProject.blueprintExportJson;
+      const extractedWorkflows = WorkflowGraphEngine.extractAllWorkflows(rawBlueprint);
+      const secRep = await SecurityEngine.analyzeSecurity(rawBlueprint, schema);
+
+      let newMarkdown = '';
+
+      if (currentSection.id === 'sec_overview') {
+        if (customInstruction) {
+          const domain = AiDocNarrativeEngine.detectDomain(schema, extractedWorkflows);
+          const prompt = `Rewrite and refine Chapter 1 (Executive Architecture Summary) for Bubble.io app "${activeProject.name}".
+Domain: ${domain.domainName}.
+Additional Instructions: ${customInstruction}.
+Requirements: Produce an authoritative, updated chapter in GitHub-Flavored Markdown with headings, bullet points, and an architecture baseline matrix.`;
+          newMarkdown = (await AiDocNarrativeEngine.executeLlmPrompt(prompt, aiConfig)) || '';
+        }
+        if (!newMarkdown) {
+          newMarkdown = await AiDocNarrativeEngine.generateExecutiveNarrative(activeProject, schema, extractedWorkflows, aiConfig);
+        }
+      } else if (currentSection.id === 'sec_database') {
+        if (customInstruction) {
+          const dataTypesSummary = (schema?.dataTypes || []).slice(0, 10).map(dt => dt.name).join(', ');
+          const prompt = `Rewrite and refine Chapter 2 (Database Domain Architecture) for Bubble.io app "${activeProject.name}".
+Tables: ${dataTypesSummary}.
+Additional Instructions: ${customInstruction}.
+Requirements: Output authoritative GitHub-Flavored Markdown explaining entity roles, lifecycles, and relational dependencies.`;
+          newMarkdown = (await AiDocNarrativeEngine.executeLlmPrompt(prompt, aiConfig)) || '';
+        }
+        if (!newMarkdown) {
+          newMarkdown = await AiDocNarrativeEngine.generateDataArchitectureNarrative(schema, aiConfig);
+        }
+      } else if (currentSection.id === 'sec_workflows') {
+        if (customInstruction) {
+          const prompt = `Rewrite and refine Chapter 3 (Workflows & Business Logic User Journeys) for Bubble.io app "${activeProject.name}".
+Additional Instructions: ${customInstruction}.
+Requirements: Organize workflows into User Journeys (Authentication, Operational Mutations, Payments & Webhooks) in Markdown tables.`;
+          newMarkdown = (await AiDocNarrativeEngine.executeLlmPrompt(prompt, aiConfig)) || '';
+        }
+        if (!newMarkdown) {
+          newMarkdown = await AiDocNarrativeEngine.generateWorkflowNarrative(extractedWorkflows, schema, aiConfig);
+        }
+      } else if (currentSection.id === 'sec_security') {
+        if (customInstruction) {
+          const prompt = `Rewrite and refine Chapter 4 (Security & Privacy Governance) for Bubble.io app "${activeProject.name}".
+Additional Instructions: ${customInstruction}.
+Requirements: Focus on Zero-Trust access control, Privacy Rules, field shielding, and OWASP for Bubble.io in Markdown.`;
+          newMarkdown = (await AiDocNarrativeEngine.executeLlmPrompt(prompt, aiConfig)) || '';
+        }
+        if (!newMarkdown) {
+          newMarkdown = await AiDocNarrativeEngine.generateSecurityNarrative(secRep, schema, aiConfig);
+        }
+      } else if (currentSection.id === 'sec_api') {
+        const dataTypesSummary = (schema?.dataTypes || []).slice(0, 8).map(dt => dt.name).join(', ');
+        const prompt = `Write an authoritative, complete Chapter 6: API Endpoints & Webhook Architecture for Bubble.io app "${activeProject.name}".
+Entities: ${dataTypesSummary}.
+Environment: ${activeProject.environment}.
+${customInstruction ? `Specific Focus: ${customInstruction}.` : ''}
+Include Data API endpoints (/api/1.1/obj/), Backend Webhooks (/api/1.1/wf/), payload specs, authentication headers, error codes, and rate limiting guidelines in Markdown tables.`;
+        newMarkdown = (await AiDocNarrativeEngine.executeLlmPrompt(prompt, aiConfig)) || '';
+      } else {
+        // Custom chapters or others
+        const prompt = `You are a Lead Software Architect. Re-generate and enhance the following technical documentation chapter for Bubble.io app "${activeProject.name}":
+Chapter Title: ${currentSection.title}
+Current Markdown:
+${currentSection.markdownContent.slice(0, 1800)}
+
+${customInstruction ? `Specific Instructions: ${customInstruction}` : 'Make the explanations clearer, more authoritative, and enhance with practical tables and checklists.'}
+Provide the entire updated chapter in GitHub-Flavored Markdown.`;
+        newMarkdown = (await AiDocNarrativeEngine.executeLlmPrompt(prompt, aiConfig)) || '';
+      }
+
+      if (newMarkdown && newMarkdown.trim().length > 50) {
+        const updatedSections = docBook.sections.map(sec => {
+          if (sec.id === currentSection.id) {
+            return {
+              ...sec,
+              badge: 'AI Refined',
+              markdownContent: newMarkdown.trim()
+            };
+          }
+          return sec;
+        });
+
+        setDocBook({
+          ...docBook,
+          sections: updatedSections
+        });
+
+        setCustomSections(prev => prev.map(cs => cs.id === currentSection.id ? { ...cs, markdownContent: newMarkdown.trim() } : cs));
+
+        toast.success(`Re-generated "${currentSection.title}" with AI!`);
+        onLog('system', `Successfully re-generated chapter "${currentSection.title}" with AI.`, 'success');
+        if (customInstruction) setRefineInstruction('');
+      } else {
+        toast.warn('AI re-generation returned empty or unchanged content.');
+      }
+    } catch (err) {
+      console.error('Error re-generating chapter:', err);
+      toast.error('Failed to re-generate chapter with AI.');
+      onLog('system', `Error re-generating chapter: ${err}`, 'error');
+    } finally {
+      setIsRegeneratingChapter(false);
+    }
   };
 
   const handleRemoveCustomSection = (id: string) => {
@@ -586,7 +753,64 @@ export const DocGenView: React.FC<DocGenViewProps> = ({ activeProject, settings,
                       </div>
                     </div>
 
-                    <div style={{ display: 'flex', gap: '6px' }}>
+                    <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                      {/* View Mode Toggle: Formatted vs Raw */}
+                      <div style={{
+                        display: 'flex',
+                        background: 'var(--bg-input)',
+                        padding: '2px',
+                        borderRadius: 'var(--radius-sm)',
+                        border: '1px solid var(--border-subtle)',
+                        marginRight: '4px'
+                      }}>
+                        <button
+                          type="button"
+                          onClick={() => setReaderViewMode('rich')}
+                          className={`btn btn-xs ${readerViewMode === 'rich' ? 'btn-primary' : 'btn-secondary'}`}
+                          style={{ border: 'none', fontSize: '0.72rem', padding: '3px 8px', gap: '4px' }}
+                          title="Formatted Reading View with tables and styling"
+                        >
+                          <Eye size={12} />
+                          <span>Formatted</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setReaderViewMode('raw')}
+                          className={`btn btn-xs ${readerViewMode === 'raw' ? 'btn-primary' : 'btn-secondary'}`}
+                          style={{ border: 'none', fontSize: '0.72rem', padding: '3px 8px', gap: '4px' }}
+                          title="Raw Markdown Source"
+                        >
+                          <FileCode size={12} />
+                          <span>Raw MD</span>
+                        </button>
+                      </div>
+
+                      {/* Re-generate this chapter with AI */}
+                      {activeSection.id !== 'sec_erd' && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
+                          <button
+                            type="button"
+                            onClick={() => handleRegenerateActiveChapter()}
+                            disabled={isRegeneratingChapter}
+                            className="btn btn-secondary btn-sm"
+                            style={{ gap: '5px', fontSize: '0.775rem' }}
+                            title="Re-synthesize only this specific chapter with AI"
+                          >
+                            <Sparkles size={13} className={isRegeneratingChapter ? 'spin' : ''} color="var(--accent-cyan)" />
+                            <span>{isRegeneratingChapter ? 'Regenerating...' : 'Re-generate with AI'}</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setShowRefineBar(!showRefineBar)}
+                            className={`btn btn-sm ${showRefineBar ? 'btn-primary' : 'btn-secondary'}`}
+                            title="Open AI refinement prompt for this chapter"
+                            style={{ padding: '6px 8px' }}
+                          >
+                            <Sliders size={13} />
+                          </button>
+                        </div>
+                      )}
+
                       <button
                         onClick={() => handleCopy(activeSection.markdownContent, `Copied ${activeSection.title}`)}
                         className="btn btn-secondary btn-sm"
@@ -597,11 +821,66 @@ export const DocGenView: React.FC<DocGenViewProps> = ({ activeProject, settings,
                     </div>
                   </div>
 
+                  {/* Optional AI Refinement Prompt Bar */}
+                  {showRefineBar && activeSection.id !== 'sec_erd' && (
+                    <div style={{
+                      display: 'flex',
+                      gap: '8px',
+                      alignItems: 'center',
+                      background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.08) 0%, rgba(6, 182, 212, 0.06) 100%)',
+                      border: '1px solid var(--border-active)',
+                      borderRadius: 'var(--radius-md)',
+                      padding: '10px 14px',
+                      marginBottom: '14px'
+                    }}>
+                      <Sparkles size={14} color="var(--accent-cyan)" style={{ flexShrink: 0 }} />
+                      <input
+                        type="text"
+                        value={refineInstruction}
+                        onChange={(e) => setRefineInstruction(e.target.value)}
+                        placeholder={`Custom AI focus for "${activeSection.title}" (e.g. Expand with GDPR rules, add security checklist, simplify)...`}
+                        className="input"
+                        style={{ flex: 1, fontSize: '0.8rem', height: '32px' }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' && !isRegeneratingChapter) {
+                            handleRegenerateActiveChapter(refineInstruction);
+                          }
+                        }}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => handleRegenerateActiveChapter(refineInstruction)}
+                        disabled={isRegeneratingChapter || !refineInstruction.trim()}
+                        className="btn btn-primary btn-sm"
+                        style={{ whiteSpace: 'nowrap', gap: '5px', height: '32px' }}
+                      >
+                        <RefreshCw size={12} className={isRegeneratingChapter ? 'spin' : ''} />
+                        <span>{isRegeneratingChapter ? 'Refining...' : 'Apply AI Refinement'}</span>
+                      </button>
+                    </div>
+                  )}
+
                   {/* Render ERD or Markdown */}
                   {activeSection.id === 'sec_erd' ? (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
                       <MermaidViewer chart={erdDiagram} title="Interactive Database Entity Relationship Diagram" />
                     </div>
+                  ) : readerViewMode === 'rich' ? (
+                    <div
+                      className="doc-markdown-content"
+                      style={{
+                        background: 'var(--bg-input)',
+                        padding: '24px 28px',
+                        borderRadius: 'var(--radius-md)',
+                        border: '1px solid var(--border-subtle)',
+                        flex: 1,
+                        overflowY: 'auto',
+                        maxHeight: '640px'
+                      }}
+                      dangerouslySetInnerHTML={{
+                        __html: marked.parse(activeSection.markdownContent) as string
+                      }}
+                    />
                   ) : (
                     <div style={{
                       background: 'var(--bg-input)',
@@ -792,7 +1071,75 @@ export const DocGenView: React.FC<DocGenViewProps> = ({ activeProject, settings,
                 </div>
               </div>
 
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                {/* AI Chapter Co-Pilot Box */}
+                <div style={{
+                  background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.08) 0%, rgba(6, 182, 212, 0.06) 100%)',
+                  border: '1px solid var(--border-active)',
+                  borderRadius: 'var(--radius-md)',
+                  padding: '14px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '10px'
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <Sparkles size={16} color="var(--primary)" />
+                      <span style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                        AI Chapter Co-Pilot
+                      </span>
+                    </div>
+                    <span className="badge badge-indigo" style={{ fontSize: '0.65rem' }}>
+                      {getEffectiveAiConfig().provider.toUpperCase()} ({getEffectiveAiConfig().model || 'Default'})
+                    </span>
+                  </div>
+
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <input
+                      type="text"
+                      value={aiChapterPrompt}
+                      onChange={(e) => setAiChapterPrompt(e.target.value)}
+                      placeholder="e.g. Write a Stripe Webhook & Payment Reconciliation Guide with code examples..."
+                      className="input"
+                      style={{ flex: 1, fontSize: '0.8rem' }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && !isGeneratingAiChapter) {
+                          handleGenerateAiCustomChapter();
+                        }
+                      }}
+                    />
+                    <button
+                      type="button"
+                      onClick={handleGenerateAiCustomChapter}
+                      disabled={isGeneratingAiChapter || !aiChapterPrompt.trim()}
+                      className="btn btn-primary btn-sm"
+                      style={{ whiteSpace: 'nowrap', gap: '6px' }}
+                    >
+                      <Sparkles size={13} className={isGeneratingAiChapter ? 'spin' : ''} />
+                      <span>{isGeneratingAiChapter ? 'Synthesizing...' : 'Draft with AI'}</span>
+                    </button>
+                  </div>
+
+                  {/* Preset Quick Chips */}
+                  <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                    {[
+                      'Deployment & Rollback Runbook',
+                      'Stripe Webhook & Idempotency Guide',
+                      'Disaster Recovery & Backup Plan',
+                      'User Acceptance Testing (UAT) Checklist'
+                    ].map((preset) => (
+                      <button
+                        key={preset}
+                        type="button"
+                        onClick={() => setAiChapterPrompt(`Write a professional, authoritative ${preset} for ${activeProject.name}`)}
+                        className="btn btn-secondary btn-xs"
+                        style={{ fontSize: '0.7rem', padding: '2px 8px', borderRadius: '999px', border: '1px solid var(--border-subtle)' }}
+                      >
+                        + {preset}
+                      </button>
+                    ))}
+                  </div>
+                </div>
                 <div>
                   <label className="input-label">Chapter Title</label>
                   <input

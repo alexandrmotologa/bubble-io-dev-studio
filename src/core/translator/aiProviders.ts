@@ -85,6 +85,20 @@ export class AiProvidersEngine {
       else if (provider === 'openai') {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 15000);
+        const targetModel = (model && model.trim().length > 0) ? model.trim() : 'gpt-4o';
+        const isReasoningModel = targetModel.startsWith('o1') || targetModel.startsWith('o3');
+
+        const requestBody: any = {
+          model: targetModel,
+          messages: [
+            { role: isReasoningModel ? 'developer' : 'system', content: systemPrompt },
+            { role: 'user', content: text }
+          ]
+        };
+        // OpenAI o1 and o3-mini models do NOT accept custom temperature
+        if (!isReasoningModel) {
+          requestBody.temperature = config.temperature ?? 0.3;
+        }
 
         const response = await fetch('https://api.openai.com/v1/chat/completions', {
           method: 'POST',
@@ -93,14 +107,7 @@ export class AiProvidersEngine {
             'Authorization': `Bearer ${effectiveApiKey}`
           },
           signal: controller.signal,
-          body: JSON.stringify({
-            model: (model && model.trim().length > 0) ? model.trim() : 'gpt-4o',
-            messages: [
-              { role: 'system', content: systemPrompt },
-              { role: 'user', content: text }
-            ],
-            temperature: config.temperature ?? 0.3
-          })
+          body: JSON.stringify(requestBody)
         });
         clearTimeout(timeoutId);
 
@@ -151,10 +158,10 @@ export class AiProvidersEngine {
       // 4. Groq / xAI / OpenRouter / OpenCode / DeepSeek (OpenAI Compatible API)
       else if (['groq', 'xai', 'openrouter', 'opencode', 'deepseek'].includes(provider)) {
         let endpoint = 'https://api.groq.com/openai/v1/chat/completions';
-        let defaultModel = 'llama-3.1-8b-instant';
+        let defaultModel = 'qwen/qwen3.8-27b';
         if (provider === 'groq') {
           endpoint = 'https://api.groq.com/openai/v1/chat/completions';
-          defaultModel = 'llama-3.1-8b-instant';
+          defaultModel = 'qwen/qwen3.8-27b';
         } else if (provider === 'xai') {
           endpoint = 'https://api.x.ai/v1/chat/completions';
           defaultModel = 'grok-2-latest';
@@ -169,25 +176,41 @@ export class AiProvidersEngine {
           defaultModel = 'deepseek-chat';
         }
 
-        const effectiveModel = (model && model.trim().length > 0) ? model.trim() : defaultModel;
+        let effectiveModel = (model && model.trim().length > 0) ? model.trim() : defaultModel;
+        // Normalize legacy or deprecated Groq models
+        if (provider === 'groq' && (effectiveModel === 'llama-3.1-8b-instant' || !effectiveModel)) {
+          effectiveModel = 'qwen/qwen3.8-27b';
+        }
+
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 15000);
 
+        const headers: Record<string, string> = {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${effectiveApiKey}`
+        };
+        if (provider === 'openrouter') {
+          headers['HTTP-Referer'] = 'https://bubble-studio.io';
+          headers['X-Title'] = 'Bubble Dev Studio';
+        }
+
+        const requestPayload: any = {
+          model: effectiveModel,
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: text }
+          ]
+        };
+        // DeepSeek reasoner does not accept custom temperature
+        if (effectiveModel !== 'deepseek-reasoner') {
+          requestPayload.temperature = config.temperature ?? 0.3;
+        }
+
         const response = await fetch(endpoint, {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${effectiveApiKey}`
-          },
+          headers,
           signal: controller.signal,
-          body: JSON.stringify({
-            model: effectiveModel,
-            messages: [
-              { role: 'system', content: systemPrompt },
-              { role: 'user', content: text }
-            ],
-            temperature: config.temperature ?? 0.3
-          })
+          body: JSON.stringify(requestPayload)
         });
         clearTimeout(timeoutId);
 
@@ -306,7 +329,7 @@ export class AiProvidersEngine {
         return {
           success: true,
           latencyMs,
-          message: `Ollama host verified at ${targetUrl} (${latencyMs}ms). Model '${model || 'default'}' ready.`
+          message: `Ollama host verified at ${targetUrl}. Model '${model || 'default'}' ready.`
         };
       } catch (err: any) {
         const latencyMs = Math.round(performance.now() - start);
@@ -341,93 +364,142 @@ export class AiProvidersEngine {
       // 3. Google Gemini
       if (provider === 'gemini') {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 6000);
+        const timeoutId = setTimeout(() => controller.abort(), 8000);
+        const targetModel = (model || 'gemini-2.0-flash').replace(/^models\//, '').trim();
 
-        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${effectiveKey}`, {
-          method: 'GET',
-          signal: controller.signal
+        // Perform actual micro-inference (1 token) to verify model availability & quota
+        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${targetModel}:generateContent?key=${effectiveKey}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          signal: controller.signal,
+          body: JSON.stringify({
+            contents: [{ role: 'user', parts: [{ text: 'Ping' }] }],
+            generationConfig: { maxOutputTokens: 1 }
+          })
         });
         clearTimeout(timeoutId);
         const latencyMs = Math.round(performance.now() - start);
 
         if (!res.ok) {
           const errData = await res.json().catch(() => ({}));
-          const errMsg = errData?.error?.message || `Invalid Gemini API key or credentials (HTTP ${res.status})`;
+          const errMsg = errData?.error?.message || `Gemini verification failed (HTTP ${res.status})`;
           return { success: false, latencyMs, message: errMsg };
         }
 
         return {
           success: true,
           latencyMs,
-          message: `Google Gemini API verified (${latencyMs}ms)! Model '${model}' ready for inference.`
+          message: `Google Gemini verified! Model '${targetModel}' active & responding.`
         };
       }
 
       // 4. OpenAI
       if (provider === 'openai') {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 6000);
+        const timeoutId = setTimeout(() => controller.abort(), 8000);
+        const targetModel = (model && model.trim().length > 0) ? model.trim() : 'gpt-4o-mini';
+        const isReasoning = targetModel.startsWith('o1') || targetModel.startsWith('o3');
 
-        const res = await fetch('https://api.openai.com/v1/models', {
-          method: 'GET',
-          headers: { 'Authorization': `Bearer ${effectiveKey}` },
-          signal: controller.signal
+        const testBody: any = {
+          model: targetModel,
+          messages: [{ role: 'user', content: 'Ping' }]
+        };
+        if (isReasoning) {
+          testBody.max_completion_tokens = 1;
+        } else {
+          testBody.max_tokens = 1;
+        }
+
+        // Perform micro-inference (1 token) to check model access & account credits/quota
+        const res = await fetch('https://api.openai.com/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${effectiveKey}`,
+            'Content-Type': 'application/json'
+          },
+          signal: controller.signal,
+          body: JSON.stringify(testBody)
         });
         clearTimeout(timeoutId);
         const latencyMs = Math.round(performance.now() - start);
 
         if (!res.ok) {
           const errData = await res.json().catch(() => ({}));
-          const errMsg = errData?.error?.message || `OpenAI authentication failed (HTTP ${res.status})`;
+          const errMsg = errData?.error?.message || `OpenAI verification failed (HTTP ${res.status})`;
           return { success: false, latencyMs, message: errMsg };
         }
 
+        const remainingReqs = res.headers.get('x-ratelimit-remaining-requests');
+        const quotaInfo = remainingReqs ? ` (${remainingReqs} reqs left)` : '';
         return {
           success: true,
           latencyMs,
-          message: `OpenAI API connected (${latencyMs}ms)! Model '${model}' verified.`
+          message: `OpenAI API connected! Model '${targetModel}' verified${quotaInfo}.`
         };
       }
 
       // 5. Anthropic Claude
       if (provider === 'anthropic') {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 6000);
+        const timeoutId = setTimeout(() => controller.abort(), 8000);
+        const targetModel = (model && model.trim().length > 0) ? model.trim() : 'claude-3-5-haiku-20241022';
 
-        const res = await fetch('https://api.anthropic.com/v1/models', {
-          method: 'GET',
+        const res = await fetch('https://api.anthropic.com/v1/messages', {
+          method: 'POST',
           headers: {
             'x-api-key': effectiveKey,
             'anthropic-version': '2023-06-01',
-            'anthropic-dangerous-direct-browser-access': 'true'
+            'anthropic-dangerous-direct-browser-access': 'true',
+            'Content-Type': 'application/json'
           },
-          signal: controller.signal
+          signal: controller.signal,
+          body: JSON.stringify({
+            model: targetModel,
+            max_tokens: 1,
+            messages: [{ role: 'user', content: 'Ping' }]
+          })
         });
         clearTimeout(timeoutId);
         const latencyMs = Math.round(performance.now() - start);
 
         if (!res.ok) {
           const errData = await res.json().catch(() => ({}));
-          const errMsg = errData?.error?.message || `Anthropic authentication failed (HTTP ${res.status})`;
+          const errMsg = errData?.error?.message || `Anthropic verification failed (HTTP ${res.status})`;
           return { success: false, latencyMs, message: errMsg };
         }
 
         return {
           success: true,
           latencyMs,
-          message: `Anthropic Claude API connected (${latencyMs}ms)! Model '${model}' verified.`
+          message: `Anthropic Claude API connected! Model '${targetModel}' verified.`
         };
       }
 
       // 6. Groq LPU
       if (provider === 'groq') {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 6000);
+        const timeoutId = setTimeout(() => controller.abort(), 8000);
+        let targetModel = (model && model.trim().length > 0) ? model.trim() : 'qwen/qwen3.8-27b';
+        if (targetModel === 'llama-3.1-8b-instant') {
+          targetModel = 'qwen/qwen3.8-27b';
+        }
 
-        const res = await fetch('https://api.groq.com/openai/v1/models', {
-          method: 'GET',
-          headers: { 'Authorization': `Bearer ${effectiveKey}` },
-          signal: controller.signal
+        // Perform actual micro-inference to verify:
+        // 1. Valid API key
+        // 2. Model availability on user's tier
+        // 3. Quotas & rate limits (TPM/RPM)
+        const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${effectiveKey}`,
+            'Content-Type': 'application/json'
+          },
+          signal: controller.signal,
+          body: JSON.stringify({
+            model: targetModel,
+            messages: [{ role: 'user', content: 'Ping' }],
+            max_tokens: 1
+          })
         });
         clearTimeout(timeoutId);
         const latencyMs = Math.round(performance.now() - start);
@@ -438,22 +510,43 @@ export class AiProvidersEngine {
           return { success: false, latencyMs, message: errMsg };
         }
 
+        // Extract rate limits & tier from Groq response headers
+        const remainingTokens = res.headers.get('x-ratelimit-remaining-tokens');
+        const limitTokens = res.headers.get('x-ratelimit-limit-tokens');
+        const remainingReqs = res.headers.get('x-ratelimit-remaining-requests');
+
+        let quotaDetails = '';
+        if (remainingTokens && limitTokens) {
+          const limitNum = parseInt(limitTokens, 10);
+          const tierTag = limitNum <= 10000 ? 'Free Tier' : 'Tier 1+';
+          quotaDetails = ` [${tierTag}: ${remainingTokens}/${limitTokens} TPM${remainingReqs ? `, ${remainingReqs} RPM` : ''}]`;
+        }
+
         return {
           success: true,
           latencyMs,
-          message: `Groq LPU ultra-fast inference verified (${latencyMs}ms)! Model '${model || 'llama-3.1-8b-instant'}' ready.`
+          message: `Groq LPU verified! Model '${targetModel}' active & responding.${quotaDetails}`
         };
       }
 
       // 7. DeepSeek
       if (provider === 'deepseek') {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 6000);
+        const timeoutId = setTimeout(() => controller.abort(), 8000);
+        const targetModel = (model && model.trim().length > 0) ? model.trim() : 'deepseek-chat';
 
-        const res = await fetch('https://api.deepseek.com/models', {
-          method: 'GET',
-          headers: { 'Authorization': `Bearer ${effectiveKey}` },
-          signal: controller.signal
+        const res = await fetch('https://api.deepseek.com/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${effectiveKey}`,
+            'Content-Type': 'application/json'
+          },
+          signal: controller.signal,
+          body: JSON.stringify({
+            model: targetModel,
+            messages: [{ role: 'user', content: 'Ping' }],
+            max_tokens: 1
+          })
         });
         clearTimeout(timeoutId);
         const latencyMs = Math.round(performance.now() - start);
@@ -467,19 +560,28 @@ export class AiProvidersEngine {
         return {
           success: true,
           latencyMs,
-          message: `DeepSeek API verified (${latencyMs}ms)! Model '${model || 'deepseek-chat'}' ready.`
+          message: `DeepSeek API verified! Model '${targetModel}' active & ready.`
         };
       }
 
       // 8. xAI (Grok)
       if (provider === 'xai') {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 6000);
+        const timeoutId = setTimeout(() => controller.abort(), 8000);
+        const targetModel = (model && model.trim().length > 0) ? model.trim() : 'grok-2-latest';
 
-        const res = await fetch('https://api.x.ai/v1/models', {
-          method: 'GET',
-          headers: { 'Authorization': `Bearer ${effectiveKey}` },
-          signal: controller.signal
+        const res = await fetch('https://api.x.ai/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${effectiveKey}`,
+            'Content-Type': 'application/json'
+          },
+          signal: controller.signal,
+          body: JSON.stringify({
+            model: targetModel,
+            messages: [{ role: 'user', content: 'Ping' }],
+            max_tokens: 1
+          })
         });
         clearTimeout(timeoutId);
         const latencyMs = Math.round(performance.now() - start);
@@ -493,16 +595,17 @@ export class AiProvidersEngine {
         return {
           success: true,
           latencyMs,
-          message: `xAI (Grok) API connected (${latencyMs}ms)! Model '${model}' verified.`
+          message: `xAI (Grok) API verified! Model '${targetModel}' active & ready.`
         };
       }
 
-      // 8. OpenRouter
+      // 9. OpenRouter
       if (provider === 'openrouter') {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 6000);
+        const timeoutId = setTimeout(() => controller.abort(), 8000);
+        const targetModel = (model && model.trim().length > 0) ? model.trim() : 'deepseek/deepseek-r1';
 
-        const res = await fetch('https://openrouter.ai/api/v1/auth/key', {
+        const authRes = await fetch('https://openrouter.ai/api/v1/auth/key', {
           method: 'GET',
           headers: { 'Authorization': `Bearer ${effectiveKey}` },
           signal: controller.signal
@@ -510,28 +613,41 @@ export class AiProvidersEngine {
         clearTimeout(timeoutId);
         const latencyMs = Math.round(performance.now() - start);
 
-        if (!res.ok) {
-          const errData = await res.json().catch(() => ({}));
-          const errMsg = errData?.error?.message || `OpenRouter authentication failed (HTTP ${res.status})`;
+        if (!authRes.ok) {
+          const errData = await authRes.json().catch(() => ({}));
+          const errMsg = errData?.error?.message || `OpenRouter authentication failed (HTTP ${authRes.status})`;
           return { success: false, latencyMs, message: errMsg };
         }
+
+        const keyData = await authRes.json().catch(() => ({}));
+        const isFree = keyData?.data?.is_free_tier;
+        const tierInfo = isFree !== undefined ? (isFree ? ' [Free Tier]' : ' [Paid Tier]') : '';
 
         return {
           success: true,
           latencyMs,
-          message: `OpenRouter unified gateway verified (${latencyMs}ms)! Model '${model}' ready.`
+          message: `OpenRouter gateway verified! Model '${targetModel}' ready.${tierInfo}`
         };
       }
 
-      // 9. OpenCode Router
+      // 10. OpenCode Router
       if (provider === 'opencode') {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 6000);
+        const timeoutId = setTimeout(() => controller.abort(), 8000);
+        const targetModel = (model && model.trim().length > 0) ? model.trim() : 'opencode-go-pro';
 
-        const res = await fetch('https://api.opencode.ai/v1/models', {
-          method: 'GET',
-          headers: { 'Authorization': `Bearer ${effectiveKey}` },
-          signal: controller.signal
+        const res = await fetch('https://api.opencode.ai/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${effectiveKey}`,
+            'Content-Type': 'application/json'
+          },
+          signal: controller.signal,
+          body: JSON.stringify({
+            model: targetModel,
+            messages: [{ role: 'user', content: 'Ping' }],
+            max_tokens: 1
+          })
         });
         clearTimeout(timeoutId);
         const latencyMs = Math.round(performance.now() - start);
@@ -545,7 +661,7 @@ export class AiProvidersEngine {
         return {
           success: true,
           latencyMs,
-          message: `OpenCode Router verified (${latencyMs}ms)! Model '${model}' ready.`
+          message: `OpenCode Router verified! Model '${targetModel}' active & ready.`
         };
       }
 
@@ -554,7 +670,7 @@ export class AiProvidersEngine {
       return {
         success: true,
         latencyMs,
-        message: `${provider.toUpperCase()} provider credentials verified (${latencyMs}ms).`
+        message: `${provider.toUpperCase()} provider credentials verified.`
       };
     } catch (err: any) {
       const latencyMs = Math.round(performance.now() - start);
@@ -562,7 +678,7 @@ export class AiProvidersEngine {
         success: false,
         latencyMs,
         message: err.name === 'AbortError' 
-          ? `Connection timeout after 6000ms while testing ${provider.toUpperCase()}`
+          ? `Connection timeout after 8000ms while testing ${provider.toUpperCase()}`
           : `Network error: ${err.message || 'Unable to reach provider endpoint'}`
       };
     }

@@ -91,12 +91,13 @@ export const AI_PROVIDERS: AiProviderDefinition[] = [
     docsUrl: 'https://console.groq.com/keys',
     keyPlaceholder: 'gsk_...',
     models: [
-      { id: 'llama-3.1-8b-instant', name: 'Llama 3.1 8B Instant (Universal / Free Tier Accessible ✓)', isRecommended: true },
-      { id: 'llama-3.3-70b-versatile', name: 'Llama 3.3 70B Versatile (Groq LPU Flagship)' },
+      { id: 'qwen/qwen3.8-27b', name: 'Qwen 3.8 27B (Groq Fast & Recommended)', isRecommended: true },
+      { id: 'openai/gpt-oss-20b', name: 'GPT-OSS 20B (Groq Open Weights)' },
+      { id: 'openai/gpt-oss-120b', name: 'GPT-OSS 120B (Groq Open Weights Flagship)' },
+      { id: 'qwen/qwen3.6-27b', name: 'Qwen 3.6 27B' },
+      { id: 'llama-3.3-70b-versatile', name: 'Llama 3.3 70B Versatile' },
       { id: 'deepseek-r1-distill-llama-70b', name: 'DeepSeek R1 Distill Llama 70B' },
-      { id: 'deepseek-r1-distill-qwen-32b', name: 'DeepSeek R1 Distill Qwen 32B' },
       { id: 'qwen-2.5-32b', name: 'Qwen 2.5 32B' },
-      { id: 'mixtral-8x7b-32768', name: 'Mixtral 8x7B (32k Context)' },
       { id: 'gemma2-9b-it', name: 'Gemma 2 9B IT' }
     ]
   },
@@ -195,7 +196,7 @@ export const getProviderDisplayName = (providerId: string): string => {
 
 export const getCustomModelPlaceholder = (provider: string): string => {
   switch (provider) {
-    case 'groq': return 'e.g. llama-3.1-8b-instant, qwen-2.5-32b, llama-3.3-70b-versatile';
+    case 'groq': return 'e.g. qwen/qwen3.8-27b, openai/gpt-oss-20b, llama-3.3-70b-versatile';
     case 'openai': return 'e.g. gpt-4o, gpt-4o-mini, o3-mini, o1';
     case 'anthropic': return 'e.g. claude-3-7-sonnet-20250219, claude-3-5-haiku-20241022';
     case 'gemini': return 'e.g. gemini-2.0-flash, gemini-2.0-flash-lite, gemini-1.5-pro';
