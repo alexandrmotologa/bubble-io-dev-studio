@@ -70,11 +70,62 @@ export const TranslatorView: React.FC<TranslatorViewProps> = ({
   ollamaUrl
 }) => {
   const [subTab, setSubTab] = useState<TranslatorSubTab>('studio');
-  const [items, setItems] = useState<TranslationItem[]>([]);
-  const [sourceLang, setSourceLang] = useState(DEFAULT_SOURCE_LANGUAGE);
-  const [selectedTargetLangs, setSelectedTargetLangs] = useState<string[]>([DEFAULT_TARGET_LANGUAGE]);
-  const [activeDisplayLang, setActiveDisplayLang] = useState<string>(DEFAULT_TARGET_LANGUAGE);
-  const [viewMode, setViewMode] = useState<'single' | 'matrix'>('single');
+
+  const storagePrefix = activeProject?.id ? `bubble_translator_${activeProject.id}` : 'bubble_translator_global';
+
+  const [items, setItems] = useState<TranslationItem[]>(() => {
+    try {
+      const saved = localStorage.getItem(`${storagePrefix}_items`);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch (e) {
+      console.warn('Failed to restore translator items from storage', e);
+    }
+    return [];
+  });
+
+  const [sourceLang, setSourceLang] = useState<string>(() => {
+    return localStorage.getItem(`${storagePrefix}_source_lang`) || DEFAULT_SOURCE_LANGUAGE;
+  });
+
+  const [selectedTargetLangs, setSelectedTargetLangs] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem(`${storagePrefix}_target_langs`);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch (e) {
+      console.warn('Failed to restore target langs from storage', e);
+    }
+    return [DEFAULT_TARGET_LANGUAGE];
+  });
+
+  const [activeDisplayLang, setActiveDisplayLang] = useState<string>(() => {
+    const saved = localStorage.getItem(`${storagePrefix}_active_display_lang`);
+    if (saved) return saved;
+    try {
+      const savedLangs = localStorage.getItem(`${storagePrefix}_target_langs`);
+      if (savedLangs) {
+        const parsed = JSON.parse(savedLangs);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed[0];
+      }
+    } catch {}
+    return DEFAULT_TARGET_LANGUAGE;
+  });
+
+  const [viewMode, setViewMode] = useState<'single' | 'matrix'>(() => {
+    return (localStorage.getItem(`${storagePrefix}_view_mode`) as 'single' | 'matrix') || 'single';
+  });
+
+  const [customPromptInstructions, setCustomPromptInstructions] = useState<string>(() => {
+    return localStorage.getItem('bubble_dev_studio_custom_prompt_instructions') || '';
+  });
+
+  const [promptInspectorTab, setPromptInspectorTab] = useState<'editor' | 'preview'>('editor');
+  const [inspectorTargetLang, setInspectorTargetLang] = useState<string>('');
 
   const [provider, setProvider] = useState<TranslationProviderType>(
     (activeProject?.aiProvider as TranslationProviderType) || 
@@ -142,6 +193,47 @@ export const TranslatorView: React.FC<TranslatorViewProps> = ({
     totalItems: 0
   });
 
+  // Persist items, target languages, active display language, and custom prompt
+  useEffect(() => {
+    try {
+      if (items && items.length > 0) {
+        localStorage.setItem(`${storagePrefix}_items`, JSON.stringify(items));
+      }
+    } catch (e) {
+      console.warn('Failed to persist translator items', e);
+    }
+  }, [items, storagePrefix]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(`${storagePrefix}_target_langs`, JSON.stringify(selectedTargetLangs));
+    } catch {}
+  }, [selectedTargetLangs, storagePrefix]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(`${storagePrefix}_active_display_lang`, activeDisplayLang);
+    } catch {}
+  }, [activeDisplayLang, storagePrefix]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(`${storagePrefix}_source_lang`, sourceLang);
+    } catch {}
+  }, [sourceLang, storagePrefix]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(`${storagePrefix}_view_mode`, viewMode);
+    } catch {}
+  }, [viewMode, storagePrefix]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('bubble_dev_studio_custom_prompt_instructions', customPromptInstructions);
+    } catch {}
+  }, [customPromptInstructions]);
+
   // Sync Provider & Model from active project or default settings
   useEffect(() => {
     if (activeProject?.aiProvider) {
@@ -156,14 +248,18 @@ export const TranslatorView: React.FC<TranslatorViewProps> = ({
     }
   }, [activeProject?.id, activeProject?.aiProvider, activeProject?.aiModel, defaultAiModel]);
 
-  // Auto-load strings from active project's attached .bubble blueprint
+  // Auto-load strings from active project's attached .bubble blueprint (without overwriting restored translations)
   useEffect(() => {
     if (activeProject?.blueprintExportJson) {
-      const extracted = TranslatorEngine.extractFromBlueprint(activeProject.blueprintExportJson);
-      if (extracted && extracted.length > 0) {
-        setItems(extracted);
-        onLog('translator', `Extracted ${extracted.length} real application strings from ${activeProject.name}'s blueprint (${activeProject.blueprintFileName || 'export.bubble'})`, 'success');
-      }
+      setItems(prev => {
+        if (prev && prev.length > 0) return prev;
+        const extracted = TranslatorEngine.extractFromBlueprint(activeProject.blueprintExportJson);
+        if (extracted && extracted.length > 0) {
+          onLog('translator', `Extracted ${extracted.length} real application strings from ${activeProject.name}'s blueprint (${activeProject.blueprintFileName || 'export.bubble'})`, 'success');
+          return extracted;
+        }
+        return prev;
+      });
     }
   }, [activeProject?.id, activeProject?.blueprintFileName, activeProject?.blueprintExportJson]);
 
@@ -177,11 +273,25 @@ export const TranslatorView: React.FC<TranslatorViewProps> = ({
   }, [items]);
 
   // Keep activeDisplayLang in sync with selectedTargetLangs
+  const handleTargetLanguagesChange = (newLangs: string[]) => {
+    setSelectedTargetLangs(newLangs);
+    if (newLangs.length > 0) {
+      if (!newLangs.includes(activeDisplayLang) || newLangs.length === 1) {
+        setActiveDisplayLang(newLangs[0]);
+      } else {
+        const newlyAdded = newLangs.find(l => !selectedTargetLangs.includes(l));
+        if (newlyAdded) {
+          setActiveDisplayLang(newlyAdded);
+        }
+      }
+    }
+  };
+
   useEffect(() => {
     if (selectedTargetLangs.length > 0 && !selectedTargetLangs.includes(activeDisplayLang)) {
       setActiveDisplayLang(selectedTargetLangs[0]);
     }
-  }, [selectedTargetLangs]);
+  }, [selectedTargetLangs, activeDisplayLang]);
 
   const handleProviderChange = (newProvider: TranslationProviderType) => {
     setProvider(newProvider);
@@ -220,17 +330,19 @@ export const TranslatorView: React.FC<TranslatorViewProps> = ({
     onLog('translator', `Starting AI translation across ${selectedTargetLangs.length} language(s) [${selectedTargetLangs.join(', ')}] using ${provider.toUpperCase()} (${model})...`);
     toast.info(`Translating ${items.length} strings across ${selectedTargetLangs.length} languages...`);
 
+    const effectiveModel = isCustomModel ? customModelInput.trim() : model;
     const baseConfig: Omit<TranslationJobConfig, 'targetLang'> = {
       sourceLang,
       provider,
-      model,
+      model: effectiveModel,
       temperature: 0.3,
       tone,
       useGlossary,
       useCache,
       glossary,
       apiKey: getEffectiveApiKey(provider),
-      ollamaUrl: ollamaUrl || 'http://localhost:11434'
+      ollamaUrl: ollamaUrl || 'http://localhost:11434',
+      customPromptInstructions: customPromptInstructions.trim() || undefined
     };
 
     try {
@@ -261,18 +373,20 @@ export const TranslatorView: React.FC<TranslatorViewProps> = ({
     if (!item) return;
 
     toast.info(`Translating '${item.key}' to ${targetLang.toUpperCase()}...`);
+    const effectiveModel = isCustomModel ? customModelInput.trim() : model;
     const config: TranslationJobConfig = {
       sourceLang,
       targetLang,
       provider,
-      model,
+      model: effectiveModel,
       temperature: 0.3,
       tone,
       useGlossary,
       useCache,
       glossary,
       apiKey: getEffectiveApiKey(provider),
-      ollamaUrl: ollamaUrl || 'http://localhost:11434'
+      ollamaUrl: ollamaUrl || 'http://localhost:11434',
+      customPromptInstructions: customPromptInstructions.trim() || undefined
     };
 
     try {
@@ -465,7 +579,7 @@ export const TranslatorView: React.FC<TranslatorViewProps> = ({
   };
 
   const handleUpdateTranslation = (id: string, text: string, lang: string) => {
-    setItems(items.map(item => {
+    setItems(prev => prev.map(item => {
       if (item.id === id) {
         const updatedTrans = { ...(item.translations || {}), [lang]: text };
         return {
@@ -477,6 +591,43 @@ export const TranslatorView: React.FC<TranslatorViewProps> = ({
       }
       return item;
     }));
+  };
+
+  const handleTranslateMatrixRow = async (itemId: string) => {
+    const item = items.find(i => i.id === itemId);
+    if (!item || selectedTargetLangs.length === 0) return;
+
+    toast.info(`Translating '${item.key}' into ${selectedTargetLangs.length} languages simultaneously with AI...`);
+    const effectiveModel = isCustomModel ? customModelInput.trim() : model;
+    const baseConfig: Omit<TranslationJobConfig, 'targetLang'> = {
+      sourceLang,
+      provider,
+      model: effectiveModel,
+      temperature: 0.3,
+      tone,
+      useGlossary,
+      useCache,
+      glossary,
+      apiKey: getEffectiveApiKey(provider),
+      ollamaUrl: ollamaUrl || 'http://localhost:11434',
+      customPromptInstructions: customPromptInstructions.trim() || undefined
+    };
+
+    try {
+      const res = await TranslatorEngine.translateSingleItemMultiLanguage(
+        item,
+        selectedTargetLangs,
+        baseConfig
+      );
+
+      setItems(prev => prev.map(it => (it.id === itemId ? res.item : it)));
+      setMemoryStats(TranslatorEngine.getMemoryStats());
+      toast.success(`Translated '${item.key}' into all ${selectedTargetLangs.length} languages!`);
+      onLog('translator', `Translated row '${item.key}' into [${selectedTargetLangs.join(', ')}] simultaneously with AI (${res.tokensUsed} tokens).`, 'success');
+    } catch (e: any) {
+      toast.error(`Matrix row translation failed: ${e.message}`);
+      onLog('translator', `Matrix row translation failed: ${e.message}`, 'error');
+    }
   };
 
   // Filtered Items
@@ -690,7 +841,7 @@ export const TranslatorView: React.FC<TranslatorViewProps> = ({
             </div>
             <SearchableLanguageSelect
               selectedLanguages={selectedTargetLangs}
-              onChange={setSelectedTargetLangs}
+              onChange={handleTargetLanguagesChange}
               isMultiSelect={true}
             />
           </div>
@@ -806,10 +957,10 @@ export const TranslatorView: React.FC<TranslatorViewProps> = ({
               onClick={() => setShowPromptPreview(!showPromptPreview)}
               className={`btn btn-sm ${showPromptPreview ? 'btn-primary' : 'btn-secondary'}`}
               style={{ fontSize: '0.725rem', padding: '3px 10px', height: '28px', gap: '5px' }}
-              title="Inspect the exact AI system prompt used for translations"
+              title="Inspect and customize the AI system prompt and translation guidelines"
             >
               <FileCode size={13} />
-              <span>{showPromptPreview ? 'Hide Prompt' : '👁️ View AI Prompt'}</span>
+              <span>{showPromptPreview ? 'Hide Prompt & Rules' : '⚙️ AI Prompt & Rules'}</span>
             </button>
           </div>
 
@@ -825,76 +976,287 @@ export const TranslatorView: React.FC<TranslatorViewProps> = ({
           </div>
         </div>
 
-        {/* Live System Prompt Preview Inspector */}
-        {showPromptPreview && (
-          <div style={{
-            marginTop: '12px',
-            padding: '12px 16px',
-            background: 'var(--bg-input)',
-            borderRadius: 'var(--radius-md)',
-            border: '1px solid var(--border-active)'
-          }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', flexWrap: 'wrap', gap: '8px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--accent-cyan)' }}>
-                  Active AI System Prompt (Native & Idiomatic Quality Mode)
-                </span>
-                <span className="badge badge-cyan" style={{ fontSize: '0.65rem' }}>
-                  Target: {getLanguageDisplayName(selectedTargetLangs[0] || 'en_us')}
-                </span>
-              </div>
-              <button
-                type="button"
-                onClick={() => {
-                  const effectiveModel = isCustomModel ? customModelInput : model;
-                  const sampleConfig: TranslationJobConfig = {
-                    provider,
-                    model: effectiveModel,
-                    temperature: 0.3,
-                    sourceLang: sourceLang,
-                    targetLang: selectedTargetLangs[0] || 'en_us',
-                    tone,
-                    useGlossary,
-                    glossary,
-                    useCache
-                  };
-                  navigator.clipboard.writeText(AiProvidersEngine.buildSystemPrompt(sampleConfig));
-                  toast.success('Prompt copied to clipboard');
-                }}
-                className="btn btn-secondary btn-sm"
-                style={{ fontSize: '0.7rem', padding: '2px 8px', height: '24px', gap: '4px' }}
-              >
-                <Copy size={11} />
-                <span>Copy Prompt</span>
-              </button>
-            </div>
-            <pre style={{
-              margin: 0,
-              fontSize: '0.75rem',
-              fontFamily: 'var(--font-mono)',
-              color: 'var(--text-secondary)',
-              whiteSpace: 'pre-wrap',
-              maxHeight: '220px',
-              overflowY: 'auto',
-              background: 'rgba(0,0,0,0.3)',
-              padding: '10px 12px',
-              borderRadius: 'var(--radius-sm)',
-              border: '1px solid var(--border-subtle)'
+        {/* Live System Prompt Preview & Custom Guidelines Inspector */}
+        {showPromptPreview && (() => {
+          const isMatrixPrompt = inspectorTargetLang === '__matrix_all__' || (viewMode === 'matrix' && !inspectorTargetLang && selectedTargetLangs.length > 1);
+          const activePromptTarget = (inspectorTargetLang && inspectorTargetLang !== '__matrix_all__' && selectedTargetLangs.includes(inspectorTargetLang))
+            ? inspectorTargetLang
+            : ((activeDisplayLang && selectedTargetLangs.includes(activeDisplayLang))
+              ? activeDisplayLang
+              : (selectedTargetLangs[0] || 'es_es'));
+
+          return (
+            <div style={{
+              marginTop: '12px',
+              padding: '14px 18px',
+              background: 'var(--bg-input)',
+              borderRadius: 'var(--radius-md)',
+              border: '1px solid var(--border-active)'
             }}>
-              {AiProvidersEngine.buildSystemPrompt({
-                provider,
-                model: isCustomModel ? customModelInput : model,
-                temperature: 0.3,
-                sourceLang: sourceLang,
-                targetLang: selectedTargetLangs[0] || 'en_us',
-                tone,
-                useGlossary,
-                glossary,
-                useCache
-              })}
-            </pre>
-          </div>
-        )}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap', gap: '10px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <ShieldCheck size={16} color="var(--accent-emerald)" />
+                    <span style={{ fontSize: '0.825rem', fontWeight: 700, color: 'var(--accent-cyan)' }}>
+                      AI Localization System Prompt & Custom Rules
+                    </span>
+                  </div>
+                  <span className="badge badge-emerald" style={{ fontSize: '0.65rem' }}>
+                    🛡️ Guardrailed (Translation Scope Only)
+                  </span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Target:</span>
+                    {selectedTargetLangs.length > 1 ? (
+                      <select
+                        value={inspectorTargetLang || (viewMode === 'matrix' ? '__matrix_all__' : activePromptTarget)}
+                        onChange={e => setInspectorTargetLang(e.target.value)}
+                        className="select select-sm select-premium"
+                        style={{ fontSize: '0.75rem', padding: '2px 8px', height: '26px' }}
+                      >
+                        <option value="__matrix_all__">⚡ Matrix Simultaneous Prompt ({selectedTargetLangs.length} languages)</option>
+                        <optgroup label="Individual Target Prompts">
+                          {selectedTargetLangs.map(code => (
+                            <option key={code} value={code}>
+                              {getLanguageDisplayName(code)}
+                            </option>
+                          ))}
+                        </optgroup>
+                      </select>
+                    ) : (
+                      <span className="badge badge-cyan" style={{ fontSize: '0.7rem' }}>
+                        {getLanguageDisplayName(activePromptTarget)}
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  {/* Tab Switcher */}
+                  <div style={{ display: 'flex', background: 'rgba(0,0,0,0.3)', padding: '2px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)' }}>
+                    <button
+                      type="button"
+                      onClick={() => setPromptInspectorTab('editor')}
+                      className={`btn btn-sm ${promptInspectorTab === 'editor' ? 'btn-primary' : 'btn-ghost'}`}
+                      style={{ fontSize: '0.7rem', padding: '2px 8px', height: '24px' }}
+                    >
+                      ✏️ Custom Guidelines
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPromptInspectorTab('preview')}
+                      className={`btn btn-sm ${promptInspectorTab === 'preview' ? 'btn-primary' : 'btn-ghost'}`}
+                      style={{ fontSize: '0.7rem', padding: '2px 8px', height: '24px' }}
+                    >
+                      👁️ Full English Prompt
+                    </button>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const effectiveModel = isCustomModel ? customModelInput.trim() : model;
+                      const baseConfig = {
+                        provider,
+                        model: effectiveModel,
+                        temperature: 0.3,
+                        sourceLang: sourceLang,
+                        tone,
+                        useGlossary,
+                        glossary,
+                        useCache,
+                        customPromptInstructions: customPromptInstructions.trim() || undefined
+                      };
+                      const compiled = isMatrixPrompt
+                        ? AiProvidersEngine.buildMultiLanguagePrompt(selectedTargetLangs, baseConfig)
+                        : AiProvidersEngine.buildSystemPrompt({ ...baseConfig, targetLang: activePromptTarget });
+                      navigator.clipboard.writeText(compiled);
+                      toast.success('Prompt copied to clipboard');
+                    }}
+                    className="btn btn-secondary btn-sm"
+                    style={{ fontSize: '0.7rem', padding: '2px 8px', height: '26px', gap: '4px' }}
+                    title="Copy full compiled English prompt"
+                  >
+                    <Copy size={11} />
+                    <span>Copy Prompt</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* TAB 1: EDIT CUSTOM GUIDELINES */}
+              {promptInspectorTab === 'editor' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  <div style={{ fontSize: '0.775rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+                    Add specific translation instructions, audience guidelines, or terminology rules for your Bubble app.
+                    <span style={{ color: 'var(--accent-cyan)' }}> Instructions are written in English or your language, and are strictly locked into translation scope by AI guardrails.</span>
+                  </div>
+
+                  <div style={{ position: 'relative' }}>
+                    <textarea
+                      rows={3}
+                      maxLength={500}
+                      value={customPromptInstructions}
+                      onChange={e => setCustomPromptInstructions(e.target.value.slice(0, 500))}
+                      placeholder="e.g. For Romanian, use friendly informal 'tu' for buttons and call-to-actions, use 'Coș' for cart, keep 'Workspace' in English, prioritize compact verbs..."
+                      className="input"
+                      style={{
+                        fontFamily: 'var(--font-mono)',
+                        fontSize: '0.775rem',
+                        lineHeight: 1.5,
+                        padding: '10px 12px',
+                        resize: 'vertical',
+                        minHeight: '80px',
+                        width: '100%'
+                      }}
+                    />
+                    <span style={{
+                      position: 'absolute',
+                      bottom: '8px',
+                      right: '12px',
+                      fontSize: '0.65rem',
+                      color: customPromptInstructions.length > 450 ? 'var(--accent-amber)' : 'var(--text-muted)'
+                    }}>
+                      {customPromptInstructions.length} / 500
+                    </span>
+                  </div>
+
+                  {/* Quick Presets & Reset */}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                      <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 600 }}>Quick Presets:</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const snippet = "Use polite/formal address (e.g., 'dumneavoastră', 'vous', 'Sie', 'usted') across all UI text.";
+                          setCustomPromptInstructions(prev => prev ? `${prev}\n${snippet}`.slice(0, 500) : snippet);
+                        }}
+                        className="btn btn-secondary btn-sm"
+                        style={{ fontSize: '0.675rem', padding: '2px 6px', height: '22px' }}
+                      >
+                        + Formal Tone (T-V)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const snippet = "Use friendly, modern informal address (e.g., 'tu', 'du', 'tú') for buttons and navigation.";
+                          setCustomPromptInstructions(prev => prev ? `${prev}\n${snippet}`.slice(0, 500) : snippet);
+                        }}
+                        className="btn btn-secondary btn-sm"
+                        style={{ fontSize: '0.675rem', padding: '2px 6px', height: '22px' }}
+                      >
+                        + Informal / Modern SaaS
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const snippet = "Prioritize standard software and developer terminology over literal translations.";
+                          setCustomPromptInstructions(prev => prev ? `${prev}\n${snippet}`.slice(0, 500) : snippet);
+                        }}
+                        className="btn btn-secondary btn-sm"
+                        style={{ fontSize: '0.675rem', padding: '2px 6px', height: '22px' }}
+                      >
+                        + Tech Precision
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const snippet = "Keep button and badge microcopy as concise as possible to avoid UI layout overflow.";
+                          setCustomPromptInstructions(prev => prev ? `${prev}\n${snippet}`.slice(0, 500) : snippet);
+                        }}
+                        className="btn btn-secondary btn-sm"
+                        style={{ fontSize: '0.675rem', padding: '2px 6px', height: '22px' }}
+                      >
+                        + Concise UI Microcopy
+                      </button>
+                    </div>
+
+                    {customPromptInstructions && (
+                      <button
+                        type="button"
+                        onClick={() => setCustomPromptInstructions('')}
+                        className="btn btn-ghost btn-sm"
+                        style={{ fontSize: '0.675rem', padding: '2px 6px', height: '22px', color: 'var(--accent-amber)' }}
+                      >
+                        Reset to Standard
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* TAB 2: COMPILED ENGLISH SYSTEM PROMPT PREVIEW */}
+              {promptInspectorTab === 'preview' && (
+                <div>
+                  {isMatrixPrompt ? (
+                    <div>
+                      <div style={{ marginBottom: '6px', fontSize: '0.725rem', color: 'var(--text-muted)' }}>
+                        This English prompt simultaneously translates UI strings into all <strong style={{ color: 'var(--accent-cyan)' }}>{selectedTargetLangs.length} matrix languages</strong> in one AI call:
+                      </div>
+                      <pre style={{
+                        margin: 0,
+                        fontSize: '0.75rem',
+                        fontFamily: 'var(--font-mono)',
+                        color: 'var(--text-secondary)',
+                        whiteSpace: 'pre-wrap',
+                        maxHeight: '260px',
+                        overflowY: 'auto',
+                        background: 'rgba(0,0,0,0.3)',
+                        padding: '12px 14px',
+                        borderRadius: 'var(--radius-sm)',
+                        border: '1px solid var(--border-subtle)',
+                        lineHeight: 1.5
+                      }}>
+                        {AiProvidersEngine.buildMultiLanguagePrompt(selectedTargetLangs, {
+                          provider,
+                          model: isCustomModel ? customModelInput.trim() : model,
+                          temperature: 0.3,
+                          sourceLang: sourceLang,
+                          tone,
+                          useGlossary,
+                          glossary,
+                          useCache,
+                          customPromptInstructions: customPromptInstructions.trim() || undefined
+                        })}
+                      </pre>
+                    </div>
+                  ) : (
+                    <div>
+                      <div style={{ marginBottom: '6px', fontSize: '0.725rem', color: 'var(--text-muted)' }}>
+                        This English prompt is sent directly to the AI model ({provider.toUpperCase()}: {isCustomModel ? customModelInput : model}). Target language is configured as <strong style={{ color: 'var(--accent-cyan)' }}>{getLanguageDisplayName(activePromptTarget)}</strong>:
+                      </div>
+                      <pre style={{
+                        margin: 0,
+                        fontSize: '0.75rem',
+                        fontFamily: 'var(--font-mono)',
+                        color: 'var(--text-secondary)',
+                        whiteSpace: 'pre-wrap',
+                        maxHeight: '260px',
+                        overflowY: 'auto',
+                        background: 'rgba(0,0,0,0.3)',
+                        padding: '12px 14px',
+                        borderRadius: 'var(--radius-sm)',
+                        border: '1px solid var(--border-subtle)',
+                        lineHeight: 1.5
+                      }}>
+                        {AiProvidersEngine.buildSystemPrompt({
+                          provider,
+                          model: isCustomModel ? customModelInput.trim() : model,
+                          temperature: 0.3,
+                          sourceLang: sourceLang,
+                          targetLang: activePromptTarget,
+                          tone,
+                          useGlossary,
+                          glossary,
+                          useCache,
+                          customPromptInstructions: customPromptInstructions.trim() || undefined
+                        })}
+                      </pre>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        })()}
 
         {/* Live Multi-Language Progress Bar */}
         {isTranslating && (
@@ -1198,6 +1560,7 @@ export const TranslatorView: React.FC<TranslatorViewProps> = ({
                           <span className="badge badge-cyan">{lang.toUpperCase()}</span>
                         </th>
                       ))}
+                      <th style={{ padding: '10px 12px', minWidth: '120px', textAlign: 'right' }}>Actions</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1232,22 +1595,56 @@ export const TranslatorView: React.FC<TranslatorViewProps> = ({
                           const val = item.translations?.[lang] || (lang === selectedTargetLangs[0] ? item.translatedText : '') || '';
                           return (
                             <td key={lang} style={{ padding: '8px 10px', verticalAlign: 'top' }}>
-                              <input
-                                type="text"
-                                value={val}
-                                placeholder="Pending..."
-                                onChange={e => handleUpdateTranslation(item.id, e.target.value, lang)}
-                                className="input"
-                                style={{
-                                  fontSize: '0.8rem',
-                                  padding: '4px 8px',
-                                  height: '30px',
-                                  borderColor: val ? 'var(--border-subtle)' : 'var(--accent-amber)'
-                                }}
-                              />
+                              <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                                <input
+                                  type="text"
+                                  value={val}
+                                  placeholder="Pending..."
+                                  onChange={e => handleUpdateTranslation(item.id, e.target.value, lang)}
+                                  className="input"
+                                  style={{
+                                    fontSize: '0.8rem',
+                                    padding: '4px 28px 4px 8px',
+                                    height: '30px',
+                                    borderColor: val ? 'var(--border-subtle)' : 'var(--accent-amber)',
+                                    width: '100%'
+                                  }}
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => handleTranslateSingleItem(item.id, lang)}
+                                  className="btn btn-ghost btn-xs"
+                                  style={{
+                                    position: 'absolute',
+                                    right: '3px',
+                                    padding: '2px',
+                                    height: '24px',
+                                    width: '24px',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    color: val ? 'var(--text-muted)' : 'var(--accent-cyan)'
+                                  }}
+                                  title={`Translate '${item.key}' into ${lang.toUpperCase()} with AI`}
+                                >
+                                  <Sparkles size={11} />
+                                </button>
+                              </div>
                             </td>
                           );
                         })}
+                        <td style={{ padding: '8px 10px', verticalAlign: 'middle', textAlign: 'right', whiteSpace: 'nowrap' }}>
+                          <button
+                            type="button"
+                            onClick={() => handleTranslateMatrixRow(item.id)}
+                            className="btn btn-secondary btn-sm"
+                            style={{ padding: '4px 9px', height: '28px', gap: '5px', fontSize: '0.725rem' }}
+                            title={`Translate this row into all ${selectedTargetLangs.length} languages simultaneously with AI`}
+                          >
+                            <Sparkles size={12} color="var(--accent-cyan)" />
+                            <span>Row AI</span>
+                          </button>
+                        </td>
                       </tr>
                     ))}
                   </tbody>

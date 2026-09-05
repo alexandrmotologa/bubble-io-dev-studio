@@ -373,6 +373,7 @@ export interface TranslationJobConfig {
   glossary?: Record<string, string>;
   apiKey?: string;
   ollamaUrl?: string;
+  customPromptInstructions?: string;
 }
 
 export interface TranslationJobResult {

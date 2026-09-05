@@ -96,7 +96,7 @@ export const BUBBLE_LANGUAGES: BubbleLanguage[] = [
   { code: 'af_za', name: 'Afrikaans', nativeName: 'Afrikaans', region: 'Africa' }
 ];
 
-export const DEFAULT_TARGET_LANGUAGE = 'en_us';
+export const DEFAULT_TARGET_LANGUAGE = 'es_es';
 export const DEFAULT_SOURCE_LANGUAGE = 'en_us';
 
 /**

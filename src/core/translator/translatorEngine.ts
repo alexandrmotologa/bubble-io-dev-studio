@@ -62,6 +62,10 @@ export class TranslatorEngine {
       translatedItems.push({
         ...item,
         translatedText: resultText,
+        translations: {
+          ...(item.translations || {}),
+          [config.targetLang]: resultText
+        },
         status: 'translated',
         tokensUsed: tokens
       });
@@ -134,7 +138,7 @@ export class TranslatorEngine {
       }
     }
 
-    const primaryTarget = targetLanguages[0] || 'en_us';
+    const primaryTarget = targetLanguages[0] || 'es_es';
     const finalItems: TranslationItem[] = items.map(item => {
       const translations = itemTranslationsMap[item.id] || {};
       return {
@@ -149,6 +153,46 @@ export class TranslatorEngine {
       items: finalItems,
       tokensUsed: totalTokens,
       resultsByLang
+    };
+  }
+
+  /**
+   * Translates a single item into multiple target languages simultaneously using a unified multi-language prompt
+   */
+  public static async translateSingleItemMultiLanguage(
+    item: TranslationItem,
+    targetLanguages: string[],
+    config: Omit<TranslationJobConfig, 'targetLang'>
+  ): Promise<{ item: TranslationItem; tokensUsed: number }> {
+    const res = await AiProvidersEngine.translateMultiLanguage(
+      item.sourceText,
+      targetLanguages,
+      config,
+      config.apiKey
+    );
+
+    const updatedTranslations = {
+      ...(item.translations || {}),
+      ...res.translations
+    };
+
+    if (config.useCache) {
+      for (const [lang, text] of Object.entries(res.translations)) {
+        TranslationMemoryEngine.setCacheEntry(lang, item.sourceText, text);
+      }
+    }
+
+    const primaryTarget = targetLanguages[0] || 'es_es';
+
+    return {
+      item: {
+        ...item,
+        translations: updatedTranslations,
+        translatedText: updatedTranslations[primaryTarget] || item.translatedText,
+        status: 'translated',
+        tokensUsed: (item.tokensUsed || 0) + res.tokensUsed
+      },
+      tokensUsed: res.tokensUsed
     };
   }
 
