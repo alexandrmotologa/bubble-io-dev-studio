@@ -79,7 +79,7 @@ export const SearchableLanguageSelect: React.FC<SearchableLanguageSelectProps> =
   const selectedObjects = BUBBLE_LANGUAGES.filter(l => selectedLanguages.includes(l.code));
 
   return (
-    <div ref={dropdownRef} style={{ position: 'relative', width: '100%' }}>
+    <div ref={dropdownRef} style={{ position: 'relative', width: '100%', zIndex: isOpen ? 1000 : 'auto' }}>
       {/* Trigger / Summary Bar */}
       <div
         onClick={() => setIsOpen(!isOpen)}
@@ -145,11 +145,13 @@ export const SearchableLanguageSelect: React.FC<SearchableLanguageSelectProps> =
             top: 'calc(100% + 6px)',
             left: 0,
             right: 0,
-            zIndex: 100,
-            background: 'var(--bg-card)',
+            zIndex: 1000,
+            background: 'var(--bg-surface-elevated, #1a2336)',
             border: '1px solid var(--border-active)',
             borderRadius: 'var(--radius-md)',
-            boxShadow: '0 12px 32px rgba(0,0,0,0.5)',
+            boxShadow: '0 24px 48px -4px rgba(0,0,0,0.75), 0 0 0 1px var(--border-active)',
+            backdropFilter: 'blur(20px)',
+            WebkitBackdropFilter: 'blur(20px)',
             padding: '12px',
             display: 'flex',
             flexDirection: 'column',
@@ -226,7 +228,7 @@ export const SearchableLanguageSelect: React.FC<SearchableLanguageSelectProps> =
           {/* Scrollable Language List */}
           <div
             style={{
-              maxHeight: '260px',
+              maxHeight: 'min(240px, 35vh)',
               overflowY: 'auto',
               display: 'flex',
               flexDirection: 'column',

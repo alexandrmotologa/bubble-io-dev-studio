@@ -7,16 +7,22 @@ export class AiProvidersEngine {
    */
   public static buildSystemPrompt(config: TranslationJobConfig): string {
     const targetName = getLanguageDisplayName(config.targetLang);
-    let prompt = `You are a professional localization expert specializing in software UI strings and web applications for Bubble.io.\n`;
-    prompt += `Task: Translate the given UI text from ${config.sourceLang} to ${targetName} (${config.targetLang}).\n`;
-    prompt += `Tone of Voice: ${(config.tone || 'professional').toUpperCase()}.\n`;
-    prompt += `Rules:\n`;
-    prompt += `- Preserve all placeholders, tokens, and variables exactly as written (e.g. [amount], {username}, %s, $1, <br/>, <b>, </b>).\n`;
-    prompt += `- Keep short UI labels concise, natural, and action-oriented.\n`;
-    prompt += `- Output ONLY the translated text string. Do NOT add markdown code fences, quotes, explanations, or prefixes.\n`;
+    let prompt = `You are an elite, native software localization specialist for modern web applications built on Bubble.io.\n`;
+    prompt += `Task: Accurately translate the provided software UI string from ${config.sourceLang} into natural, native ${targetName} (${config.targetLang}).\n`;
+    prompt += `Target Tone: ${(config.tone || 'professional').toUpperCase()}.\n\n`;
+
+    prompt += `Linguistic & Native Quality Standards:\n`;
+    prompt += `1. Native & Idiomatic Interpretation: Produce natural, culturally appropriate, and native-sounding phrasing that reads as if originally authored by a native speaker of ${targetName}. NEVER output unnatural, stiff, or word-for-word machine translations.\n`;
+    prompt += `2. Context-Aware Software UI Semantics: Respect established software conventions in ${targetName} for buttons, alerts, validation errors, navigation items, tooltips, dialogs, and option sets.\n`;
+    prompt += `3. Grammatical & Syntactic Accuracy: Maintain correct declensions, conjugations, gender harmony, and idiomatic preposition usage standard in ${targetName}.\n`;
+    prompt += `4. Conciseness for UI: Ensure button labels and short microcopy remain punchy, action-oriented, and fit standard button/badge widths without unnecessary verbosity.\n\n`;
+
+    prompt += `Strict Technical Constraints:\n`;
+    prompt += `- Technical Variables & Tags: Preserve ALL placeholders, dynamic tokens, formatting tags, and variables EXACTLY as written without translation or alteration (e.g. [param], {variable}, %s, %d, $1, <br/>, <b>, </b>, {username}, [Current User's Name]).\n`;
+    prompt += `- Pure String Output: Output ONLY the translated text string. Do NOT wrap in quotes, do NOT add Markdown formatting (such as \`\`\` or bolding), and do NOT include any commentary, notes, or explanations.\n`;
 
     if (config.useGlossary && config.glossary && Object.keys(config.glossary).length > 0) {
-      prompt += `\nGlossary of protected terms (DO NOT TRANSLATE or ALTER these exact words):\n`;
+      prompt += `\nGlossary of Protected Brand & Technical Terms (Preserve exactly):\n`;
       for (const [term, replacement] of Object.entries(config.glossary)) {
         prompt += `- "${term}" -> "${replacement}"\n`;
       }

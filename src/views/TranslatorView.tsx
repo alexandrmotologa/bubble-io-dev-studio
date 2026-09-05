@@ -35,6 +35,7 @@ import { SearchableLanguageSelect } from '../components/SearchableLanguageSelect
 import { AI_PROVIDERS, PROVIDER_MODELS, getProviderForModel, getCustomModelPlaceholder, getDefaultModelForProvider } from '../core/ai/aiProviders';
 import { toast } from '../core/toast/toastManager';
 import { PseudoLocalizerEngine } from '../core/translator/pseudoLocalizer';
+import { AiProvidersEngine } from '../core/translator/aiProviders';
 import { APP_VERSION } from '../version';
 
 interface TranslatorViewProps {
@@ -100,6 +101,7 @@ export const TranslatorView: React.FC<TranslatorViewProps> = ({
   const [useGlossary, setUseGlossary] = useState(true);
   const [useCache, setUseCache] = useState(true);
   const [isTranslating, setIsTranslating] = useState(false);
+  const [showPromptPreview, setShowPromptPreview] = useState(false);
 
   // Filters
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
@@ -642,7 +644,7 @@ export const TranslatorView: React.FC<TranslatorViewProps> = ({
       </div>
 
       {/* Hero Configuration Toolbar */}
-      <div className="card">
+      <div className="card" style={{ position: 'relative', zIndex: 40 }}>
         <div className="card-header">
           <div>
             <div className="card-title">
@@ -675,9 +677,9 @@ export const TranslatorView: React.FC<TranslatorViewProps> = ({
         </div>
 
         {/* Translation Configuration Grid */}
-        <div className="grid-4" style={{ marginTop: '12px', alignItems: 'flex-start', gap: '14px' }}>
+        <div className="grid-4" style={{ marginTop: '12px', alignItems: 'flex-start', gap: '14px', position: 'relative', zIndex: 50 }}>
           {/* 1. Target Languages Multi-select */}
-          <div style={{ gridColumn: 'span 2' }}>
+          <div style={{ gridColumn: 'span 2', position: 'relative', zIndex: 60 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
               <label className="input-label" style={{ margin: 0 }}>
                 Target Languages ({selectedTargetLangs.length} Selected of {BUBBLE_LANGUAGES.length})
@@ -781,21 +783,34 @@ export const TranslatorView: React.FC<TranslatorViewProps> = ({
         </div>
 
         {/* Second Row: Tone & Flags */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', marginTop: '14px', paddingTop: '12px', borderTop: '1px solid var(--border-subtle)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Tone of Voice:</span>
-            <select
-              value={tone}
-              onChange={e => setTone(e.target.value as any)}
-              className="select select-premium"
-              style={{ width: 'auto', padding: '4px 10px', height: '30px', fontSize: '0.8rem' }}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', marginTop: '14px', paddingTop: '12px', borderTop: '1px solid var(--border-subtle)', position: 'relative', zIndex: 10 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Tone of Voice:</span>
+              <select
+                value={tone}
+                onChange={e => setTone(e.target.value as any)}
+                className="select select-premium"
+                style={{ width: 'auto', padding: '4px 10px', height: '30px', fontSize: '0.8rem' }}
+              >
+                <option value="professional">Professional (Default)</option>
+                <option value="casual">Casual & Friendly</option>
+                <option value="formal">Formal</option>
+                <option value="concise">Concise (Short UI Buttons)</option>
+                <option value="marketing">Marketing & Engaging</option>
+              </select>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setShowPromptPreview(!showPromptPreview)}
+              className={`btn btn-sm ${showPromptPreview ? 'btn-primary' : 'btn-secondary'}`}
+              style={{ fontSize: '0.725rem', padding: '3px 10px', height: '28px', gap: '5px' }}
+              title="Inspect the exact AI system prompt used for translations"
             >
-              <option value="professional">Professional (Default)</option>
-              <option value="casual">Casual & Friendly</option>
-              <option value="formal">Formal</option>
-              <option value="concise">Concise (Short UI Buttons)</option>
-              <option value="marketing">Marketing & Engaging</option>
-            </select>
+              <FileCode size={13} />
+              <span>{showPromptPreview ? 'Hide Prompt' : '👁️ View AI Prompt'}</span>
+            </button>
           </div>
 
           <div style={{ display: 'flex', gap: '20px', fontSize: '0.825rem', flexWrap: 'wrap' }}>
@@ -809,6 +824,77 @@ export const TranslatorView: React.FC<TranslatorViewProps> = ({
             </label>
           </div>
         </div>
+
+        {/* Live System Prompt Preview Inspector */}
+        {showPromptPreview && (
+          <div style={{
+            marginTop: '12px',
+            padding: '12px 16px',
+            background: 'var(--bg-input)',
+            borderRadius: 'var(--radius-md)',
+            border: '1px solid var(--border-active)'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', flexWrap: 'wrap', gap: '8px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--accent-cyan)' }}>
+                  Active AI System Prompt (Native & Idiomatic Quality Mode)
+                </span>
+                <span className="badge badge-cyan" style={{ fontSize: '0.65rem' }}>
+                  Target: {getLanguageDisplayName(selectedTargetLangs[0] || 'en_us')}
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  const effectiveModel = isCustomModel ? customModelInput : model;
+                  const sampleConfig: TranslationJobConfig = {
+                    provider,
+                    model: effectiveModel,
+                    temperature: 0.3,
+                    sourceLang: sourceLang,
+                    targetLang: selectedTargetLangs[0] || 'en_us',
+                    tone,
+                    useGlossary,
+                    glossary,
+                    useCache
+                  };
+                  navigator.clipboard.writeText(AiProvidersEngine.buildSystemPrompt(sampleConfig));
+                  toast.success('Prompt copied to clipboard');
+                }}
+                className="btn btn-secondary btn-sm"
+                style={{ fontSize: '0.7rem', padding: '2px 8px', height: '24px', gap: '4px' }}
+              >
+                <Copy size={11} />
+                <span>Copy Prompt</span>
+              </button>
+            </div>
+            <pre style={{
+              margin: 0,
+              fontSize: '0.75rem',
+              fontFamily: 'var(--font-mono)',
+              color: 'var(--text-secondary)',
+              whiteSpace: 'pre-wrap',
+              maxHeight: '220px',
+              overflowY: 'auto',
+              background: 'rgba(0,0,0,0.3)',
+              padding: '10px 12px',
+              borderRadius: 'var(--radius-sm)',
+              border: '1px solid var(--border-subtle)'
+            }}>
+              {AiProvidersEngine.buildSystemPrompt({
+                provider,
+                model: isCustomModel ? customModelInput : model,
+                temperature: 0.3,
+                sourceLang: sourceLang,
+                targetLang: selectedTargetLangs[0] || 'en_us',
+                tone,
+                useGlossary,
+                glossary,
+                useCache
+              })}
+            </pre>
+          </div>
+        )}
 
         {/* Live Multi-Language Progress Bar */}
         {isTranslating && (
@@ -830,7 +916,7 @@ export const TranslatorView: React.FC<TranslatorViewProps> = ({
           SUBTAB 1: LOCALIZATION STUDIO & MATRIX
           ===================================================================== */}
       {subTab === 'studio' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', position: 'relative', zIndex: 1 }}>
           {/* Add String Row */}
           <div className="card" style={{ padding: '14px 18px' }}>
             <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-end', flexWrap: 'wrap' }}>
@@ -1176,7 +1262,7 @@ export const TranslatorView: React.FC<TranslatorViewProps> = ({
           SUBTAB 2: BRAND GLOSSARY & TOKEN PRESERVATION
           ===================================================================== */}
       {subTab === 'glossary' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', position: 'relative', zIndex: 1 }}>
           <div className="card">
             <div className="card-header">
               <div>
@@ -1250,7 +1336,7 @@ export const TranslatorView: React.FC<TranslatorViewProps> = ({
           SUBTAB 3: TRANSLATION MEMORY (CACHE)
           ===================================================================== */}
       {subTab === 'cache' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', position: 'relative', zIndex: 1 }}>
           <div className="grid-3" style={{ gap: '12px' }}>
             <div className="card" style={{ padding: '16px' }}>
               <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>TOTAL CACHED STRINGS</div>
@@ -1294,7 +1380,7 @@ export const TranslatorView: React.FC<TranslatorViewProps> = ({
           SUBTAB 4: PSEUDO-LOCALIZATION
           ===================================================================== */}
       {subTab === 'pseudo' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', position: 'relative', zIndex: 1 }}>
           {/* Interactive Tester Card */}
           <div className="card">
             <div className="card-header">
@@ -1377,7 +1463,7 @@ export const TranslatorView: React.FC<TranslatorViewProps> = ({
           SUBTAB 5: REAL-TIME COST ESTIMATOR
           ===================================================================== */}
       {subTab === 'cost' && (
-        <div className="card">
+        <div className="card" style={{ position: 'relative', zIndex: 1 }}>
           <div className="card-header">
             <div>
               <div className="card-title">
