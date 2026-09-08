@@ -1,121 +1,111 @@
-# 🛠️ DevOps & Database Studio Guide (v3.3.9)
+# DevOps & Database Studio Guide
 
-The **DevOps & Database Studio** is an enterprise-grade toolchain for managing Bubble.io database schemas, live records, TypeScript bindings, automated backups, and environment releases.
+DevOps & Database Studio provides tools to manage Bubble.io database schemas, live records, TypeScript bindings, backups, and environment releases.
 
 ---
 
-## 🌟 2-Tier Structured Architecture
+## Module Structure
 
-To provide a clean, distraction-free workflow, the module is organized into **4 Focused Core Domains**:
+The module is organized into four sections:
 
 ```
 ┌────────────────────────────────────────────────────────────────────────────────────────┐
 │                              DevOps & Database Studio                                  │
 ├────────────────────┬────────────────────┬────────────────────┬─────────────────────────┤
-│ 📊 Data Studio     │ 📑 Schema & Flow   │ 💾 Backups & DevOps│ 🛠️ Dev Tools & CI/CD   │
-│   • Live Data Grid │   • Schema Explorer│   • Selective Back │   • 4x CI/CD Presets    │
-│   • REPL Query     │   • 1-Click Cloud  │   • SHA-256 Hashes │   • Multi-SQL Migration │
-│   • Relational Seed│   • Downloads Watch│   • Snapshots Diff │   • SDK Scaffolder      │
-│   • CSV/JSON Import│   • Interactive ERD│   • Down Rollbacks │   • Mock API & Trigger  │
-│                    │   • Step Flowchart │   • Dev vs Live    │                         │
+│ Data Studio        │ Schema & Flow      │ Backups & DevOps   │ Dev Tools & CI/CD       │
+│   • Live Data Grid │   • Schema Explorer│   • Table Backups  │   • CI/CD Presets       │
+│   • REPL Query     │   • Blueprint Sync │   • SHA-256 Hashes │   • Multi-SQL Migration │
+│   • Relational Seed│   • Downloads Watch│   • Snapshots Diff │   • SDK Generator       │
+│   • CSV/JSON Import│   • Interactive ERD│   • Down Rollbacks │   • Mock API Server     │
+│                    │   • Flowchart Graph│   • Dev vs Live    │                         │
 │                    │   • TypeScript/Zod │                    │                         │
 └────────────────────┴────────────────────┴────────────────────┴─────────────────────────┘
 ```
 
 ---
 
-## 1. Domain 1: Data Studio (`Data & Records`)
+## 1. Data Studio (Data & Records)
 
-### 📊 Interactive Data Studio (Live Spreadsheet Grid)
-* **Live CRUD Explorer**: Direct integration with Bubble's Data API (`/api/1.1/obj/[table]`).
-* **📥 Smart CSV & JSON Batch Importer**: Upload `.csv` (RFC 4180) or `.json` (array of objects) files with automated column mapping, type casting (`number`, `boolean`, `date`), live progress tracking, and batch creation.
-* **📖 Interactive In-App Template Guides**: Preview and copy ready-to-use CSV and JSON templates matching your selected table schema with 1-click `Download CSV` / `Download JSON` buttons.
-* **Inline Cell Editing**: Double-click any cell or click the pencil icon to update fields in real-time (`PATCH`).
-* **Deep Record Inspector**: Lateral drawer inspecting all fields, types, and raw JSON payloads.
-* **Auto Exposure Warning**: If a table is not exposed under Bubble *Settings ➔ API ➔ Data API*, the studio automatically detects HTTP 404 and provides a 1-click checklist with Bubble settings deep-links.
+### Interactive Data Grid
+* **Live CRUD Explorer**: Connects to Bubble's Data API (`/api/1.1/obj/[table]`) to view and query records.
+* **CSV & JSON Batch Importer**: Import `.csv` or `.json` files with automatic column mapping, type casting (`number`, `boolean`, `date`), and progress indicators.
+* **Template Guides**: Preview and download CSV and JSON templates matching your selected table schema.
+* **Inline Editing**: Double-click any table cell to update values directly via `PATCH`.
+* **Record Drawer**: Side panel to inspect all fields, types, and raw JSON payloads for any selected row.
+* **Exposure Warning**: If a table is not enabled under Bubble *Settings > API > Data API*, the studio flags the HTTP 404 response and links to the relevant Bubble settings page.
 
-### 🌱 Relational Data Seeder & DAG Resolver
-* **Cross-Table Foreign Key Linking**: Define parent records using `"_ref": "@alias"` and reference them anywhere in child tables (e.g. `"owner": "@user_admin"`).
-* **Automatic DAG Resolution**: Topologically sorts tables by dependency hierarchy, creates parents first, captures real Bubble `_id`s, and replaces `@alias` references with real IDs before creating dependent children.
-* **2-Pass Deferred Resolution for Circular References**: Automatically detects circular dependencies and schedules deferred `PATCH` requests.
-
----
-
-## 2. Domain 2: Schema & Flow (`Architecture & Types`)
-
-### ⚡ Complete Application Blueprint Synchronization
-Dev Studio provides 3 ingestion pathways to synchronize your application structure:
-
-1. **⚡ 1-Click Cloud Direct Sync**:
-   - Uses our dedicated microservice and collaborator bot (`bubbledevstudio.bot@gmail.com`).
-   - Retrieves the full AST via Bubble's official export protocol.
-   - Automatically writes a compact JSON file to `~/Downloads/[appId]-cloud-sync.bubble` (~10.8 MB).
-2. **📁 Downloads Folder Auto-Watcher**:
-   - Monitors `~/Downloads` for `.bubble` or `.json` files exported from Bubble *Settings ➔ General*.
-   - Auto-attaches and parses newly detected exports without manual file picking.
-3. **📄 Manual File Import**:
-   - Drag-and-drop or select any existing `.bubble` or `.json` file from your hard drive.
-
-### 📑 Schema Explorer & Option Sets
-* Inspect custom data types, fields, nullability, list relations, and Option Sets with clean visual badges.
-
-### 🕸️ Interactive SVG ERD Diagram
-* Visual entity-relationship diagram with smooth Pan, Zoom In/Out, 1-Click SVG download, and copyable Mermaid.js script.
-
-### 🔀 Workflow Flowchart Map & Step Drawer
-* Interactive DAG node graph displaying workflow triggers, actions, database writes, and condition branches (`Only when...`).
-* Includes a lateral action drawer breaking down individual action properties and parameters.
-
-### 🏷️ TypeScript, Zod & SDK Studio
-* **TypeScript Interfaces (`.d.ts`)**: Strict type-safe models for all database tables.
-* **Zod Validation Schemas**: Runtime validation schemas for external API ingestion.
-* **Type-Safe Bubble API Client SDK**: Zero-dependency TypeScript SDK with full CRUD methods for your schema.
+### Relational Data Seeder
+* **Cross-Table Foreign Key Linking**: Define parent records using `"_ref": "@alias"` and reference them in child tables (e.g., `"owner": "@user_admin"`).
+* **Dependency Resolution**: Topologically sorts tables by dependency hierarchy, creates parents first, collects real Bubble `_id` values, and replaces `@alias` references before creating child records.
+* **Circular Reference Handling**: Detects circular dependencies and resolves them using two-pass deferred `PATCH` requests.
 
 ---
 
-## 3. Domain 3: Backups & DevOps (`Reliability & Migrations`)
+## 2. Schema & Flow (Architecture & Types)
 
-### 💾 Selective Micro-Backups & Archival Hub
-* Run full or table-scoped **Selective Micro-Backups** with row counts and compressed JSON exports.
-* **SHA-256 Integrity Checksums**: Every backup generates a tamper-proof SHA-256 hash with 1-click clipboard copy.
-* **Local JSON Archive Import & Restore**: Restore backups from previous `.json` archive files.
+### Blueprint Synchronization
+Import your application structure using three methods:
+1. **Cloud Direct Sync**: Uses the sync service and collaborator account (`bubbledevstudio.bot@gmail.com`) to download the complete AST into `~/Downloads/[appId]-cloud-sync.bubble`.
+2. **Downloads Watcher**: Monitors `~/Downloads` for exports downloaded from Bubble *Settings > General*.
+3. **Manual File Import**: Select any `.bubble` or `.json` file from your local disk.
 
-### 📸 Point-in-Time Snapshots & Differential Search
-* Capture table states before risky operations into local IndexedDB.
-* **Live Differential Search**: Filter added, modified, or deleted records in real-time.
-* **Multi-Format Diff Export**: Export comparison diffs to **Markdown (`.md`)** or **JSON**.
+### Schema Explorer & Option Sets
+Inspect custom data types, fields, nullability, list relations, and Option Sets with visual badges.
 
-### 📜 Schema Migrations (Schema-as-Code)
-* Tracks schema changes against baseline `schema.lock.json`.
-* **Multi-Dialect DDL Generator**: Generates database creation and migration scripts for:
-  - 🐘 **PostgreSQL / Supabase**
-  - 🐬 **MySQL / PlanetScale**
-  - 🪶 **SQLite / Turso**
-  - 📊 **Google BigQuery DDL**
-* **DOWN Migration Rollback Script**: Automatically generates inverse SQL scripts to rollback schema changes safely.
+### Interactive SVG ERD Diagram
+Entity-relationship diagram with pan, zoom controls, SVG download, and copyable Mermaid.js syntax.
 
-### 🔄 Dev vs Live Cross-Environment Sync
-* Compare table schemas between `version-test` and `version-live` to prevent schema drift.
-* **Dynamic Environmental Drift Risk Badge**: Automatic calculation of `HIGH`, `MEDIUM`, or `LOW` deployment risk.
-* **Pre-Release Checklist**: Interactive 0–100% verification tracker.
-* **Sign-Off Report Export**: 1-click Markdown Sign-Off report ready for release documentation.
+### Workflow Flowchart Map
+Interactive node graph displaying triggers, actions, database writes, and conditional branches (`Only when...`), with a side drawer for action properties and expressions.
+
+### TypeScript, Zod & SDK Studio
+* **TypeScript Interfaces (`.d.ts`)**: Strict type definitions for database tables.
+* **Zod Schemas**: Runtime validation schemas for external API inputs.
+* **Type-Safe API Client SDK**: Zero-dependency TypeScript SDK with CRUD methods matching your schema.
 
 ---
 
-## 4. Domain 4: Dev Tools & CI/CD (`Tooling & Automation`)
+## 3. Backups & DevOps (Reliability & Migrations)
 
-### 🚀 CI/CD Pipeline Presets
-Generate production-ready CI/CD pipelines with 1-click **Download Workflow (.yml)**:
-1. 📦 **Scheduled Nightly Automated Database Backup**
-2. 🛡️ **PR Schema Drift & Lockfile Verification Gate**
-3. 🔐 **PII Privacy Rules & Security Vulnerability Gate**
-4. ⚡ **Continuous Data Sync to Supabase / PostgreSQL**
+### Table Backups
+* Run full or table-specific backups with row counts and compressed JSON exports.
+* **SHA-256 Checksums**: Generates a SHA-256 hash for each backup file to verify data integrity.
+* **JSON Archive Restore**: Restore backups from previous `.json` export archives.
 
-Supports both **GitHub Actions** and **GitLab CI**.
+### Snapshots & Difference Auditing
+* Save table states to local IndexedDB before making schema or bulk data changes.
+* **Differential Search**: Filter records by added, modified, or deleted status.
+* **Diff Export**: Export change summaries in Markdown (`.md`) or JSON.
 
-### 🧱 Integration Template Scaffolder
-Generates production-tested boilerplate with 1-click **Download TypeScript (.ts)**:
-* **Bubble Plugin Server-Side Action (SSA)**
-* **Type-Safe CRUD API Connector**
-* **Webhook Receiver (Express)**
-* **Type-Safe SDK Quickstart**
+### Schema Migrations
+* Tracks schema changes against `schema.lock.json`.
+* **Multi-Dialect DDL Generator**: Generates table creation and migration scripts for:
+  - PostgreSQL / Supabase
+  - MySQL / PlanetScale
+  - SQLite / Turso
+  - Google BigQuery
+* **Rollback Scripts**: Generates inverse SQL scripts to revert schema changes.
+
+### Dev vs Live Cross-Environment Sync
+* Compare table schemas between `version-test` and `version-live` to spot schema drift.
+* **Drift Risk Indicator**: Calculates deployment risk as High, Medium, or Low.
+* **Pre-Release Checklist**: Verification tracker for release sign-offs.
+* **Sign-Off Reports**: Exports Markdown reports for release records.
+
+---
+
+## 4. Dev Tools & CI/CD (Tooling & Automation)
+
+### CI/CD Pipeline Presets
+Export workflow files for GitHub Actions or GitLab CI:
+1. Scheduled Nightly Database Backup
+2. PR Schema Drift and Lockfile Verification
+3. Privacy Rules and Security Check
+4. Continuous Data Sync to PostgreSQL / Supabase
+
+### Code Boilerplate Generator
+Download TypeScript templates for:
+* Bubble Plugin Server-Side Action (SSA)
+* Typed CRUD API Connector
+* Webhook Receiver (Express)
+* Type-Safe SDK Quickstart

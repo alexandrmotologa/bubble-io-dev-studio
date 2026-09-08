@@ -1,23 +1,23 @@
-# ☁️ Bubble.io Dev Studio — Cloud Sync Microservice (v3.3.9)
+# Bubble.io Dev Studio - Cloud Sync Microservice
 
-A high-performance, autonomous Node.js service running on Oracle Cloud Infrastructure (Always-Free Tier) that serves as the backend bridge for Bubble.io Dev Studio's **⚡ 1-Click Cloud Direct Sync**.
-
----
-
-## 🌟 How It Works
-
-The microservice acts as an authorized collaborator bot (`bubbledevstudio.bot@gmail.com`). When a developer initiates sync from Bubble.io Dev Studio, the microservice executes a prioritized dual-strategy extraction:
-
-1. **Strategy 1: Official Bubble Export Protocol (Priority)**:
-   Fetches the full application export directly from `https://bubble.io/appeditor/export/${branch}/${appId}.bubble`. Returns 100% complete AST containing all pages, reusable elements, workflows, action chains, and data models.
-2. **Strategy 2: Multi-Path AST Assembly (Fallback)**:
-   If the export route is throttled or restricted, fetches granular AST paths via `/appeditor/load_multiple_paths` and normalizes them into standard `.bubble` blueprint JSON.
+Node.js service that fetches Bubble application exports for Bubble.io Dev Studio's cloud synchronization feature.
 
 ---
 
-## 🚀 Deployment Options on Oracle Cloud VM
+## How It Works
 
-### Method A: Native Systemd Service (Recommended on Oracle Linux 9)
+The microservice authenticates using a collaborator account (`bubbledevstudio.bot@gmail.com`). When a sync request arrives from Bubble.io Dev Studio, the service attempts two extraction methods:
+
+1. **Official Export Protocol (Primary)**:
+   Fetches the application export directly from `https://bubble.io/appeditor/export/${branch}/${appId}.bubble`. This returns the full AST, including pages, reusable elements, workflows, action chains, and data models.
+2. **Multi-Path AST Assembly (Fallback)**:
+   If the export route is throttled or restricted, the service fetches individual AST paths via `/appeditor/load_multiple_paths` and formats them into a standard `.bubble` JSON file.
+
+---
+
+## Deployment on Oracle Cloud VM
+
+### Method A: Systemd Service (Oracle Linux 9)
 
 1. **Install Node.js 20+**:
    ```bash
@@ -25,7 +25,7 @@ The microservice acts as an authorized collaborator bot (`bubbledevstudio.bot@gm
    sudo dnf install nodejs git -y
    ```
 
-2. **Clone & Setup Directory**:
+2. **Set up application directory**:
    ```bash
    sudo mkdir -p /opt/bubble-cloud-sync
    sudo chown -R $USER:$USER /opt/bubble-cloud-sync
@@ -34,20 +34,20 @@ The microservice acts as an authorized collaborator bot (`bubbledevstudio.bot@gm
    npm install --omit=dev
    ```
 
-3. **Configure Environment (`.env`)**:
+3. **Configure environment (`.env`)**:
    ```bash
    cp .env.example .env
    nano .env
    ```
-   Provide:
+   Add your settings:
    ```env
    PORT=8080
    BUBBLE_BOT_SESSION=your_bubble_session_cookie_here
-   # Optional: Protect with a secret API key
-   # SYNC_API_SECRET=your_super_secret_key_here
+   # Optional secret key:
+   # SYNC_API_SECRET=your_secret_key_here
    ```
 
-4. **Create Systemd Service (`/etc/systemd/system/bubble-sync.service`)**:
+4. **Create a systemd unit (`/etc/systemd/system/bubble-sync.service`)**:
    ```ini
    [Unit]
    Description=Bubble.io Dev Studio Cloud Sync Microservice
@@ -66,7 +66,7 @@ The microservice acts as an authorized collaborator bot (`bubbledevstudio.bot@gm
    WantedBy=multi-user.target
    ```
 
-5. **Enable and Start Service**:
+5. **Start the service**:
    ```bash
    sudo systemctl daemon-reload
    sudo systemctl enable --now bubble-sync.service
@@ -77,42 +77,42 @@ The microservice acts as an authorized collaborator bot (`bubbledevstudio.bot@gm
 
 ### Method B: Docker & Docker Compose
 
-1. **Start with Docker Compose**:
+1. **Start containers**:
    ```bash
    docker compose up -d --build
    ```
 
-2. **Inspect Logs**:
+2. **View logs**:
    ```bash
    docker compose logs -f
    ```
 
 ---
 
-## 🔒 Firewall & Security Configuration
+## Firewall & Security Configuration
 
-### 1. Oracle Cloud Infrastructure (OCI) VCN Security List
+### 1. Oracle Cloud Infrastructure (OCI) Security List
 In the OCI Web Console:
-* Navigate to **Networking ➔ Virtual Cloud Networks ➔ your VCN ➔ Security Lists**.
+* Open **Networking > Virtual Cloud Networks > your VCN > Security Lists**.
 * Add an **Ingress Rule**:
   - **Source CIDR**: `0.0.0.0/0`
   - **IP Protocol**: `TCP`
-  - **Destination Port Range**: `8080` (or `443` if using Nginx reverse proxy with SSL).
+  - **Destination Port Range**: `8080` (or `443` behind a reverse proxy with SSL).
 
-### 2. VM OS Firewall (Oracle Linux `firewalld` or `iptables`)
+### 2. Host Firewall (Oracle Linux `firewalld` or `iptables`)
 ```bash
 # Oracle Linux / RHEL (firewalld)
 sudo firewall-cmd --zone=public --add-port=8080/tcp --permanent
 sudo firewall-cmd --reload
 
-# Or Ubuntu / Debian (iptables)
+# Ubuntu / Debian (iptables)
 sudo iptables -I INPUT 6 -m state --state NEW -p tcp --dport 8080 -j ACCEPT
 sudo netfilter-persistent save
 ```
 
 ---
 
-## 📡 API Endpoints
+## API Endpoints
 
 ### 1. Health Check
 ```http
@@ -142,7 +142,7 @@ X-Sync-Secret: <optional-secret>
 }
 ```
 
-**Response (Success)**:
+**Response**:
 ```json
 {
   "success": true,
@@ -161,9 +161,9 @@ X-Sync-Secret: <optional-secret>
 
 ---
 
-## 🛡️ Built-in Security Protections
+## Security Protections
 
-1. **Rate Limiting**: IP-based sliding window (`express-rate-limit`) restricting clients to **30 requests per 15 minutes** to prevent brute-force attacks and abuse.
-2. **Payload Protection**: Request body parsing capped at 50MB with strict JSON validation.
-3. **Bot Session Isolation**: The session cookie never leaves the server's environment memory.
-4. **No Database Access**: Only accesses Bubble app definition endpoints (`/appeditor/...`), ensuring zero exposure to live user data.
+1. **Rate Limiting**: Uses `express-rate-limit` capped at 30 requests per 15 minutes per IP address.
+2. **Payload Limits**: Limits request body size to 50MB with strict JSON parsing.
+3. **Session Isolation**: The session cookie stays in server environment memory and is not sent to clients.
+4. **No Database Access**: Only queries Bubble app definition endpoints (`/appeditor/...`), without accessing database records.

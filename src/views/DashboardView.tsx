@@ -78,7 +78,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             Welcome to Bubble.io Dev Studio
           </h2>
           <p style={{ fontSize: '0.95rem', color: 'var(--text-secondary)', maxWidth: '540px', margin: '0 auto 24px', lineHeight: 1.6 }}>
-            The all-in-one developer workspace for Bubble.io. Manage schemas & migrations, detect orphaned dead code, translate apps with multi-provider AI, and run visual pixel regression tests.
+            Developer workspace for Bubble.io. Manage schemas, detect unused code, translate strings with AI, and run regression tests.
           </p>
 
           <button onClick={onOpenConnectModal} className="btn btn-primary" style={{ padding: '12px 24px', fontSize: '0.95rem' }}>
@@ -184,7 +184,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         <div className="card" style={{ padding: '12px 14px' }}>
           <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>UI ELEMENTS</div>
           <div style={{ fontSize: '1.3rem', fontWeight: 800, color: 'var(--accent-amber)' }}>{elementsCount} Elements</div>
-          <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>AST AST Parsed</div>
+          <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>Parsed from AST</div>
         </div>
         <div className="card" style={{ padding: '12px 14px' }}>
           <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>INSTALLED PLUGINS</div>
@@ -386,7 +386,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               }}
             >
               <div>
-                <strong>📚 1-Click DocGen Book:</strong> Compile complete architecture and developer documentation.
+                <strong>📚 DocGen Book:</strong> Generate architecture overviews and data dictionaries.
               </div>
               <ArrowRight size={14} color="var(--accent-cyan)" />
             </div>

@@ -1,43 +1,42 @@
-# 🌐 AI Localization Studio Guide (v3.3.15)
+# AI Localization Studio Guide
 
-The **AI Localization Studio** provides multi-provider AI translation, recursive string extraction from `.bubble` files, translation memory caching, brand glossary protection, real-time cost estimation, and robust CSV merge capabilities.
+The AI Localization Studio extracts application strings from `.bubble` files, translates them across multiple AI providers, manages translation memory, and exports translations directly for Bubble's language settings.
 
 ---
 
-## 1. Subtabs & Module Structure
+## Subtabs & Module Structure
 
-The **AI Localization Studio** contains 5 specialized subtabs with pixel-perfect, standardized 42px form controls:
+The module contains five main sections:
 
-1. **🌐 Localization Studio & Matrix View**:
-   - Single Language and Multi-Language Matrix Views.
-   - Filter by category pills (`UI`, `Error`, `Notification`, `Email`, `Option Set`) and translation status (`All`, `Pending`, `Ready / Translated`).
-   - Single-click row-level AI translation and simultaneous multi-language batch execution.
-   - **Smart CSV Import & Merge**: Importing external Bubble App Text or live Database CSV files intelligently merges new strings with existing ones, preserving extracted Option Sets without duplication.
-   - **Project Blueprint Isolation**: Importing CSVs or `.bubble` files in this module operates strictly on the local translation workspace and **never** modifies or overwrites the project's attached `.bubble` blueprint (`activeProject.blueprintExportJson`).
-   - **`Sync .bubble` Button**: One-click re-extraction directly from the project's attached `.bubble` blueprint at any time.
+### 1. Localization Studio & Matrix View
+- **Views**: Single language view and multi-language matrix view.
+- **Filtering**: Filter by category (`UI`, `Error`, `Notification`, `Email`, `Option Set`) and translation status (`All`, `Pending`, `Ready / Translated`).
+- **Batch Processing**: Run single-string translations or batch translate across multiple target languages simultaneously.
+- **CSV Import & Merge**: Import external Bubble App Text or database CSV files. The import merges new strings with existing ones while preserving extracted Option Sets without duplicates.
+- **Blueprint Isolation**: Importing CSVs or `.bubble` files in this module operates only on the local translation workspace and does not modify the project's saved `.bubble` blueprint.
+- **Sync Blueprint**: Use the `Sync .bubble` button to re-extract strings and Option Sets directly from the attached blueprint.
 
-2. **📖 Brand Glossary & Dynamic Token Protection**:
-   - Protect brand names (e.g. `Bubble.io`, `Stripe`, `OAuth`, `API`) and dynamic Bubble expressions (e.g. `[Current User]`, `[Parent group's Thing]`, `[Result of step 1]`) from AI modification.
-   - Pre-configured 1-click **Bubble Standard Token Presets**.
-   - Standardized input dimensions aligned with global studio inputs.
+### 2. Brand Glossary & Token Protection
+- Keep brand names (such as `Bubble.io`, `Stripe`, `OAuth`, `API`) and dynamic Bubble expressions (`[Current User]`, `[Parent group's Thing]`, `[Result of step 1]`) intact during translation.
+- Includes preset rules for common Bubble tokens.
+- Add custom protected terms to prevent translation.
 
-3. **🗄️ Translation Memory (Cache)**:
-   - High-speed zero-latency cache indexed by `hash(sourceText + targetLang)`.
-   - Metrics: Cached strings count, characters saved, and accumulated API dollar savings.
-   - 1-click cache purge controller.
+### 3. Translation Memory (Cache)
+- Caches translated strings in IndexedDB using `hash(sourceText + targetLang)`.
+- Displays metrics for cached string count, character count, and estimated API savings.
+- Includes a button to clear the translation cache when needed.
 
-4. **🧪 Pseudo-Localization Testing**:
-   - Simulates text expansion (20%–50%) and diacritic transformations to stress-test Bubble UI responsiveness before translating.
+### 4. Pseudo-Localization Testing
+- Simulates 20% to 50% text expansion and accented character replacements to test whether Bubble UI containers handle longer text before translating.
 
-5. **💰 Cost Estimator & Token Analytics**:
-   - Calculate projected token consumption and API costs across 9 providers before launching bulk jobs.
-   - Compare pricing across Google Gemini, OpenAI, Claude, DeepSeek, Groq, xAI, OpenCode, and Ollama.
+### 5. Cost Estimator & Token Analytics
+- Calculates projected token usage and API costs across providers before running large batch jobs.
+- Compares estimates across Google Gemini, OpenAI, Claude, DeepSeek, Groq, xAI, OpenCode, and Ollama.
 
-6. **📤 Bubble CSV & JSON Bundle Exporter**:
-   - Export translations directly formatted for Bubble's native language settings:
-     ```csv
-     Bubble Text ID,Original Text,French,German,Spanish
-     ```
-   - Export consolidated multi-language JSON bundles for headless or mobile architectures.
-   - Ready for 1-click import into **Bubble Editor ➔ Settings ➔ Languages**.
-
+### 6. Bubble CSV & JSON Bundle Exporter
+- Exports translations matching Bubble's native format:
+  ```csv
+  Bubble Text ID,Original Text,French,German,Spanish
+  ```
+- Exports multi-language JSON bundles for external frontend setups.
+- Files can be imported directly in **Bubble Editor > Settings > Languages**.

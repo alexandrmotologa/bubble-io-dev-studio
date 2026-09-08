@@ -1798,7 +1798,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             </div>
 
             <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', lineHeight: 1.65, margin: '0 0 16px' }}>
-              <strong>Bubble.io Dev Studio</strong> is the all-in-one developer productivity suite and GUI for Bubble.io engineers, agencies, and full-stack builders. It unifies Schema DevOps, Dead Code AST Audits, Workload Unit Profiling, Webhook Ingestion, 1-Click Documentation Books, AI Localization, and Visual QA Regression Testing into a single unified desktop workflow.
+              <strong>Bubble.io Dev Studio</strong> is a desktop workspace for Bubble.io developers. It provides tools for database schemas, dead code audits, workload unit profiling, webhooks, documentation generation, localization, and visual testing.
             </p>
 
             <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', paddingTop: '14px', borderTop: '1px solid var(--border-subtle)' }}>

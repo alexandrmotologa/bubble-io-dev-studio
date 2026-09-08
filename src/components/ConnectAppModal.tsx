@@ -1754,7 +1754,7 @@ export const ConnectAppModal: React.FC<ConnectAppModalProps> = ({
                       fontSize: '0.725rem',
                       color: 'var(--text-muted)'
                     }}>
-                      💡 <strong>Note:</strong> This file contains your app's UI elements, workflows, and database schema (AST). It is 100% safe and does not contain live user records. If you don't have it right now, you can skip this step and upload it later in Settings.
+                      💡 <strong>Note:</strong> This file contains your app's UI elements, workflows, and database schema (AST). It does not contain live database records. If you do not have it right now, you can skip this step and upload it later in Settings.
                     </div>
                   </div>
                 )}

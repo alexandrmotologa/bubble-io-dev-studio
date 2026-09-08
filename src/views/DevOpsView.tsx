@@ -2161,8 +2161,8 @@ export const DevOpsView: React.FC<DevOpsViewProps> = ({ activeProject, initialSu
 
             <div style={{ fontSize: '0.725rem', color: 'var(--text-muted)' }}>
               {erdFocusedTable === 'ALL' 
-                ? `Showing complete enterprise database schema (${schema?.dataTypes.length || 0} tables)`
-                : `Focused on '${erdFocusedTable}' and all connected parent & child tables`}
+                ? `Showing database schema (${schema?.dataTypes.length || 0} tables)`
+                : `Focused on '${erdFocusedTable}' and connected tables`}
             </div>
           </div>
 
@@ -2185,7 +2185,7 @@ export const DevOpsView: React.FC<DevOpsViewProps> = ({ activeProject, initialSu
                   <span>TypeScript Studio & Type-Safe CodeGen</span>
                 </div>
                 <div className="card-subtitle" style={{ fontSize: '0.775rem', marginTop: '4px' }}>
-                  Generate enterprise-grade TypeScript interfaces, runtime Zod validation schemas, and a zero-dependency Bubble API client
+                  Generate TypeScript interfaces, runtime Zod validation schemas, and a type-safe Bubble API client
                 </div>
               </div>
 
@@ -4591,7 +4591,7 @@ jobs:
                 </div>
                 <div>
                   <h3 style={{ fontSize: '0.95rem', fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>
-                    Enterprise CI/CD Pipelines & DevOps for Bubble.io
+                    CI/CD Pipelines & DevOps for Bubble.io
                   </h3>
                   <p style={{ fontSize: '0.725rem', color: 'var(--text-secondary)', margin: 0, marginTop: '2px' }}>
                     Standardize automated backup jobs, Pull Request schema gates, and SDK scaffolding

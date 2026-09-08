@@ -1,36 +1,40 @@
-# 📸 Visual QA & Regression Suite Guide (v3.3.9)
+# Visual QA & Regression Suite Guide
 
-The **Visual QA Suite** automates responsive multi-device pixel diff testing for Bubble.io web applications.
+The Visual QA Suite provides multi-device responsive screenshot comparisons and pixel difference detection for Bubble.io applications.
 
 ---
 
-## 1. Subtabs & Module Structure
+## Subtabs & Module Structure
 
-The **Visual QA Suite** contains 5 specialized subtabs:
+The Visual QA Suite includes five sections:
 
-1. **📸 Visual Regression Suite & Diff Inspector**:
-   - Multi-target test execution across desktop, tablet, and mobile viewports.
-   - **4 Visual Diff Inspection Modes**:
-     - ↔️ **Split Slider**: Drag the interactive vertical divider left and right to inspect layout shifts pixel-by-pixel.
-     - 🔲 **Side-by-Side**: View Baseline and Current Release captures with synchronized zooming.
-     - 🧅 **Onion Skin**: Layer the two captures on top of each other with adjustable alpha opacity (0–100%).
-     - 🔥 **Heatmap Highlight**: Visual overlay highlighting bounding boxes of pixel discrepancies.
-   - **Approve Baseline Snapshot**: Promote any test capture to the new production reference with 1 click.
+### 1. Visual Regression & Diff Inspector
+- Test execution across desktop, tablet, and mobile viewports.
+- **Four Comparison Modes**:
+  - **Split Slider**: Drag a divider horizontally to inspect layout changes pixel-by-pixel.
+  - **Side-by-Side**: Compare baseline and test captures side by side with synchronized zoom.
+  - **Onion Skin**: Overlay the two captures with adjustable opacity (0% to 100%).
+  - **Heatmap**: Highlights bounding boxes around detected pixel differences.
+- **Baseline Approval**: Set any capture as the new reference baseline with one click.
 
-2. **📱 4-Up Multi-Device Live Matrix**:
-   - Interactive synchronized viewport matrix: Desktop 4K (`1920×1080`), MacBook Air (`1280×800`), iPad Pro (`834×1194`), and iPhone 16 Pro (`393×852`).
-   - Device rotation toggle (Portrait ↔ Landscape).
-   - Add custom breakpoint sizes and scale zoom (50%, 75%, 100%).
+### 2. Multi-Device Matrix
+- Synchronized viewport matrix for standard screen sizes:
+  - Desktop: `1920x1080`
+  - Laptop: `1280x800`
+  - Tablet: `834x1194`
+  - Mobile: `393x852`
+- Orientation toggle (portrait and landscape).
+- Custom breakpoint additions and scaling options (50%, 75%, 100%).
 
-3. **🎯 Target Viewports & Custom Routes**:
-   - Add page routes (e.g. `/index`, `/pricing`, `/dashboard`) with device presets.
-   - 1-click **Load Responsive Preset Viewports** for active project.
+### 3. Target Viewports & Custom Routes
+- Configure specific page paths (such as `/index`, `/pricing`, `/dashboard`) with device presets.
+- Load responsive presets for the active project.
 
-4. **🛡️ Protected Page Authentication**:
-   - **Agency Plan HTTP Basic Auth**: Authenticate password-protected Bubble apps (`username:password@app.bubbleapps.io`).
-   - **User Session Login Flow**: Automate login form filling before taking regression captures.
+### 4. Protected Page Authentication
+- **HTTP Basic Auth**: Authenticate password-protected Bubble apps (`username:password@app.bubbleapps.io`).
+- **Session Login Flow**: Automate login form filling before taking regression screenshots.
 
-5. **⚙️ Tolerance Thresholds & Element Masking**:
-   - Configure mismatch tolerance percentage (0.01% – 5.0%).
-   - Define CSS masking selectors (e.g. `.timestamp`, `.user-avatar`, `.realtime-ticker`) to ignore dynamic areas.
-   - Export standalone offline HTML regression reports.
+### 5. Tolerance Thresholds & Element Masking
+- Set mismatch tolerance percentages (0.01% to 5.0%).
+- Define CSS masking selectors (such as `.timestamp`, `.user-avatar`, or `.realtime-ticker`) to ignore dynamic regions during comparison.
+- Export standalone HTML regression reports.

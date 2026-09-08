@@ -130,7 +130,7 @@ Requirements:
 ### 1.1 Business Mission & Platform Scope
 **${project.name}** is engineered as a **${domain.domainName}**, built on Bubble.io's cloud application runtime. ${domain.description}
 
-The system is configured for the **\`${project.environment}\`** operational tier. It consolidates business-critical domain entities, atomic event-driven workflows, relational privacy policies, and external webhook integrations into an enterprise-grade web application.
+The system runs in the **\`${project.environment}\`** environment. It includes data entities, workflows, privacy policies, and webhook integrations.
 
 ### 1.2 Stakeholder Personas & Interaction Boundaries
 The system defines distinct user journeys mapped to four core system personas:
@@ -138,10 +138,10 @@ The system defines distinct user journeys mapped to four core system personas:
 ${domain.primaryActors.map(actor => `* **${actor}**: Interacts with dedicated interface views, executing transactional mutations governed by strict privacy rules and backend validation policies.`).join('\n')}
 
 ### 1.3 Execution Architecture: Hybrid Client-Server Model
-The platform operates on a resilient hybrid execution architecture:
-1. **Reactive Client-Side Presentation**: Single-page application (SPA) state machines handle instantaneous DOM updates, input sanitization, and localized feedback loops with zero unnecessary server round-trips.
-2. **Atomic Server-Side Workflows**: Mission-critical business mutations—including payment authorizations, cryptographic hashing, and bulk data operations—are delegated strictly to isolated Server-Side Actions (SSA) and Backend Workflows.
-3. **Data API & Interoperability**: Headless programmatic access is exposed through authenticated REST endpoints (\`/api/1.1/obj/\` and \`/api/1.1/wf/\`), enabling continuous integration with third-party webhooks, microservices, and external data pipelines.
+The platform operates on a hybrid execution architecture:
+1. **Client-Side Presentation**: Single-page application state handles DOM updates, input sanitization, and localized feedback loops.
+2. **Server-Side Workflows**: Server operations (such as payment processing, hashing, and bulk data modifications) run in Server-Side Actions (SSA) and Backend Workflows.
+3. **Data API & Interoperability**: Programmatic access is exposed through authenticated REST endpoints (\`/api/1.1/obj/\` and \`/api/1.1/wf/\`), enabling integration with webhooks and external services.
 
 ### 1.4 Architecture Specification Baseline
 
@@ -442,7 +442,7 @@ Keep the tone authoritative, clear, and structured in Markdown.`;
     onProgress?.({ step: 'Documentation Book Compilation Complete!', percent: 100 });
 
     return {
-      title: `${project.name} — Technical Architecture Book (AI Narrative Edition)`,
+      title: `${project.name}: Technical Architecture Book`,
       generatedAt: new Date().toISOString(),
       appName: project.name,
       version: project.environment,

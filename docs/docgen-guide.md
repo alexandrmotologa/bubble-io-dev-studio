@@ -1,69 +1,68 @@
-# 📚 1-Click Developer Documentation Book (DocGen) Guide (v3.3.9)
+# Developer Documentation Generator (DocGen) Guide
 
-The **DocGen Engine** compiles full-scale technical documentation books for clients, development agencies, and internal engineering teams with a single click.
-
----
-
-## 1. Dual-Mode Documentation: AI Narrative vs Raw Data Dictionary
-
-In v3.3.9, DocGen offers a top toolbar mode switcher:
-
-1. **✨ AI Narrative Book (Recommended)**:
-   - Transforms dry schema columns into an engaging, cohesive architectural book.
-   - **Semantic Domain Classification**: Automatically classifies the application (*E-Commerce*, *B2B Multi-Tenant SaaS*, *CRM & Operations*, *Social Communities*) based on AST entities and workflows, determining business missions and key actor personas.
-   - **Chapter 1 — Executive Summary & Architectural Vision**: Explains the platform purpose, client/server hybrid boundaries, and reliability baselines.
-   - **Chapter 2 — Data Architecture & Entity Lifecycles**: Details each database entity's business role, mutation lifecycles, foreign key graphs, and global Option Set state machines.
-   - **Chapter 3 — User Journeys & Workflow Automation Chains**: Groups isolated workflows into coherent user stories (*Identity & Authentication Journey*, *Operational Domain Mutations*, *External Integrations & Webhooks*).
-   - **Chapter 4 — Zero-Trust Security & Privacy Governance**: Clarifies Bubble's client-pull data risks and documents the server-side Privacy Rules policy.
-   - **Multi-Provider AI & Offline Engine**: Supports **Google Gemini**, **OpenAI**, **Anthropic Claude**, **Groq**, local **Ollama** (`llama3:8b`), plus an intelligent heuristic synthesizer for 100% offline generation.
-
-2. **📋 Raw Data Dictionary**:
-   - The classic, compact mechanical reference listing tables, field matrices, types, constraints, and raw Option Set values.
+The DocGen Engine compiles technical documentation for Bubble applications, including data dictionaries, architectural overviews, and API references.
 
 ---
 
-## 2. Subtabs & Module Structure
+## 1. Documentation Modes
 
-The **DocGen Book** suite provides 4 specialized subtabs:
+DocGen provides two modes via the top toolbar:
 
-1. **📖 Interactive Book Reader**:
-   - **Rich Formatted Document View**: High-fidelity HTML renderer parsing markdown tables, headers, blockquotes, code badges, and lists into publication-grade layouts.
-   - **1-Click Raw MD Toggle**: Instant switch between **[Formatted]** preview and **[Raw MD]** source view.
-   - **Per-Chapter AI Re-generation**: Single-click `[Re-generate with AI]` button on the active chapter header to re-synthesize only the current chapter with fresh AST data.
-   - **Interactive AI Refinement Bar**: Expandable instruction field to guide AI focus (e.g. *"Emphasize GDPR compliance"*, *"Detail payment webhook retry policy"*).
-   - Summary metric cards: Total Database Entities, Mapped Workflows, API Endpoints, and Security RBAC Rules.
+### Architectural Narrative Mode
+- Generates contextual documentation describing the application purpose, user roles, data architecture, and security policies based on the application AST.
+- **Domain Classification**: Categorizes the application (such as E-Commerce, B2B SaaS, CRM, or Community Portal) from its database entities and workflows.
+- **Chapter 1, Executive Summary**: Describes platform goals, user boundaries, and system topology.
+- **Chapter 2, Data Architecture**: Details database tables, mutation lifecycles, foreign key relations, and Option Sets.
+- **Chapter 3, Workflows & Automations**: Groups workflows into coherent flows (authentication, data mutations, and external webhook integrations).
+- **Chapter 4, Security Governance**: Documents data privacy policies, access rules, and client-side exposure risks.
+- **Provider Support**: Works with Google Gemini, OpenAI, Anthropic Claude, Groq, local Ollama (`llama3:8b`), or a deterministic offline synthesizer.
 
-2. **📊 Architecture & Diagram Studio**:
-   - **System Architecture Context Diagram**: High-level topology (Browser Client ➔ Cloud CDN ➔ Bubble App Engine ➔ PostgreSQL Database & External APIs).
-   - **Database Entity Relationship Diagram (ERD)**: Interactive relational foreign keys, linked records, and table attributes.
-   - **Backend Workflow Sequence Diagram**: Multi-actor event execution flow from client trigger to DB mutation.
-
-3. **✏️ Custom Chapter Composer**:
-   - **AI Chapter Co-Pilot**: Generate entire technical chapters using AI presets (*Deployment & Rollback Runbook*, *Stripe Webhook & Idempotency Guide*, *Disaster Recovery & Backup Plan*, *User Acceptance Testing Checklist*) or custom prompts.
-   - Enable, disable, or reorder chapters in the generated documentation book.
-   - Add custom technical sections:
-     - *Architecture Decision Records (ADR)*
-     - *Deployment & Release Runbooks*
-     - *Third-Party Integration Keys & Setup Guides*
-
-4. **🚀 Export & Client Handover Center**:
-   - Export to **Markdown (`.md`)** for GitHub, GitBook, Obsidian, and Notion wikis.
-   - Export to **Standalone HTML Manual (`.html`)** with embedded dark/light styling, marked.js, and Mermaid auto-rendering.
-   - Export to **JSON Architecture Spec (`.json`)** for machine-readable AST schemas.
-   - **Print Document / Save as PDF** formatted for formal client sign-offs and project handovers.
+### Raw Data Dictionary Mode
+- A concise reference listing tables, field specifications, data types, constraints, and raw Option Set values.
 
 ---
 
-## 3. Generated Technical Chapters
+## 2. Module Sections
 
-The engine aggregates data across all studio modules into comprehensive chapters:
+The DocGen suite includes four tabs:
 
-1. **Executive Summary & Overview**: App ID, active environment, custom domains, and architecture status summary.
-2. **Database Schema & Data Dictionary**: Full entity specifications with field names, types, nullability, list flags, and global Option Sets.
-3. **Entity-Relationship Diagram (ERD)**: Auto-generated Mermaid ERD diagram showing database relational structures.
-4. **Privacy Rules & RBAC Matrix**: Security permissions per role (*Admin*, *Authenticated User*, *Guest*), search visibility, and field restrictions.
-5. **API & Backend Workflows Catalog**: Standard Data API routes, Webhook listeners, and authentication policies.
-6. **Workflows & Logic Automation**: Indexed page workflows, backend API workflows, and action chains.
-7. **AI Localization & Language Matrix**: UI string volume, category breakdown, and sample translation dictionary.
-8. **AST Code Health & Quality Scorecard**: Health grade, score %, and identified dead code items.
-9. **Custom Chapters**: User-added Architecture Decision Records (ADR), runbooks, and guidelines.
+### 1. Document Reader
+- **Formatted Preview**: HTML rendering of Markdown tables, headings, blockquotes, and code blocks.
+- **Markdown Toggle**: Switch between formatted preview and raw Markdown source.
+- **Per-Chapter Re-generation**: Re-generate the active chapter using updated project AST data.
+- **Refinement Bar**: Enter custom focus prompts (such as "Emphasize GDPR compliance" or "Detail payment webhook retry policy").
+- **Metric Cards**: Quick counts for database entities, workflows, API routes, and privacy rules.
+
+### 2. Architecture & Diagram Studio
+- **System Context Diagram**: Top-level topology diagram (browser client, CDN, Bubble engine, database, and external APIs).
+- **Entity Relationship Diagram (ERD)**: Interactive diagram showing relational links and table attributes.
+- **Sequence Diagram**: Execution flow from user triggers to database writes.
+
+### 3. Custom Chapter Composer
+- Add custom technical sections, such as:
+  - Architecture Decision Records (ADRs)
+  - Deployment and release runbooks
+  - Third-party integration guides and credentials checklists
+- Reorder, enable, or disable chapters in the generated document.
+
+### 4. Export Options
+- **Markdown (`.md`)**: Compatible with GitHub, GitBook, Obsidian, and Notion.
+- **Standalone HTML (`.html`)**: Complete HTML file with embedded styling and Mermaid diagram rendering.
+- **JSON Specification (`.json`)**: Machine-readable schema export.
+- **Print to PDF**: Formatted layout for print or saving as PDF.
+
+---
+
+## 3. Standard Chapter Structure
+
+When compiling a complete book, the generator includes:
+
+1. **Executive Summary**: App ID, active environment, custom domains, and architecture overview.
+2. **Database Schema & Data Dictionary**: Entity definitions with field names, types, nullability, and Option Sets.
+3. **Entity-Relationship Diagram**: Mermaid ERD of database relations.
+4. **Privacy Rules & RBAC Matrix**: Access permissions per user role (Admin, Authenticated User, Guest).
+5. **API & Backend Workflows**: Data API endpoints, webhook listeners, and authentication settings.
+6. **Workflows & Logic Automation**: Page workflows, backend workflows, and action sequences.
+7. **AI Localization**: String volume, category breakdowns, and translation dictionary.
+8. **AST Code Health Scorecard**: Health score percentage, grade, and identified unused elements.
+9. **Custom Chapters**: User-authored runbooks and architecture notes.
