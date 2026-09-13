@@ -10,6 +10,32 @@
 
 Bubble.io Dev Studio is a desktop IDE for Bubble.io developers, agencies, and QA teams. It brings together tools for live database management, workflow visualization, AI localization, visual regression testing, dead code detection, privacy rule audits, and documentation generation.
 
+<p align="center">
+  <img src="docs/screenshots/01_workspace_overview.png" alt="Bubble.io Dev Studio - Workspace Overview" width="880" style="border-radius: 10px; border: 1px solid #1e293b;" />
+</p>
+
+---
+
+## 🖼️ Interface Gallery
+
+<details open>
+<summary><strong>Expand interface showcase</strong></summary>
+<br/>
+
+| Workspace Overview Dashboard | DevOps & Database Studio (Live CRUD & REPL) |
+| :---: | :---: |
+| <img src="docs/screenshots/01_workspace_overview.png" width="460" alt="Workspace Overview" /> | <img src="docs/screenshots/02_devops_database_studio.png" width="460" alt="DevOps & Database Studio" /> |
+
+| AST Dead Code Detector & Health Score | Visual QA & Pixel Regression Suite (Diff Slider) |
+| :---: | :---: |
+| <img src="docs/screenshots/03_dead_code_health_scorer.png" width="460" alt="Dead Code & Health Scorer" /> | <img src="docs/screenshots/04_visual_qa_regression_suite.png" width="460" alt="Visual QA Regression Suite" /> |
+
+| 1-Click Developer Documentation Book (DocGen) | Workspace Settings & Authentication Hub |
+| :---: | :---: |
+| <img src="docs/screenshots/05_developer_documentation_book.png" width="460" alt="1-Click Documentation Book" /> | <img src="docs/screenshots/06_workspace_settings_modal.png" width="460" alt="Workspace Settings Modal" /> |
+
+</details>
+
 ---
 
 ## Download Desktop App (v3.3.9 Pre-Built Binaries)
