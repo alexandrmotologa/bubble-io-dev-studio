@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, Suspense, lazy } from 'react';
 import { GlobalSettings, LogEntry, NavigationTab, ProjectProfile, ThemeMode } from './types';
 import { ProjectStore } from './core/storage/projectStore';
 import { Sidebar } from './components/Sidebar';
@@ -8,16 +8,7 @@ import { ConnectAppModal } from './components/ConnectAppModal';
 import { ConfirmDeleteModal } from './components/ConfirmDeleteModal';
 import { CommandPalette } from './components/CommandPalette';
 import { StatusBar } from './components/StatusBar';
-import { DashboardView } from './views/DashboardView';
-import { DevOpsView } from './views/DevOpsView';
-import { SecurityView } from './views/SecurityView';
-import { WuProfilerView } from './views/WuProfilerView';
-import { AuditView } from './views/AuditView';
-import { ApiStudioView } from './views/ApiStudioView';
-import { TranslatorView } from './views/TranslatorView';
-import { VisualTesterView } from './views/VisualTesterView';
-import { SettingsView } from './views/SettingsView';
-import { DocGenView } from './views/DocGenView';
+import { ViewLoadingFallback } from './components/ViewLoadingFallback';
 import { AiCopilotModal } from './components/AiCopilotModal';
 import { ToastContainer } from './components/ToastContainer';
 import { UpdatePromptModal } from './components/UpdatePromptModal';
@@ -25,7 +16,19 @@ import { toast } from './core/toast/toastManager';
 import { DevOpsEngine } from './core/devops/devopsEngine';
 import { AuditEngine } from './core/audit/auditEngine';
 import { getProviderDisplayName, getModelDisplayName, getProviderForModel, getDefaultModelForProvider } from './core/ai/aiProviders';
-import { DevOpsSubTab } from './views/DevOpsView';
+import type { DevOpsSubTab } from './views/DevOpsView';
+
+// On-demand code-split views for ultra-fast startup performance
+const DashboardView = lazy(() => import('./views/DashboardView').then(m => ({ default: m.DashboardView })));
+const DevOpsView = lazy(() => import('./views/DevOpsView').then(m => ({ default: m.DevOpsView })));
+const SecurityView = lazy(() => import('./views/SecurityView').then(m => ({ default: m.SecurityView })));
+const WuProfilerView = lazy(() => import('./views/WuProfilerView').then(m => ({ default: m.WuProfilerView })));
+const AuditView = lazy(() => import('./views/AuditView').then(m => ({ default: m.AuditView })));
+const ApiStudioView = lazy(() => import('./views/ApiStudioView').then(m => ({ default: m.ApiStudioView })));
+const TranslatorView = lazy(() => import('./views/TranslatorView').then(m => ({ default: m.TranslatorView })));
+const VisualTesterView = lazy(() => import('./views/VisualTesterView').then(m => ({ default: m.VisualTesterView })));
+const SettingsView = lazy(() => import('./views/SettingsView').then(m => ({ default: m.SettingsView })));
+const DocGenView = lazy(() => import('./views/DocGenView').then(m => ({ default: m.DocGenView })));
 import { APP_VERSION } from './version';
 import { ActivityStore } from './core/activity/activityStore';
 import { AutoBackupScheduler } from './core/devops/autoBackupScheduler';
@@ -231,6 +234,17 @@ export const App: React.FC = () => {
   };
 
   const activeProject = settings.projects.find(p => p.id === settings.activeProjectId) || settings.projects[0];
+
+  const activeSchema = useMemo(() => {
+    if (activeProject?.blueprintExportJson) {
+      try {
+        return DevOpsEngine.parseBubbleSchemaJson(activeProject.blueprintExportJson, activeProject);
+      } catch (e) {
+        console.warn('Failed to parse active project schema:', e);
+      }
+    }
+    return null;
+  }, [activeProject?.blueprintExportJson, activeProject?.id]);
 
   const errorCount = logs.filter(l => l.level === 'error').length;
   const warnCount = logs.filter(l => l.level === 'warn').length;
@@ -438,7 +452,8 @@ export const App: React.FC = () => {
 
           {/* View Switcher */}
           <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', minWidth: 0, width: '100%', maxWidth: '100%' }}>
-            {currentTab === 'dashboard' && (
+            <Suspense fallback={<ViewLoadingFallback />}>
+              {currentTab === 'dashboard' && (
               <DashboardView
                 activeProject={activeProject}
                 onNavigate={setCurrentTab}
@@ -530,6 +545,7 @@ export const App: React.FC = () => {
                 onLog={addLog}
               />
             )}
+            </Suspense>
           </div>
 
           {/* Real-time Log Console Drawer */}
@@ -668,6 +684,24 @@ export const App: React.FC = () => {
         isOpen={isOnboardingOpen}
         onClose={() => setIsOnboardingOpen(false)}
         onNavigate={setCurrentTab}
+      />
+
+      {/* Bubble AI Copilot & Expression Studio Modal (Ctrl+I) */}
+      <AiCopilotModal
+        isOpen={isCopilotOpen}
+        onClose={() => setIsCopilotOpen(false)}
+        activeSchema={activeSchema}
+        availableDataTypes={activeSchema?.dataTypes.map((d: any) => d.name)}
+        onApplyQueryToRepl={(dataType) => {
+          setCurrentTab('devops');
+          setDevOpsSubTab('query');
+          setIsCopilotOpen(false);
+          toast.info(`Switched to Data API REPL for ${dataType}`);
+        }}
+        geminiApiKey={settings.geminiApiKey}
+        openaiApiKey={settings.openaiApiKey}
+        groqApiKey={settings.groqApiKey}
+        xaiApiKey={settings.xaiApiKey}
       />
     </div>
   );

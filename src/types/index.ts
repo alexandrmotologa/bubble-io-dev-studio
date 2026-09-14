@@ -550,7 +550,9 @@ export type WuOperationType =
   | 'recursive_scheduled_loop' 
   | 'unindexed_sort'
   | 'heavy_custom_state'
-  | 'unbatched_api_call';
+  | 'unbatched_api_call'
+  | 'recursive_zero_delay'
+  | 'bulk_on_list_overuse';
 
 export interface WuBottleneck {
   id: string;

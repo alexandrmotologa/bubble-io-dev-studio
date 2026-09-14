@@ -330,6 +330,34 @@ export const WuProfilerView: React.FC<WuProfilerViewProps> = ({ activeProject, o
                     <span className="badge badge-emerald" style={{ fontSize: '0.8rem', fontWeight: 700 }}>
                       -{b.wuReductionPercent}% WU Saved
                     </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const fixGuide = `### 🛠️ Bubble WU Optimization: ${b.location}
+**Severity**: ${b.severity.toUpperCase()} (${b.category})
+**Estimated Savings**: ~${b.estimatedMonthlyWu.toLocaleString()} WU/month ($${b.estimatedCostUsd}/mo, -${b.wuReductionPercent}%)
+
+#### Problem
+${b.description}
+
+#### Root Cause
+${b.rootCause}
+
+#### Actionable Fix
+${b.suggestedFix}
+
+${b.beforeCodeSnippet ? `\`\`\`bubble\n// Inefficient Current:\n${b.beforeCodeSnippet}\n\`\`\`\n` : ''}
+${b.afterCodeSnippet ? `\`\`\`bubble\n// Recommended Remediation:\n${b.afterCodeSnippet}\n\`\`\`\n` : ''}`;
+                        navigator.clipboard.writeText(fixGuide);
+                        toast.success(`Copied remediation guide for '${b.location}'`);
+                      }}
+                      className="btn btn-secondary btn-sm"
+                      style={{ padding: '2px 8px', fontSize: '0.72rem', height: '24px', gap: '4px' }}
+                      title="Copy complete remediation documentation"
+                    >
+                      <Copy size={11} />
+                      <span>Copy Fix Plan</span>
+                    </button>
                   </div>
                 </div>
 

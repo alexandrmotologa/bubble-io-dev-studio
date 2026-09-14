@@ -251,30 +251,123 @@ export class CopilotEngine {
     const p = prompt.toLowerCase();
     let targetType = availableTypes.find(t => p.includes(t.toLowerCase())) || availableTypes[0] || 'Order';
 
+    // 1. If live Gemini API key is available, execute LLM with real schema context
+    if (keys?.geminiApiKey) {
+      try {
+        const schemaContext = schema ? `Available Tables and Fields:\n` + schema.dataTypes.map(dt => 
+          `- ${dt.name} (fields: ${dt.fields.map(f => `${f.name}:${f.type}`).join(', ')})`
+        ).join('\n') : `Common Tables: User, Order, Product, Transaction`;
+
+        const sysPrompt = `You are a Bubble.io Database & Search Query Expert.
+${schemaContext}
+
+User Prompt: "${prompt}"
+Return ONLY a valid JSON object matching this exact schema:
+{
+  "targetType": "Exact table name",
+  "constraints": [
+    { "field": "fieldName", "operator": "equals|not_equals|greater_than|less_than|contains|in|is_empty|is_not_empty", "value": "valueString", "isDynamic": false }
+  ],
+  "sortField": "Created Date",
+  "sortDescending": true,
+  "bubbleExpression": "Do a search for ...",
+  "apiConnectorQuery": "GET /api/1.1/obj/...",
+  "wuCostImpact": "low|medium|high",
+  "optimizationTips": ["tip1", "tip2"]
+}`;
+
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${keys.geminiApiKey}`;
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 8000);
+
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          signal: controller.signal,
+          body: JSON.stringify({
+            contents: [{ role: 'user', parts: [{ text: sysPrompt }] }],
+            generationConfig: { temperature: 0.1, responseMimeType: 'application/json' }
+          })
+        });
+        clearTimeout(timeoutId);
+
+        if (res.ok) {
+          const data = await res.json();
+          const rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+          if (rawText) {
+            const parsed = JSON.parse(rawText);
+            if (parsed.targetType && Array.isArray(parsed.constraints)) {
+              return {
+                targetType: parsed.targetType,
+                constraints: parsed.constraints,
+                sortField: parsed.sortField || 'Created Date',
+                sortDescending: typeof parsed.sortDescending === 'boolean' ? parsed.sortDescending : true,
+                bubbleExpression: parsed.bubbleExpression || `Do a search for ${parsed.targetType}s`,
+                apiConnectorQuery: parsed.apiConnectorQuery || `GET /api/1.1/obj/${parsed.targetType.toLowerCase()}`,
+                wuCostImpact: parsed.wuCostImpact || 'low',
+                optimizationTips: Array.isArray(parsed.optimizationTips) ? parsed.optimizationTips : ['✓ AI-synthesized optimal constraint schema']
+              };
+            }
+          }
+        }
+      } catch (err) {
+        console.warn('[CopilotEngine] Live Gemini query synthesis failed, falling back to schema heuristic:', err);
+      }
+    }
+
+    // 2. Schema-aware heuristic fallback
+    const matchedDt = schema?.dataTypes.find(dt => dt.name.toLowerCase() === targetType.toLowerCase());
     const constraints: SearchQueryConstraint[] = [];
     let sortField = 'Created Date';
     let sortDescending = true;
     let wuCostImpact: 'low' | 'medium' | 'high' = 'low';
     const tips: string[] = [];
 
-    if (p.includes('user') || targetType === 'User') {
-      targetType = 'User';
-      if (p.includes('active') || p.includes('paid')) {
-        constraints.push({ field: 'is_active', operator: 'equals', value: 'yes', isDynamic: false });
+    // Find schema fields matching common keywords
+    if (matchedDt) {
+      const fieldNames = matchedDt.fields.map(f => f.name);
+      const statusField = fieldNames.find(f => f.toLowerCase().includes('status') || f.toLowerCase().includes('state'));
+      const activeField = fieldNames.find(f => f.toLowerCase().includes('active') || f.toLowerCase().includes('enabled'));
+      const totalField = fieldNames.find(f => f.toLowerCase().includes('total') || f.toLowerCase().includes('amount') || f.toLowerCase().includes('price'));
+      const dateField = fieldNames.find(f => f.toLowerCase().includes('date') || f.toLowerCase() === 'created date');
+
+      if (activeField && (p.includes('active') || p.includes('enabled'))) {
+        constraints.push({ field: activeField, operator: 'equals', value: 'yes', isDynamic: false });
+      } else if (statusField) {
+        const val = p.includes('complete') ? '"completed"' : p.includes('pending') ? '"pending"' : '"active"';
+        constraints.push({ field: statusField, operator: 'equals', value: val, isDynamic: false });
       }
-      if (p.includes('created') || p.includes('recent') || p.includes('last month') || p.includes('week')) {
-        constraints.push({ field: 'Created Date', operator: 'greater_than', value: 'Current date/time +(days: -30)', isDynamic: true });
+
+      if (totalField && (p.includes('>') || p.includes('greater') || p.includes('more than') || p.includes('100'))) {
+        constraints.push({ field: totalField, operator: 'greater_than', value: '100', isDynamic: false });
+      }
+
+      if (dateField && (p.includes('recent') || p.includes('last') || p.includes('month') || p.includes('week') || p.includes('day'))) {
+        constraints.push({ field: dateField, operator: 'greater_than', value: 'Current date/time +(days: -30)', isDynamic: true });
         wuCostImpact = 'medium';
       }
-    } else if (p.includes('order') || p.includes('transaction') || p.includes('sales')) {
-      targetType = 'Order';
-      constraints.push({ field: 'status', operator: 'equals', value: '"completed"', isDynamic: false });
-      constraints.push({ field: 'total_amount', operator: 'greater_than', value: '100', isDynamic: false });
-      sortField = 'order_date';
-      wuCostImpact = 'low';
+
+      if (dateField) sortField = dateField;
     } else {
-      constraints.push({ field: 'status', operator: 'equals', value: '"active"', isDynamic: false });
-      constraints.push({ field: 'Created Date', operator: 'greater_than', value: 'Current date/time +(days: -7)', isDynamic: true });
+      if (p.includes('user') || targetType === 'User') {
+        targetType = 'User';
+        if (p.includes('active') || p.includes('paid')) {
+          constraints.push({ field: 'is_active', operator: 'equals', value: 'yes', isDynamic: false });
+        }
+        if (p.includes('created') || p.includes('recent') || p.includes('last month') || p.includes('week')) {
+          constraints.push({ field: 'Created Date', operator: 'greater_than', value: 'Current date/time +(days: -30)', isDynamic: true });
+          wuCostImpact = 'medium';
+        }
+      } else if (p.includes('order') || p.includes('transaction') || p.includes('sales')) {
+        targetType = 'Order';
+        constraints.push({ field: 'status', operator: 'equals', value: '"completed"', isDynamic: false });
+        constraints.push({ field: 'total_amount', operator: 'greater_than', value: '100', isDynamic: false });
+        sortField = 'order_date';
+        wuCostImpact = 'low';
+      } else {
+        constraints.push({ field: 'status', operator: 'equals', value: '"active"', isDynamic: false });
+        constraints.push({ field: 'Created Date', operator: 'greater_than', value: 'Current date/time +(days: -7)', isDynamic: true });
+      }
     }
 
     if (constraints.length === 0) {

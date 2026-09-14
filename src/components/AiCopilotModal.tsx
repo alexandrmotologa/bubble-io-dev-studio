@@ -17,12 +17,14 @@ import {
 } from 'lucide-react';
 import { CopilotEngine, PrivacyRuleExplanationResult } from '../core/ai/copilotEngine';
 import { toast } from '../core/toast/toastManager';
+import { BubbleSchema } from '../types';
 
 interface AiCopilotModalProps {
   isOpen: boolean;
   onClose: () => void;
   onApplyQueryToRepl?: (dataType: string, constraints: any[]) => void;
   availableDataTypes?: string[];
+  activeSchema?: BubbleSchema | null;
   geminiApiKey?: string;
   openaiApiKey?: string;
   groqApiKey?: string;
@@ -36,13 +38,17 @@ export const AiCopilotModal: React.FC<AiCopilotModalProps> = ({
   onClose,
   onApplyQueryToRepl,
   availableDataTypes = ['User', 'Product', 'Order', 'PaymentRecord', 'Transaction'],
+  activeSchema,
   geminiApiKey,
   openaiApiKey,
   groqApiKey,
   xaiApiKey
 }) => {
   const [mode, setMode] = useState<CopilotMode>('query');
-  const [targetDataType, setTargetDataType] = useState(availableDataTypes[0] || 'User');
+  const effectiveDataTypes = (activeSchema?.dataTypes && activeSchema.dataTypes.length > 0)
+    ? activeSchema.dataTypes.map(d => d.name)
+    : availableDataTypes;
+  const [targetDataType, setTargetDataType] = useState(effectiveDataTypes[0] || 'User');
   const [queryPrompt, setQueryPrompt] = useState('Find all active orders with total > 100 created in the last 30 days');
   const [isGenerating, setIsGenerating] = useState(false);
   const [queryResult, setQueryResult] = useState<any | null>(null);
@@ -65,7 +71,7 @@ export const AiCopilotModal: React.FC<AiCopilotModalProps> = ({
     if (!queryPrompt.trim()) return;
     setIsGenerating(true);
     try {
-      const res = await CopilotEngine.generateSearchQuery(queryPrompt, null, apiKeys);
+      const res = await CopilotEngine.generateSearchQuery(queryPrompt, activeSchema, apiKeys);
       setQueryResult(res);
       toast.success('Generated Bubble search query constraints');
     } finally {
@@ -160,6 +166,11 @@ export const AiCopilotModal: React.FC<AiCopilotModalProps> = ({
               <div style={{ fontWeight: 700, fontSize: '1rem', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <span>Bubble AI Copilot & Expression Studio</span>
                 <span className="badge badge-cyan" style={{ fontSize: '0.65rem' }}>Ctrl + I</span>
+                {activeSchema && activeSchema.dataTypes.length > 0 && (
+                  <span className="badge badge-indigo" style={{ fontSize: '0.65rem' }}>
+                    {activeSchema.dataTypes.length} Tables Linked
+                  </span>
+                )}
               </div>
               <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
                 Natural language query synthesis, dynamic regex formulas & privacy rule explainers
