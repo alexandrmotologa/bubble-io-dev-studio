@@ -21,11 +21,15 @@ import {
   Scale,
   Code,
   Shield,
-  FileText
+  FileText,
+  Puzzle,
+  Flame,
+  Bug
 } from 'lucide-react';
 import { ProjectProfile, SecurityAuditReport } from '../types';
 import { SecurityEngine } from '../core/security/securityEngine';
 import { DevOpsEngine } from '../core/devops/devopsEngine';
+import { PluginSecurityScanner, PluginSecurityReport } from '../core/audit/pluginSecurityScanner';
 import { SecurityMatrixGrid } from '../components/SecurityMatrixGrid';
 import { RoleSimulatorSandbox } from '../components/RoleSimulatorSandbox';
 import { toast } from '../core/toast/toastManager';
@@ -35,11 +39,12 @@ interface SecurityViewProps {
   onLog: (module: 'security', message: string, level?: 'info' | 'success' | 'warn' | 'error') => void;
 }
 
-type SecuritySubTab = 'matrix' | 'simulator' | 'everyone_else' | 'remediations' | 'compliance' | 'endpoints' | 'pii';
+type SecuritySubTab = 'matrix' | 'simulator' | 'everyone_else' | 'plugins' | 'remediations' | 'compliance' | 'endpoints' | 'pii';
 
 export const SecurityView: React.FC<SecurityViewProps> = ({ activeProject, onLog }) => {
   const [subTab, setSubTab] = useState<SecuritySubTab>('matrix');
   const [report, setReport] = useState<SecurityAuditReport | null>(null);
+  const [pluginReport, setPluginReport] = useState<PluginSecurityReport | null>(null);
   const [isScanning, setIsScanning] = useState(false);
   const [remediationSearch, setRemediationSearch] = useState('');
   const [selectedComplianceFramework, setSelectedComplianceFramework] = useState<string>('ALL');
@@ -61,12 +66,30 @@ export const SecurityView: React.FC<SecurityViewProps> = ({ activeProject, onLog
       }
       const rep = await SecurityEngine.analyzeSecurity(activeProject.blueprintExportJson, schemaToUse);
       setReport(rep);
-      onLog('security', `Security audit completed. Score: ${rep.overallScore}/100 (Grade ${rep.securityGrade}) with ${rep.criticalVulnerabilitiesCount} critical vulnerabilities.`, rep.criticalVulnerabilitiesCount > 0 ? 'warn' : 'success');
+
+      // Deep Plugin Security & Deprecation Scan
+      const pRep = PluginSecurityScanner.scan(activeProject.blueprintExportJson);
+      setPluginReport(pRep);
+
+      onLog('security', `Security audit completed. Score: ${rep.overallScore}/100 (Grade ${rep.securityGrade}) with ${rep.criticalVulnerabilitiesCount} critical vulnerabilities. Plugins score: ${pRep.securityScore}/100.`, rep.criticalVulnerabilitiesCount > 0 || pRep.secretLeaksCount > 0 ? 'warn' : 'success');
     } catch (err: any) {
       onLog('security', `Security scan notice: ${err.message}`, 'warn');
     } finally {
       setIsScanning(false);
     }
+  };
+
+  const handleExportPluginReport = () => {
+    if (!pluginReport) return;
+    const md = PluginSecurityScanner.generateMarkdownReport(pluginReport, activeProject?.name || 'Bubble App');
+    const blob = new Blob([md], { type: 'text/markdown;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `plugin_security_report_${Date.now()}.md`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success('Plugin Security Audit report exported!');
   };
 
   const handleExportMarkdown = () => {
@@ -203,6 +226,10 @@ export const SecurityView: React.FC<SecurityViewProps> = ({ activeProject, onLog
         <button onClick={() => setSubTab('everyone_else')} className={`btn btn-sm ${subTab === 'everyone_else' ? 'btn-primary' : 'btn-secondary'}`} style={{ border: 'none' }}>
           <ShieldAlert size={13} />
           <span>"Everyone Else" Public Risk ({report?.openTypesCount || 0})</span>
+        </button>
+        <button onClick={() => setSubTab('plugins')} className={`btn btn-sm ${subTab === 'plugins' ? 'btn-primary' : 'btn-secondary'}`} style={{ border: 'none' }}>
+          <Puzzle size={13} />
+          <span>Plugin Security Scanner ({pluginReport?.vulnerabilities.length || 0})</span>
         </button>
         <button onClick={() => setSubTab('remediations')} className={`btn btn-sm ${subTab === 'remediations' ? 'btn-primary' : 'btn-secondary'}`} style={{ border: 'none' }}>
           <Code size={13} />
@@ -499,6 +526,219 @@ export const SecurityView: React.FC<SecurityViewProps> = ({ activeProject, onLog
               </div>
             ))
           )}
+        </div>
+      )}
+
+      {/* SUBTAB: BUBBLE PLUGIN SECURITY & DEPRECATION SCANNER */}
+      {subTab === 'plugins' && pluginReport && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          {/* Header Card with Export */}
+          <div className="card" style={{
+            background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.1) 0%, rgba(244, 63, 94, 0.08) 100%)',
+            border: '1px solid var(--border-active)'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '14px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div style={{
+                  width: '40px',
+                  height: '40px',
+                  borderRadius: '10px',
+                  background: 'linear-gradient(135deg, #6366f1 0%, #f43f5e 100%)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: '#ffffff'
+                }}>
+                  <Puzzle size={22} />
+                </div>
+                <div>
+                  <h2 style={{ fontSize: '1.2rem', fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>
+                    Bubble Plugin Security, Deprecation & Vulnerability Scanner
+                  </h2>
+                  <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
+                    Audits marketplace & custom plugins for exposed secret tokens, obsolete API v1/v2 versions, and render-blocking scripts
+                  </div>
+                </div>
+              </div>
+
+              <button onClick={handleExportPluginReport} className="btn btn-primary btn-sm">
+                <Download size={13} />
+                <span>Export Plugin Audit (.md)</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Plugin Security Metrics Grid */}
+          <div className="grid-4">
+            <div className="card" style={{ background: 'var(--bg-card)' }}>
+              <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)' }}>PLUGIN SECURITY SCORE</div>
+              <div style={{ fontSize: '1.8rem', fontWeight: 800, color: pluginReport.securityScore >= 85 ? 'var(--accent-emerald)' : pluginReport.securityScore >= 65 ? 'var(--accent-amber)' : 'var(--accent-rose)' }}>
+                {pluginReport.securityScore}<span style={{ fontSize: '1rem' }}>/100</span>
+              </div>
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Security Grade: <strong>{pluginReport.grade}</strong></div>
+            </div>
+
+            <div className="card" style={{
+              background: pluginReport.secretLeaksCount > 0 ? 'rgba(244, 63, 94, 0.12)' : 'var(--bg-card)',
+              border: pluginReport.secretLeaksCount > 0 ? '1px solid rgba(244, 63, 94, 0.4)' : '1px solid var(--border-subtle)'
+            }}>
+              <div style={{ fontSize: '0.75rem', fontWeight: 600, color: pluginReport.secretLeaksCount > 0 ? '#f43f5e' : 'var(--text-muted)' }}>
+                SECRET TOKEN LEAKS
+              </div>
+              <div style={{ fontSize: '1.8rem', fontWeight: 800, color: pluginReport.secretLeaksCount > 0 ? '#f43f5e' : 'var(--accent-emerald)' }}>
+                {pluginReport.secretLeaksCount}
+              </div>
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                {pluginReport.secretLeaksCount > 0 ? 'Exposed in client properties' : 'No exposed tokens detected'}
+              </div>
+            </div>
+
+            <div className="card" style={{ background: 'var(--bg-card)' }}>
+              <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)' }}>DEPRECATED APIS</div>
+              <div style={{ fontSize: '1.8rem', fontWeight: 800, color: pluginReport.plugins.filter(p => p.isDeprecated).length > 0 ? 'var(--accent-amber)' : 'var(--accent-emerald)' }}>
+                {pluginReport.plugins.filter(p => p.isDeprecated).length}
+              </div>
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Legacy Bubble API v1/v2</div>
+            </div>
+
+            <div className="card" style={{ background: 'var(--bg-card)' }}>
+              <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)' }}>BLOCKING SCRIPTS IN HEAD</div>
+              <div style={{ fontSize: '1.8rem', fontWeight: 800, color: pluginReport.headerBlockingCount > 0 ? 'var(--accent-amber)' : 'var(--accent-emerald)' }}>
+                {pluginReport.headerBlockingCount}
+              </div>
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Impacting First Contentful Paint (FCP)</div>
+            </div>
+          </div>
+
+          {/* CRITICAL ALERTS: Secret Leaks Box */}
+          {pluginReport.secretLeaks.length > 0 && (
+            <div className="card" style={{ background: 'rgba(244, 63, 94, 0.1)', border: '1px solid rgba(244, 63, 94, 0.4)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#f43f5e', marginBottom: '10px' }}>
+                <Flame size={20} />
+                <strong style={{ fontSize: '0.95rem' }}>CRITICAL SECURITY RISK: Exposed Secret Keys Detected!</strong>
+              </div>
+              <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '12px' }}>
+                The following secret credentials were found inside client-accessible plugin headers or public parameters. Any user or bot inspecting your web application can extract and abuse these credentials.
+              </p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {pluginReport.secretLeaks.map((leak, idx) => (
+                  <div key={idx} style={{
+                    padding: '10px 14px',
+                    background: 'var(--bg-input)',
+                    borderRadius: 'var(--radius-sm)',
+                    border: '1px solid rgba(244, 63, 94, 0.3)',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    flexWrap: 'wrap',
+                    gap: '8px'
+                  }}>
+                    <div>
+                      <span className="badge badge-rose" style={{ marginRight: '8px' }}>{leak.secretType}</span>
+                      <strong style={{ fontSize: '0.85rem', color: 'var(--text-primary)' }}>{leak.pluginName}</strong>
+                      <span style={{ marginLeft: '10px', fontFamily: 'monospace', fontSize: '0.8rem', color: 'var(--accent-amber)' }}>
+                        {leak.maskedValue}
+                      </span>
+                    </div>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--accent-rose)' }}>
+                      ⚠️ {leak.remediation}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Installed Plugins Detailed Audit Table */}
+          <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+            <div style={{ padding: '14px 18px', borderBottom: '1px solid var(--border-subtle)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                Installed Plugins Deep Inventory ({pluginReport.plugins.length})
+              </div>
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                Extracted directly from Bubble AST Blueprint
+              </div>
+            </div>
+
+            <div style={{ overflowX: 'auto' }}>
+              <table className="table" style={{ width: '100%', textAlign: 'left', borderCollapse: 'collapse', fontSize: '0.8rem' }}>
+                <thead>
+                  <tr style={{ background: 'var(--bg-input)', borderBottom: '1px solid var(--border-subtle)' }}>
+                    <th style={{ padding: '10px 14px' }}>Plugin Name & Category</th>
+                    <th style={{ padding: '10px 14px' }}>Version & API</th>
+                    <th style={{ padding: '10px 14px' }}>Header Weight</th>
+                    <th style={{ padding: '10px 14px' }}>External CDNs</th>
+                    <th style={{ padding: '10px 14px' }}>Security Score</th>
+                    <th style={{ padding: '10px 14px' }}>Status & Findings</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {pluginReport.plugins.map((plg) => {
+                    const isOptimal = plg.securityScore >= 90;
+                    const isWarning = plg.securityScore >= 70 && plg.securityScore < 90;
+                    return (
+                      <tr key={plg.id} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+                        <td style={{ padding: '12px 14px' }}>
+                          <div style={{ fontWeight: 700, color: 'var(--text-primary)' }}>{plg.name}</div>
+                          <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>By {plg.author} • {plg.category}</div>
+                        </td>
+                        <td style={{ padding: '12px 14px' }}>
+                          <div><code>v{plg.version}</code></div>
+                          <div style={{ marginTop: '2px', display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+                            <span className={`badge ${plg.isDeprecated ? 'badge-amber' : 'badge-indigo'}`} style={{ fontSize: '0.65rem' }}>
+                              {plg.apiVersion.toUpperCase()} {plg.isDeprecated ? '(Deprecated)' : ''}
+                            </span>
+                            {plg.isStale && (
+                              <span className="badge badge-rose" style={{ fontSize: '0.65rem' }}>
+                                Unmaintained (&gt;2y)
+                              </span>
+                            )}
+                          </div>
+                        </td>
+                        <td style={{ padding: '12px 14px' }}>
+                          <div>~{plg.scriptSizeKb} KB</div>
+                          <div style={{ fontSize: '0.7rem', color: plg.loadsInHeader ? 'var(--accent-amber)' : 'var(--text-muted)' }}>
+                            {plg.loadsInHeader ? `+${plg.pageLoadImpactMs}ms (in <head>)` : 'Async loaded'}
+                          </div>
+                        </td>
+                        <td style={{ padding: '12px 14px' }}>
+                          {plg.externalCdns.length > 0 ? (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                              {plg.externalCdns.slice(0, 2).map((cdn, idx) => (
+                                <span key={idx} style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>
+                                  🌐 {cdn}
+                                </span>
+                              ))}
+                            </div>
+                          ) : (
+                            <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>No external CDNs</span>
+                          )}
+                        </td>
+                        <td style={{ padding: '12px 14px' }}>
+                          <div style={{ fontWeight: 800, color: isOptimal ? 'var(--accent-emerald)' : isWarning ? 'var(--accent-amber)' : 'var(--accent-rose)' }}>
+                            {plg.securityScore}%
+                          </div>
+                        </td>
+                        <td style={{ padding: '12px 14px' }}>
+                          {plg.vulnerabilities.length === 0 ? (
+                            <span className="badge badge-emerald">Optimal</span>
+                          ) : (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                              {plg.vulnerabilities.map((v, i) => (
+                                <div key={i} style={{ fontSize: '0.72rem', color: v.severity === 'critical' ? 'var(--accent-rose)' : 'var(--accent-amber)' }}>
+                                  {v.severity === 'critical' ? '🚨' : '⚠️'} {v.title}
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
         </div>
       )}
 

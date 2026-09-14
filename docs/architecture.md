@@ -28,6 +28,7 @@ graph TD
     subgraph "Bubble.io Dev Studio Desktop Core (Electron 34 + React 18)"
         IPC[Electron IPC Bridge & SafeStorage]
         UPD[Native Auto-Updater: electron-updater]
+        WS[Local Webhook Mock Server: Port 4040]
         IDB[(Native IndexedDB Multi-Store)]
         DISK[(Local Disk Backup: ~/Downloads/*.bubble)]
 
@@ -38,14 +39,14 @@ graph TD
         end
 
         subgraph "Application Logic & Diagnostic Engines"
-            DE[DevOpsEngine & DataGridEngine]
+            DE[DevOpsEngine & MigrationGenerator]
             AE[AuditEngine & Dead Code Scorer]
-            SE[SecurityEngine & RBAC Matrix]
+            SE[SecurityEngine & PluginScanner]
             WP[WuProfilerEngine]
             TE[TranslationEngine & Memory]
             VE[VisualEngine & Pixel Diff]
-            AS[ApiStudioEngine & PluginSdkEngine]
-            DG[DocGenEngine]
+            AS[ApiStudioEngine & WebhookBridge]
+            DG[DocGenEngine & DiagramExporter]
             SN[SnapshotEngine & Rollback]
         end
 
@@ -165,3 +166,15 @@ The AI Gateway (`src/core/ai/aiProviders.ts` and `src/core/translator/translatio
   `app.on('login')` handles HTTP Basic Auth credentials for password-protected development environments.
 * **Credential Encryption**:
   API tokens and database keys are encrypted before storage using `safeStorage.encryptString()`.
+
+---
+
+## 8. Local Webhook Mock Server Architecture
+
+Dev Studio includes an embedded Node HTTP server in the Electron main process for webhook debugging:
+
+* **Port Binding**: Listens on `http://127.0.0.1:4040` by default, configurable through the API Studio interface.
+* **CORS & Preflight**: Handles `OPTIONS` preflight requests automatically with wildcard CORS headers (`*`), accepting payloads from local tools, ngrok tunnels, or browser fetch calls.
+* **Body Stream Parsing**: Collects incoming HTTP chunks up to 10 MB, parses JSON bodies when valid, and preserves raw text for signature verification.
+* **IPC Broadcast**: Dispatches captured events to renderer windows via `mainWindow.webContents.send('webhook:received', payload)` for live inspection.
+* **Bubble Forwarding**: Forwards inspected payloads directly to Bubble backend workflows with custom headers and authorization tokens.

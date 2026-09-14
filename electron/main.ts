@@ -729,6 +729,115 @@ ipcMain.handle('bubbleSync:exportBlueprintToDisk', async (_event, { fileName, da
   }
 });
 
+// ============================================================================
+// LOCAL WEBHOOK MOCK SERVER (IPC & HTTP)
+// ============================================================================
+let webhookServer: http.Server | null = null;
+let webhookServerPort = 4040;
+
+ipcMain.handle('webhookServer:start', async (_event, port: number = 4040) => {
+  if (webhookServer) {
+    return { success: true, port: webhookServerPort, message: 'Server is already running.' };
+  }
+
+  return new Promise((resolve) => {
+    try {
+      webhookServerPort = port || 4040;
+      webhookServer = http.createServer((req, res) => {
+        // Handle CORS Preflight
+        if (req.method === 'OPTIONS') {
+          res.writeHead(200, {
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS, PATCH',
+            'Access-Control-Allow-Headers': '*'
+          });
+          res.end();
+          return;
+        }
+
+        const parsedUrl = new URL(req.url || '/', `http://${req.headers.host || 'localhost'}`);
+        const chunks: Buffer[] = [];
+
+        req.on('data', (chunk) => {
+          chunks.push(chunk);
+        });
+
+        req.on('end', () => {
+          const rawBody = Buffer.concat(chunks).toString('utf8');
+          let parsedBody: any = null;
+          try {
+            parsedBody = rawBody ? JSON.parse(rawBody) : null;
+          } catch {
+            parsedBody = rawBody;
+          }
+
+          const queryParams: Record<string, string> = {};
+          parsedUrl.searchParams.forEach((val, key) => {
+            queryParams[key] = val;
+          });
+
+          const payload = {
+            id: `whk_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+            timestamp: new Date().toISOString(),
+            method: req.method || 'POST',
+            url: req.url || '/',
+            path: parsedUrl.pathname,
+            headers: req.headers,
+            queryParams,
+            rawBody,
+            body: parsedBody,
+            clientIp: req.socket.remoteAddress || '127.0.0.1'
+          };
+
+          if (mainWindow && !mainWindow.isDestroyed()) {
+            mainWindow.webContents.send('webhook:received', payload);
+          }
+
+          res.writeHead(200, {
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS, PATCH',
+            'Access-Control-Allow-Headers': '*'
+          });
+          res.end(JSON.stringify({ status: 'ok', received: true, id: payload.id, timestamp: payload.timestamp }));
+        });
+      });
+
+      webhookServer.on('error', (err: any) => {
+        webhookServer = null;
+        resolve({ success: false, error: err.message });
+      });
+
+      webhookServer.listen(webhookServerPort, () => {
+        resolve({ success: true, port: webhookServerPort });
+      });
+    } catch (e: any) {
+      webhookServer = null;
+      resolve({ success: false, error: e.message });
+    }
+  });
+});
+
+ipcMain.handle('webhookServer:stop', async () => {
+  if (!webhookServer) {
+    return { success: true, message: 'Server was not running.' };
+  }
+
+  return new Promise((resolve) => {
+    webhookServer!.close(() => {
+      webhookServer = null;
+      resolve({ success: true });
+    });
+  });
+});
+
+ipcMain.handle('webhookServer:status', async () => {
+  return {
+    isRunning: Boolean(webhookServer),
+    port: webhookServerPort
+  };
+});
+
 
 
 

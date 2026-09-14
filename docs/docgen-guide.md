@@ -37,6 +37,10 @@ The DocGen suite includes four tabs:
 - **System Context Diagram**: Top-level topology diagram (browser client, CDN, Bubble engine, database, and external APIs).
 - **Entity Relationship Diagram (ERD)**: Interactive diagram showing relational links and table attributes.
 - **Sequence Diagram**: Execution flow from user triggers to database writes.
+- **High-Resolution Graphic Export**:
+  - Direct vector SVG download for lossless scaling in documentation.
+  - Raster PNG export at 2x Retina (192 DPI) and 3x Ultra-DPI (288 DPI) with anti-aliasing.
+  - One-click clipboard copy to paste diagrams directly into Slack, Figma, Notion, or presentations.
 
 ### 3. Custom Chapter Composer
 - Add custom technical sections, such as:
@@ -50,6 +54,7 @@ The DocGen suite includes four tabs:
 - **Standalone HTML (`.html`)**: Complete HTML file with embedded styling and Mermaid diagram rendering.
 - **JSON Specification (`.json`)**: Machine-readable schema export.
 - **Print to PDF**: Formatted layout for print or saving as PDF.
+- **Vector & Raster Images**: SVG and 2x/3x PNG exports for ERDs, sequence diagrams, and flowcharts.
 
 ---
 

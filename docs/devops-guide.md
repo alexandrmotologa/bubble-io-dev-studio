@@ -53,10 +53,14 @@ Import your application structure using three methods:
 Inspect custom data types, fields, nullability, list relations, and Option Sets with visual badges.
 
 ### Interactive SVG ERD Diagram
-Entity-relationship diagram with pan, zoom controls, SVG download, and copyable Mermaid.js syntax.
+Entity-relationship diagram with pan, zoom controls, and export options:
+* **Vector SVG**: Download scalable `.svg` files with inline styling.
+* **High-Res PNG (2x Retina & 3x Ultra-DPI)**: Canvas-rasterized images with anti-aliasing on dark or light backgrounds.
+* **Copy PNG to Clipboard**: Copy rendered diagram images directly to the system clipboard for pasting into Notion, Slack, or documentation.
+* **Mermaid Syntax**: Copyable Mermaid.js source text.
 
 ### Workflow Flowchart Map
-Interactive node graph displaying triggers, actions, database writes, and conditional branches (`Only when...`), with a side drawer for action properties and expressions.
+Interactive node graph displaying triggers, actions, database writes, and conditional branches (`Only when...`), with a side drawer for action properties and expressions. Flowcharts also support full Mermaid rendering with high-resolution SVG and PNG exports.
 
 ### TypeScript, Zod & SDK Studio
 * **TypeScript Interfaces (`.d.ts`)**: Strict type definitions for database tables.
@@ -65,7 +69,7 @@ Interactive node graph displaying triggers, actions, database writes, and condit
 
 ---
 
-## 3. Backups & DevOps (Reliability & Migrations)
+## 3. Backups, DevOps & Migrations
 
 ### Table Backups
 * Run full or table-specific backups with row counts and compressed JSON exports.
@@ -77,14 +81,23 @@ Interactive node graph displaying triggers, actions, database writes, and condit
 * **Differential Search**: Filter records by added, modified, or deleted status.
 * **Diff Export**: Export change summaries in Markdown (`.md`) or JSON.
 
-### Schema Migrations
-* Tracks schema changes against `schema.lock.json`.
-* **Multi-Dialect DDL Generator**: Generates table creation and migration scripts for:
-  - PostgreSQL / Supabase
-  - MySQL / PlanetScale
-  - SQLite / Turso
-  - Google BigQuery
-* **Rollback Scripts**: Generates inverse SQL scripts to revert schema changes.
+### 1-Click Database Migration Generator
+Extracts schema definitions from your Bubble project and generates migration scripts:
+* **Supabase SQL**:
+  - Enables `uuid-ossp` and `pgcrypto` extensions.
+  - Generates `CREATE TABLE` definitions with `_id`, `created_date`, and `modified_date`.
+  - Enables Row Level Security (`ENABLE ROW LEVEL SECURITY;`) with starter access policies for authenticated users.
+  - Adds `handle_updated_at()` trigger functions to keep timestamps in sync.
+  - Maps Bubble Option Sets to PostgreSQL `ENUM` types.
+  - Adds foreign key constraints via `ALTER TABLE` after table creation, preventing circular dependency errors.
+  - Creates B-tree indexes on foreign keys and creation dates.
+* **Standard PostgreSQL**:
+  - Wraps statements in an atomic transaction (`BEGIN; ... COMMIT;`).
+  - Maps Bubble data types accurately (`number` to `NUMERIC`, `boolean` to `BOOLEAN`, `date` to `TIMESTAMPTZ`, `geographic address` to `JSONB`, `list of <type>` to `JSONB DEFAULT '[]'::jsonb`).
+* **Prisma Schema (`schema.prisma`)**:
+  - Generates models with `@id`, `@map("_id")`, and table attribute maps (`@@map("...")`).
+  - Maps Bubble Option Sets to Prisma `enum` definitions.
+  - Configures explicit relations with scalar ID fields and `@relation` references.
 
 ### Dev vs Live Cross-Environment Sync
 * Compare table schemas between `version-test` and `version-live` to spot schema drift.

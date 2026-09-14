@@ -36,6 +36,7 @@ import {
 import { ApiConnectorCallConfig, ApiConnectorHeader, ApiConnectorParameter, OpenApiEndpoint, OpenApiImportResult, ProjectProfile, WebhookLogEntry } from '../types';
 import { ApiStudioEngine, WebhookPreset, SchemaValidationResult } from '../core/api-studio/apiStudioEngine';
 import { PluginSdkGenerator } from '../components/PluginSdkGenerator';
+import { LocalWebhookServerPanel } from '../components/LocalWebhookServerPanel';
 import { toast } from '../core/toast/toastManager';
 import { APP_VERSION } from '../version';
 
@@ -44,7 +45,7 @@ interface ApiStudioViewProps {
   onLog: (module: 'api-studio', message: string, level?: 'info' | 'success' | 'warn' | 'error') => void;
 }
 
-type ApiStudioSubTab = 'webhooks' | 'curl_import' | 'openapi' | 'connector' | 'plugin_sdk';
+type ApiStudioSubTab = 'webhooks' | 'local_server' | 'curl_import' | 'openapi' | 'connector' | 'plugin_sdk';
 
 // Sample OpenAPI 3.0 Specification Preset for rapid testing
 const SAMPLE_OPENAPI_SPEC = {
@@ -581,6 +582,14 @@ export const ApiStudioView: React.FC<ApiStudioViewProps> = ({ activeProject, onL
           <span>Live Webhooks & Replay ({webhooks.length})</span>
         </button>
         <button
+          onClick={() => setSubTab('local_server')}
+          className={`btn btn-sm ${subTab === 'local_server' ? 'btn-primary' : 'btn-secondary'}`}
+          style={{ border: 'none', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '6px' }}
+        >
+          <Server size={13} color="var(--accent-emerald)" />
+          <span>Local Mock Server (Port 4040)</span>
+        </button>
+        <button
           onClick={() => setSubTab('curl_import')}
           className={`btn btn-sm ${subTab === 'curl_import' ? 'btn-primary' : 'btn-secondary'}`}
           style={{ border: 'none', whiteSpace: 'nowrap' }}
@@ -901,7 +910,14 @@ export const ApiStudioView: React.FC<ApiStudioViewProps> = ({ activeProject, onL
       )}
 
       {/* =====================================================================
-          SUBTAB 2: cURL TO BUBBLE CONNECTOR SCAFFOLDER
+          SUBTAB 2: LOCAL WEBHOOK MOCK SERVER & PAYLOAD INSPECTOR
+          ===================================================================== */}
+      {subTab === 'local_server' && (
+        <LocalWebhookServerPanel activeProject={activeProject} onLog={onLog} />
+      )}
+
+      {/* =====================================================================
+          SUBTAB 3: cURL TO BUBBLE CONNECTOR SCAFFOLDER
           ===================================================================== */}
       {subTab === 'curl_import' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>

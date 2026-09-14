@@ -43,6 +43,10 @@ export interface ElectronAPI {
     error?: string;
   }>;
   onBubbleFileDetected: (callback: (data: { fileName: string; content: any; stats?: any }) => void) => () => void;
+  startWebhookServer: (port?: number) => Promise<{ success: boolean; port?: number; error?: string }>;
+  stopWebhookServer: () => Promise<{ success: boolean; message?: string }>;
+  getWebhookServerStatus: () => Promise<{ isRunning: boolean; port?: number }>;
+  onWebhookReceived: (callback: (payload: any) => void) => () => void;
 }
 
 const ALLOWED_SEND_CHANNELS = new Set<string>([
@@ -57,7 +61,8 @@ const ALLOWED_RECEIVE_CHANNELS = new Set<string>([
   'menu:new-project',
   'toast:show',
   'updater:status',
-  'bubbleSync:fileDetected'
+  'bubbleSync:fileDetected',
+  'webhook:received'
 ]);
 
 const api: ElectronAPI = {
@@ -144,6 +149,22 @@ const api: ElectronAPI = {
     ipcRenderer.on('bubbleSync:fileDetected', subscription);
     return () => {
       ipcRenderer.removeListener('bubbleSync:fileDetected', subscription);
+    };
+  },
+  startWebhookServer: async (port?: number) => {
+    return ipcRenderer.invoke('webhookServer:start', port);
+  },
+  stopWebhookServer: async () => {
+    return ipcRenderer.invoke('webhookServer:stop');
+  },
+  getWebhookServerStatus: async () => {
+    return ipcRenderer.invoke('webhookServer:status');
+  },
+  onWebhookReceived: (callback: (payload: any) => void) => {
+    const subscription = (_event: any, data: any) => callback(data);
+    ipcRenderer.on('webhook:received', subscription);
+    return () => {
+      ipcRenderer.removeListener('webhook:received', subscription);
     };
   }
 };

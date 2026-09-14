@@ -1,6 +1,6 @@
 # Bubble.io Dev Studio
 
-[![Version](https://img.shields.io/badge/Version-3.4.0-brightgreen.svg)]()
+[![Version](https://img.shields.io/badge/Version-3.7.0-brightgreen.svg)]()
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.7-blue.svg?style=flat&logo=typescript)](https://www.typescriptlang.org/)
 [![Electron](https://img.shields.io/badge/Electron-34-47848F.svg?style=flat&logo=electron)](https://www.electronjs.org/)
 [![React](https://img.shields.io/badge/React-18-61DAFB.svg?style=flat&logo=react)](https://react.dev/)
@@ -16,7 +16,7 @@ Bubble.io Dev Studio is a desktop IDE for Bubble.io developers, agencies, and QA
 
 ---
 
-## 🖼️ Interface Gallery
+## Interface Gallery
 
 <details open>
 <summary><strong>Expand interface showcase</strong></summary>
@@ -38,17 +38,17 @@ Bubble.io Dev Studio is a desktop IDE for Bubble.io developers, agencies, and QA
 
 ---
 
-## Download Desktop App (v3.3.9 Pre-Built Binaries)
+## Download Desktop App (v3.7.0 Pre-Built Binaries)
 
 Pre-built binaries for running the desktop app directly:
 
-| Platform | Download Link (v3.3.9 Stable) | Package Format | Architecture |
+| Platform | Download Link (v3.7.0 Stable) | Package Format | Architecture |
 | :--- | :--- | :--- | :--- |
-| **Windows** | [Bubble.io-Dev-Studio-Setup-3.3.9.exe](https://github.com/alexandrmotologa/bubble-io-dev-studio/releases/download/v3.3.9/Bubble.io-Dev-Studio-Setup-3.3.9.exe) • [Portable .exe](https://github.com/alexandrmotologa/bubble-io-dev-studio/releases/download/v3.3.9/Bubble.io-Dev-Studio-3.3.9.exe) | NSIS Setup / Portable | x64 |
-| **macOS** | [Bubble.io-Dev-Studio-3.3.9.dmg](https://github.com/alexandrmotologa/bubble-io-dev-studio/releases/download/v3.3.9/Bubble.io-Dev-Studio-3.3.9.dmg) • [.zip](https://github.com/alexandrmotologa/bubble-io-dev-studio/releases/download/v3.3.9/Bubble.io-Dev-Studio-3.3.9-mac.zip) | Apple Disk Image / ZIP | Apple Silicon (M1-M4) & Intel |
-| **Linux** | [Bubble.io-Dev-Studio-3.3.9.AppImage](https://github.com/alexandrmotologa/bubble-io-dev-studio/releases/download/v3.3.9/Bubble.io-Dev-Studio-3.3.9.AppImage) | AppImage format | x64 |
+| **Windows** | [Bubble.io-Dev-Studio-Setup-3.7.0.exe](https://github.com/alexandrmotologa/bubble-io-dev-studio/releases/download/v3.7.0/Bubble.io-Dev-Studio-Setup-3.7.0.exe) • [Portable .exe](https://github.com/alexandrmotologa/bubble-io-dev-studio/releases/download/v3.7.0/Bubble.io-Dev-Studio-3.7.0.exe) | NSIS Setup / Portable | x64 |
+| **macOS** | [Bubble.io-Dev-Studio-3.7.0.dmg](https://github.com/alexandrmotologa/bubble-io-dev-studio/releases/download/v3.7.0/Bubble.io-Dev-Studio-3.7.0.dmg) • [.zip](https://github.com/alexandrmotologa/bubble-io-dev-studio/releases/download/v3.7.0/Bubble.io-Dev-Studio-3.7.0-mac.zip) | Apple Disk Image / ZIP | Apple Silicon (M1-M4) & Intel |
+| **Linux** | [Bubble.io-Dev-Studio-3.7.0.AppImage](https://github.com/alexandrmotologa/bubble-io-dev-studio/releases/download/v3.7.0/Bubble.io-Dev-Studio-3.7.0.AppImage) | AppImage format | x64 |
 
-> **Release Page**: [View v3.3.9 release notes on GitHub](https://github.com/alexandrmotologa/bubble-io-dev-studio/releases/tag/v3.3.9) | [Latest Release](https://github.com/alexandrmotologa/bubble-io-dev-studio/releases/latest)
+> **Release Page**: [View v3.7.0 release notes on GitHub](https://github.com/alexandrmotologa/bubble-io-dev-studio/releases/tag/v3.7.0) | [Latest Release](https://github.com/alexandrmotologa/bubble-io-dev-studio/releases/latest)
 >
 > **Windows Installation Note**: Because this open-source build does not carry a paid EV code-signing certificate, Windows SmartScreen may display "Windows protected your PC". Click **More info** and select **Run anyway** to launch the installer.
 
@@ -158,11 +158,14 @@ For technical details, see the [Cloud Direct Sync Guide](docs/cloud-sync-guide.m
 * **Live Grid**: CRUD explorer, inline cell editing (`PATCH`), record drawer, sorting, and JSON/CSV exports.
 * **Batch Importer**: Import CSV and JSON files with automatic column mapping, type casting, and progress tracking.
 * **Relational Data Seeder**: Seed multi-table records using `_ref: "@alias"` references with topological sorting and circular link resolution.
-* **Visual SVG ERD**: Entity-relationship diagram with pan, zoom, SVG export, and Mermaid script output.
+* **1-Click Database Migration Generator**: Export your Bubble schema directly to:
+  - **Supabase SQL**: Enables `uuid-ossp` and `pgcrypto`, configures Row Level Security (`ENABLE ROW LEVEL SECURITY;`) with starter authenticated policies, automated `handle_updated_at()` triggers, Option Sets as PostgreSQL `ENUM`, and deferred foreign key constraints.
+  - **PostgreSQL**: Transactional DDL (`BEGIN; ... COMMIT;`) with custom enums, type conversions (`geographic address` to `JSONB`, lists to `JSONB DEFAULT '[]'::jsonb`), and B-tree indexes on foreign keys and creation dates.
+  - **Prisma ORM**: Complete `schema.prisma` definitions with model attributes, relations, and Option Sets as enums.
+* **Interactive ERD & High-Res Graphic Export**: Entity-relationship diagrams with pan and zoom. Export options include Vector SVG, High-Res PNG (2x Retina & 3x Ultra-DPI), and direct PNG copying to the system clipboard for pasting into Notion or Slack.
 * **TypeScript & Zod Studio**: Generate `.d.ts` definitions, Zod validation schemas, and a typed Bubble API client SDK.
 * **Backups**: Run full or table-specific backups with SHA-256 checksums, encryption, and JSON archive restore.
 * **Database Snapshots**: Save table states before running large operations, compare changes, and export diffs in Markdown or JSON.
-* **Schema Migrations**: Track changes against `schema.lock.json` and generate DDL for PostgreSQL/Supabase, MySQL/PlanetScale, SQLite/Turso, and BigQuery, including rollback scripts.
 * **Cross-Environment Sync**: Compare schemas between `version-test` and `live` to detect schema drift before releases.
 * **CI/CD Pipelines**: Export workflow configurations for GitHub Actions and GitLab CI.
 
@@ -171,12 +174,18 @@ For technical details, see the [Cloud Direct Sync Guide](docs/cloud-sync-guide.m
 * **Conditional Branch Inspector**: Shows `"Only when..."` constraints on workflows and actions.
 * **Action Drawer**: Inspects individual action properties, parameters, and expressions.
 * **Performance Advisor**: Flags client-blocking actions, such as synchronous frontend email sending, and suggests backend scheduling.
-* **Mermaid Export**: Exports flowcharts for use in pull requests and documentation.
+* **Mermaid & Graphic Export**: Export flowcharts to Mermaid syntax, Vector SVG, or High-Res PNG.
 
 ### 4. Security & Privacy Rules Auditor
 * **RBAC Matrix**: Maps permissions across Admin, Authenticated User, and Guest tiers.
 * **Role Access Simulator**: Persona switcher (*Guest*, *Logged-in User*, *Record Owner*, *System Admin*) with visual field states (Visible, Masked, Redacted).
 * **Public Risk Scanner**: Checks `/api/1.1/obj/` endpoints for unauthenticated data scraping risks and flags critical exposures.
+* **Plugin Security & Deprecation Scanner**: Audits installed marketplace and custom plugins directly from the `.bubble` AST blueprint:
+  - Flags unmaintained plugins with no updates for over 2 years (>730 days).
+  - Detects legacy Bubble Plugin API v1 and v2 runtimes scheduled for deprecation.
+  - Scans for exposed secret tokens in client properties: Stripe keys (`sk_live_`, `sk_test_`), AWS access keys (`AKIA...`), GitHub personal access tokens, Slack bot tokens, and private JWTs.
+  - Identifies insecure `http://` scripts and measures the First Contentful Paint latency of render-blocking scripts in `<head>`.
+  - Generates executive Markdown and SARIF 2.1.0 security reports.
 * **Privacy Rules Generator**: Generates rules and expressions for the Bubble Data > Privacy editor.
 * **Compliance Checks**: Evaluates privacy configuration against GDPR (Articles 5 & 32), SOC 2 Type II, PCI-DSS, and HIPAA guidelines.
 * **Reports**: Exports audit summaries in Markdown and SARIF 2.1.0 JSON for CI/CD security scanners.
@@ -206,8 +215,9 @@ For technical details, see the [Cloud Direct Sync Guide](docs/cloud-sync-guide.m
 * **Inspection Modes**: Split-screen slider, side-by-side comparison, onion skin overlay (0-100% opacity), and heatmap highlighting.
 * **HTTP Basic Auth**: Injects credentials for password-protected Bubble development applications.
 
-### 9. Webhooks, cURL & Plugin SDK Generator
-* **Webhook Inspector**: Inspects incoming HTTP payloads, query parameters, and response status codes.
+### 9. Webhooks, cURL & API Studio
+* **Local Webhook Mock Server (Port 4040)**: Starts an embedded local HTTP listener in Electron with CORS support to capture test webhooks from Stripe, SendGrid, WhatsApp, and Shopify in real time. Inspect headers, query params, and raw JSON, or retransmit payloads directly to your Bubble backend workflows with one click.
+* **Webhook Inspector & Dispatcher**: Inspects incoming HTTP payloads, query parameters, and response status codes with offline simulation presets.
 * **cURL to API Connector**: Converts curl commands into Bubble API Connector parameters and headers.
 * **Plugin SDK Generator**: Generates boilerplate for Server-Side Actions (SSA), Client-Side Actions (CSA), TypeScript definitions, and `package.json`.
 
@@ -215,6 +225,7 @@ For technical details, see the [Cloud Direct Sync Guide](docs/cloud-sync-guide.m
 * **Two Documentation Modes**: Switch between an architectural narrative book and a structured data dictionary.
 * **Reader View**: In-app formatted preview with an option to view raw Markdown.
 * **Per-Chapter AI Generation**: Re-generate individual chapters with custom prompts (such as emphasizing GDPR compliance or webhook handling).
+* **High-Res Diagram Exports**: Architecture context models, ERD entity graphs, and sequence diagrams exportable to Vector SVG or High-Res PNG.
 * **Export Options**: Export to Markdown (`.md`), standalone HTML with embedded diagrams, JSON architecture specifications, or PDF.
 
 ### 11. Application Updates & Local Storage

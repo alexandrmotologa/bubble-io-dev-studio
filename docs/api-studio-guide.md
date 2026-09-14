@@ -23,7 +23,20 @@ Webhooks & API Studio provides tools to test webhook endpoints, convert cURL com
 
 ---
 
-## 2. cURL to Bubble API Connector Parser
+## 2. Local Webhook Mock Server & Payload Inspector (Port 4040)
+
+For local development and testing webhooks from external services before setting up live Bubble endpoints:
+
+* **Local HTTP Listener**: Starts a local HTTP server on a configurable port (default `4040`, e.g., `http://localhost:4040/webhook`).
+* **CORS Support**: Handles preflight `OPTIONS` requests automatically so local web apps and test scripts can send requests without origin errors.
+* **Live Payload Capture**: Captures every incoming request in real time, recording method, path, HTTP headers, query parameters, client IP, raw body text, and parsed JSON objects.
+* **Forward to Bubble**: Retransmits captured payloads directly to your active project's Bubble backend workflow URL (`/api/1.1/wf/...`) with one click.
+* **Mock Presets**: Built-in test payloads for Stripe, SendGrid, WhatsApp, and Shopify let you test payload parsing offline without third-party services.
+* **cURL Command Generator**: Generates ready-to-run terminal commands to test the local endpoint directly.
+
+---
+
+## 3. cURL to Bubble API Connector Parser
 
 Paste a cURL command from any third-party API documentation:
 
@@ -41,7 +54,7 @@ The parser separates the command into Bubble API Connector fields:
 
 ---
 
-## 3. Bubble Plugin Builder SDK Scaffolder
+## 4. Bubble Plugin Builder SDK Scaffolder
 
 Generates code templates for custom Bubble plugins:
 * **Server-Side Actions (SSA)**: Node.js asynchronous handlers with error boundaries.

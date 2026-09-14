@@ -16,7 +16,9 @@ import {
   Search,
   Check,
   Move,
-  Focus
+  Focus,
+  ChevronDown,
+  Image as ImageIcon
 } from 'lucide-react';
 import { toast } from '../core/toast/toastManager';
 
@@ -39,6 +41,7 @@ export const MermaidViewer: React.FC<MermaidViewerProps> = ({
   const [isCopied, setIsCopied] = useState<boolean>(false);
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
   const [searchQuery, setSearchQuery] = useState<string>('');
+  const [isExportMenuOpen, setIsExportMenuOpen] = useState<boolean>(false);
 
   // Active theme detection
   const [currentTheme, setCurrentTheme] = useState<'dark' | 'light'>(() => {
@@ -224,9 +227,117 @@ export const MermaidViewer: React.FC<MermaidViewerProps> = ({
     const a = document.createElement('a');
     a.href = url;
     a.download = `bubble_database_erd_${Date.now()}.svg`;
+    document.body.appendChild(a);
     a.click();
+    document.body.removeChild(a);
     URL.revokeObjectURL(url);
     toast.success('ERD SVG diagram exported!');
+  };
+
+  const handleExportPng = async (scale: number = 2, copyToClipboard: boolean = false) => {
+    if (!svgContent) return;
+    try {
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(svgContent, 'image/svg+xml');
+      const svgEl = doc.querySelector('svg');
+      if (!svgEl) {
+        toast.error('Unable to parse SVG element for PNG rasterization');
+        return;
+      }
+
+      let width = parseFloat(svgEl.getAttribute('width') || '0');
+      let height = parseFloat(svgEl.getAttribute('height') || '0');
+      const viewBox = svgEl.getAttribute('viewBox');
+
+      if ((!width || !height || isNaN(width) || isNaN(height)) && viewBox) {
+        const parts = viewBox.split(/[\s,]+/).map(parseFloat);
+        if (parts.length >= 4) {
+          width = parts[2];
+          height = parts[3];
+        }
+      }
+
+      if (!width || !height || isNaN(width) || isNaN(height)) {
+        width = 1600;
+        height = 1000;
+      }
+
+      svgEl.setAttribute('width', `${width}`);
+      svgEl.setAttribute('height', `${height}`);
+
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.round(width * scale);
+      canvas.height = Math.round(height * scale);
+      const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        toast.error('Canvas 2D context unavailable');
+        return;
+      }
+
+      const isLight = currentTheme === 'light';
+
+      const serializer = new XMLSerializer();
+      const svgString = serializer.serializeToString(svgEl);
+      const svgBlob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
+      const blobUrl = URL.createObjectURL(svgBlob);
+
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+
+      img.onload = () => {
+        try {
+          ctx.scale(scale, scale);
+          ctx.fillStyle = isLight ? '#ffffff' : '#0f172a';
+          ctx.fillRect(0, 0, width, height);
+
+          ctx.drawImage(img, 0, 0, width, height);
+          URL.revokeObjectURL(blobUrl);
+
+          canvas.toBlob(async (pngBlob) => {
+            if (!pngBlob) {
+              toast.error('Failed to create PNG blob');
+              return;
+            }
+
+            if (copyToClipboard) {
+              if (navigator.clipboard && (window as any).ClipboardItem) {
+                try {
+                  await navigator.clipboard.write([
+                    new (window as any).ClipboardItem({ 'image/png': pngBlob })
+                  ]);
+                  toast.success('Diagram PNG copied to clipboard (ready to paste)!');
+                  return;
+                } catch (clipErr) {
+                  console.warn('Clipboard write error, downloading instead:', clipErr);
+                }
+              }
+            }
+
+            const downloadUrl = URL.createObjectURL(pngBlob);
+            const a = document.createElement('a');
+            a.href = downloadUrl;
+            a.download = `bubble_architecture_diagram_${scale}x_${Date.now()}.png`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(downloadUrl);
+            toast.success(`Exported High-Res PNG (${scale}x)!`);
+          }, 'image/png');
+        } catch (canvasErr: any) {
+          URL.revokeObjectURL(blobUrl);
+          toast.error(`Rasterization error: ${canvasErr.message}`);
+        }
+      };
+
+      img.onerror = () => {
+        URL.revokeObjectURL(blobUrl);
+        toast.error('Failed to rasterize SVG into Canvas');
+      };
+
+      img.src = blobUrl;
+    } catch (err: any) {
+      toast.error(`Export error: ${err.message}`);
+    }
   };
 
   const handleMouseDown = (e: React.MouseEvent) => {
@@ -467,18 +578,96 @@ export const MermaidViewer: React.FC<MermaidViewerProps> = ({
             <span>{isCopied ? 'Copied!' : 'Copy Code'}</span>
           </button>
 
-          {/* Export SVG */}
+          {/* High-Resolution Graphic Export Menu */}
           {viewMode === 'visual' && svgContent && (
-            <button
-              type="button"
-              onClick={handleDownloadSvg}
-              className="btn btn-secondary btn-sm"
-              style={{ fontSize: '0.725rem', padding: '3px 10px', height: '28px' }}
-              title="Download SVG Vector Diagram"
-            >
-              <Download size={12} />
-              <span>Export SVG</span>
-            </button>
+            <div style={{ position: 'relative' }}>
+              <button
+                type="button"
+                onClick={() => setIsExportMenuOpen(prev => !prev)}
+                className="btn btn-primary btn-sm"
+                style={{ fontSize: '0.725rem', padding: '3px 10px', height: '28px', display: 'flex', alignItems: 'center', gap: '5px' }}
+                title="Export Diagram (SVG / PNG High-Res)"
+              >
+                <Download size={12} />
+                <span>Export Graphic</span>
+                <ChevronDown size={11} />
+              </button>
+
+              {isExportMenuOpen && (
+                <div
+                  style={{
+                    position: 'absolute',
+                    top: '100%',
+                    right: 0,
+                    marginTop: '4px',
+                    background: 'var(--bg-card)',
+                    border: '1px solid var(--border-subtle)',
+                    borderRadius: 'var(--radius-md)',
+                    boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.5)',
+                    zIndex: 1000,
+                    minWidth: '210px',
+                    padding: '4px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '2px'
+                  }}
+                >
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsExportMenuOpen(false);
+                      handleDownloadSvg();
+                    }}
+                    className="btn btn-ghost btn-sm"
+                    style={{ justifyContent: 'flex-start', fontSize: '0.75rem', padding: '6px 10px', width: '100%' }}
+                  >
+                    <Download size={12} color="var(--primary)" />
+                    <span>Vector SVG (.svg)</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsExportMenuOpen(false);
+                      handleExportPng(2, false);
+                    }}
+                    className="btn btn-ghost btn-sm"
+                    style={{ justifyContent: 'flex-start', fontSize: '0.75rem', padding: '6px 10px', width: '100%' }}
+                  >
+                    <ImageIcon size={12} color="var(--accent-cyan)" />
+                    <span>High-Res PNG (2x Retina)</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsExportMenuOpen(false);
+                      handleExportPng(3, false);
+                    }}
+                    className="btn btn-ghost btn-sm"
+                    style={{ justifyContent: 'flex-start', fontSize: '0.75rem', padding: '6px 10px', width: '100%' }}
+                  >
+                    <Sparkles size={12} color="var(--accent-amber)" />
+                    <span>Ultra-Res PNG (3x Print/4K)</span>
+                  </button>
+
+                  <div style={{ height: '1px', background: 'var(--border-subtle)', margin: '2px 0' }} />
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsExportMenuOpen(false);
+                      handleExportPng(2, true);
+                    }}
+                    className="btn btn-ghost btn-sm"
+                    style={{ justifyContent: 'flex-start', fontSize: '0.75rem', padding: '6px 10px', width: '100%' }}
+                  >
+                    <Copy size={12} color="var(--accent-emerald)" />
+                    <span>Copy PNG to Clipboard</span>
+                  </button>
+                </div>
+              )}
+            </div>
           )}
 
           {/* Fullscreen / Maximize Toggle */}

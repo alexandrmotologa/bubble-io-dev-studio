@@ -105,11 +105,28 @@ Inspects backend workflows (`/api/1.1/wf/[name]`) for risky configuration flags:
 ## 7. Export Formats
 
 * **Markdown (`.md`)**: Summary report with risk matrices, compliance tables, and remediation steps.
-* **SARIF 2.1.0 JSON (`.sarif.json`)**: Structured security format for integration with **GitHub CodeQL**, GitLab Security Dashboards, and CI/CD pipelines.
+* **SARIF 2.1.0 JSON (`.sarif.json`)**: Structured security format for integration with GitHub CodeQL, GitLab Security Dashboards, and CI/CD pipelines.
 
 ---
 
-## 8. Data Privacy in Cloud Sync
+## 8. Plugin Security, Deprecation & Secret Leak Scanner
+
+The scanner inspects installed marketplace and custom plugins extracted from the `.bubble` AST blueprint:
+
+1. **Unmaintained Plugins (>2 Years Old)**: Calculates the time since the plugin author published the last update (`last_updated` or `release_date`). Plugins without updates for over 730 days receive a warning because unmaintained plugins are more likely to break on new Bubble engine releases or harbor unpatched vulnerabilities.
+2. **Deprecated Bubble Plugin APIs**: Identifies plugins built on Bubble Plugin API v1 and v2. Bubble has scheduled older plugin runtimes for deprecation, recommending migration to API v4.
+3. **Secret Token Leaks**: Inspects client-accessible parameters and header scripts for exposed credentials:
+   - Stripe Live Secret Keys (`sk_live_...`) and Test Secret Keys (`sk_test_...`)
+   - AWS Root and IAM Access Keys (`AKIA...`)
+   - GitHub Personal Access Tokens (`ghp_...`, `github_pat_...`)
+   - Slack API Bot Tokens (`xoxb-...`, `xoxp-...`)
+   - Embedded JWT Tokens containing private claims
+4. **Mixed Content and Render-Blocking Scripts**: Flags external script dependencies that load over unencrypted `http://`, as modern browsers block mixed content. It also calculates page load latency for heavy synchronous scripts injected into `<head>`, which delay First Contentful Paint.
+5. **Scorecard and Remediation**: Assigns an overall plugin security score (0 to 100) and letter grade (A+ to F), with instructions for rotating leaked keys and moving calls to server-side backend workflows.
+
+---
+
+## 9. Data Privacy in Cloud Sync
 
 When using Cloud Direct Sync:
 

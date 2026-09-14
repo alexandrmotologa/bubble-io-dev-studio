@@ -25,6 +25,7 @@ import {
 } from 'lucide-react';
 import { WorkflowGraphData, WorkflowNode } from '../types';
 import { WorkflowGraphEngine } from '../core/workflows/workflowGraphEngine';
+import { MermaidViewer } from './MermaidViewer';
 import { toast } from '../core/toast/toastManager';
 
 interface WorkflowFlowchartProps {
@@ -349,18 +350,12 @@ export const WorkflowFlowchart: React.FC<WorkflowFlowchartProps> = ({
                 })}
               </div>
             ) : (
-              <pre style={{
-                background: 'var(--bg-input)',
-                padding: '14px',
-                borderRadius: 'var(--radius-md)',
-                fontFamily: 'var(--font-mono)',
-                fontSize: '0.75rem',
-                color: 'var(--text-secondary)',
-                overflowX: 'auto',
-                lineHeight: 1.5
-              }}>
-                {WorkflowGraphEngine.generateMermaidFlowchart(activeGraph)}
-              </pre>
+              <div style={{ marginTop: '4px' }}>
+                <MermaidViewer 
+                  chart={WorkflowGraphEngine.generateMermaidFlowchart(activeGraph)} 
+                  title={`Workflow: ${activeGraph.workflowName}`} 
+                />
+              </div>
             )}
           </div>
 
