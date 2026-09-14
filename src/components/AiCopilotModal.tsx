@@ -29,6 +29,8 @@ interface AiCopilotModalProps {
   openaiApiKey?: string;
   groqApiKey?: string;
   xaiApiKey?: string;
+  initialPrompt?: string;
+  initialMode?: 'query' | 'regex' | 'privacy';
 }
 
 type CopilotMode = 'query' | 'regex' | 'privacy';
@@ -42,26 +44,43 @@ export const AiCopilotModal: React.FC<AiCopilotModalProps> = ({
   geminiApiKey,
   openaiApiKey,
   groqApiKey,
-  xaiApiKey
+  xaiApiKey,
+  initialPrompt,
+  initialMode
 }) => {
-  const [mode, setMode] = useState<CopilotMode>('query');
+  const [mode, setMode] = useState<CopilotMode>(initialMode || 'query');
   const effectiveDataTypes = (activeSchema?.dataTypes && activeSchema.dataTypes.length > 0)
     ? activeSchema.dataTypes.map(d => d.name)
     : availableDataTypes;
   const [targetDataType, setTargetDataType] = useState(effectiveDataTypes[0] || 'User');
-  const [queryPrompt, setQueryPrompt] = useState('Find all active orders with total > 100 created in the last 30 days');
+  const [queryPrompt, setQueryPrompt] = useState(initialPrompt || 'Find all active orders with total > 100 created in the last 30 days');
   const [isGenerating, setIsGenerating] = useState(false);
   const [queryResult, setQueryResult] = useState<any | null>(null);
 
   // Regex mode state
-  const [regexDesc, setRegexDesc] = useState('Validate standard RFC email address');
+  const [regexDesc, setRegexDesc] = useState(initialMode === 'regex' && initialPrompt ? initialPrompt : 'Validate standard RFC email address');
   const [regexResult, setRegexResult] = useState<any | null>(null);
 
   // Privacy mode state
-  const [privacyPrompt, setPrivacyPrompt] = useState('Current User is Record Owner or Admin');
+  const [privacyPrompt, setPrivacyPrompt] = useState(initialMode === 'privacy' && initialPrompt ? initialPrompt : 'Current User is Record Owner or Admin');
   const [privacyResult, setPrivacyResult] = useState<PrivacyRuleExplanationResult | null>(null);
 
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
+
+  React.useEffect(() => {
+    if (initialPrompt) {
+      if (initialMode === 'regex') {
+        setRegexDesc(initialPrompt);
+      } else if (initialMode === 'privacy') {
+        setPrivacyPrompt(initialPrompt);
+      } else {
+        setQueryPrompt(initialPrompt);
+      }
+    }
+    if (initialMode) {
+      setMode(initialMode);
+    }
+  }, [initialPrompt, initialMode, isOpen]);
 
   if (!isOpen) return null;
 

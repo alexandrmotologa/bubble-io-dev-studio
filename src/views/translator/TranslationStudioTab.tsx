@@ -236,7 +236,7 @@ export const TranslationStudioTab: React.FC<TranslationStudioTabProps> = ({
             Import your official Bubble.io <code>language_translation_data.csv</code> file, extract strings from a <code>.bubble</code> export, or load sample texts to test multi-language AI translation.
           </p>
 
-          <div style={{ display: 'flex', justifyContent: 'center', gap: '14px', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '14px', flexWrap: 'wrap' }}>
             {activeProject?.blueprintExportJson && (
               <button
                 onClick={() => {
@@ -259,10 +259,30 @@ export const TranslationStudioTab: React.FC<TranslationStudioTabProps> = ({
               <input type="file" accept=".csv,.json,.bubble" onChange={handleFileUpload} style={{ display: 'none' }} />
             </label>
 
-            <button onClick={handleLoadSampleStrings} className="btn btn-secondary" style={{ padding: '10px 20px' }}>
-              <FileCode size={16} />
-              <span>Load Sample Application Texts</span>
-            </button>
+            {!activeProject?.blueprintExportJson ? (
+              <button onClick={handleLoadSampleStrings} className="btn btn-secondary" style={{ padding: '10px 20px' }}>
+                <FileCode size={16} />
+                <span>Load Sample Application Texts</span>
+              </button>
+            ) : (
+              <div style={{ width: '100%', marginTop: '6px', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                Want to test with mock data instead?{' '}
+                <button
+                  onClick={handleLoadSampleStrings}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: 'var(--accent-cyan)',
+                    textDecoration: 'underline',
+                    cursor: 'pointer',
+                    fontSize: '0.8rem',
+                    padding: 0
+                  }}
+                >
+                  Load sample mock strings
+                </button>
+              </div>
+            )}
           </div>
         </div>
       ) : viewMode === 'single' ? (

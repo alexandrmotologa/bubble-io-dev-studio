@@ -10,6 +10,7 @@ import { CommandPalette } from './components/CommandPalette';
 import { StatusBar } from './components/StatusBar';
 import { ViewLoadingFallback } from './components/ViewLoadingFallback';
 import { AiCopilotModal } from './components/AiCopilotModal';
+import { ExportReportModal } from './components/ExportReportModal';
 import { ToastContainer } from './components/ToastContainer';
 import { UpdatePromptModal } from './components/UpdatePromptModal';
 import { toast } from './core/toast/toastManager';
@@ -44,6 +45,9 @@ export const App: React.FC = () => {
   const [isConnectModalOpen, setIsConnectModalOpen] = useState(false);
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
   const [isCopilotOpen, setIsCopilotOpen] = useState(false);
+  const [copilotInitialPrompt, setCopilotInitialPrompt] = useState<string | undefined>(undefined);
+  const [copilotInitialMode, setCopilotInitialMode] = useState<'query' | 'regex' | 'privacy' | undefined>(undefined);
+  const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const [isShortcutsOpen, setIsShortcutsOpen] = useState(false);
   const [isOnboardingOpen, setIsOnboardingOpen] = useState(false);
   const [projectToDelete, setProjectToDelete] = useState<ProjectProfile | null>(null);
@@ -416,6 +420,21 @@ export const App: React.FC = () => {
     }
   };
 
+  const handleOpenCopilotWithPrompt = (prompt?: string, mode?: 'query' | 'regex' | 'privacy') => {
+    setCopilotInitialPrompt(prompt);
+    setCopilotInitialMode(mode);
+    setIsCopilotOpen(true);
+  };
+
+  const handleOpenBlueprintDiff = () => {
+    setDevOpsSubTab('blueprint_diff');
+    setCurrentTab('devops');
+  };
+
+  const handleOpenExportReport = () => {
+    setIsExportModalOpen(true);
+  };
+
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
 
   return (
@@ -465,6 +484,9 @@ export const App: React.FC = () => {
                 healthScore={healthScore}
                 healthGrade={healthGrade}
                 onOpenCopilot={() => setIsCopilotOpen(true)}
+                onOpenCopilotWithPrompt={handleOpenCopilotWithPrompt}
+                onOpenBlueprintDiff={handleOpenBlueprintDiff}
+                onOpenExportReport={handleOpenExportReport}
               />
             )}
 
@@ -686,10 +708,26 @@ export const App: React.FC = () => {
         onNavigate={setCurrentTab}
       />
 
+      {/* Universal White-Label Client Report Exporter Modal */}
+      <ExportReportModal
+        isOpen={isExportModalOpen}
+        onClose={() => setIsExportModalOpen(false)}
+        activeProject={activeProject}
+        activeSchema={activeSchema}
+        healthScore={healthScore ?? undefined}
+        healthGrade={healthGrade ?? undefined}
+      />
+
       {/* Bubble AI Copilot & Expression Studio Modal (Ctrl+I) */}
       <AiCopilotModal
         isOpen={isCopilotOpen}
-        onClose={() => setIsCopilotOpen(false)}
+        onClose={() => {
+          setIsCopilotOpen(false);
+          setCopilotInitialPrompt(undefined);
+          setCopilotInitialMode(undefined);
+        }}
+        initialPrompt={copilotInitialPrompt}
+        initialMode={copilotInitialMode}
         activeSchema={activeSchema}
         availableDataTypes={activeSchema?.dataTypes.map((d: any) => d.name)}
         onApplyQueryToRepl={(dataType) => {
