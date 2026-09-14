@@ -27,6 +27,10 @@ import { AuditEngine } from './core/audit/auditEngine';
 import { getProviderDisplayName, getModelDisplayName, getProviderForModel, getDefaultModelForProvider } from './core/ai/aiProviders';
 import { DevOpsSubTab } from './views/DevOpsView';
 import { APP_VERSION } from './version';
+import { ActivityStore } from './core/activity/activityStore';
+import { AutoBackupScheduler } from './core/devops/autoBackupScheduler';
+import { KeyboardShortcutsModal } from './components/KeyboardShortcutsModal';
+import { OnboardingTour } from './components/OnboardingTour';
 
 export const App: React.FC = () => {
   const store = ProjectStore.getInstance();
@@ -37,6 +41,8 @@ export const App: React.FC = () => {
   const [isConnectModalOpen, setIsConnectModalOpen] = useState(false);
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
   const [isCopilotOpen, setIsCopilotOpen] = useState(false);
+  const [isShortcutsOpen, setIsShortcutsOpen] = useState(false);
+  const [isOnboardingOpen, setIsOnboardingOpen] = useState(false);
   const [projectToDelete, setProjectToDelete] = useState<ProjectProfile | null>(null);
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [isBackingUp, setIsBackingUp] = useState(false);
@@ -80,10 +86,43 @@ export const App: React.FC = () => {
         e.preventDefault();
         setIsTerminalOpen(prev => !prev);
       }
+      // Ctrl+/ or ? -> Toggle Shortcuts Modal
+      else if ((e.ctrlKey || e.metaKey) && (e.key === '/' || e.key === '?')) {
+        e.preventDefault();
+        setIsShortcutsOpen(prev => !prev);
+      }
+      // Ctrl+1 through Ctrl+9 -> Tab navigation
+      else if ((e.ctrlKey || e.metaKey) && e.key >= '1' && e.key <= '9') {
+        e.preventDefault();
+        const tabMap: Record<string, NavigationTab> = {
+          '1': 'dashboard',
+          '2': 'devops',
+          '3': 'audit',
+          '4': 'translator',
+          '5': 'visual-tester',
+          '6': 'security',
+          '7': 'wu-profiler',
+          '8': 'api-studio',
+          '9': 'doc-gen'
+        };
+        const target = tabMap[e.key];
+        if (target) {
+          setCurrentTab(target);
+        }
+      }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [settings, isBackingUp]);
+
+  // Background Auto-Backup Scheduler
+  useEffect(() => {
+    const stopScheduler = AutoBackupScheduler.start(
+      () => settings.projects.find(p => p.id === settings.activeProjectId) || settings.projects[0],
+      () => settings
+    );
+    return stopScheduler;
+  }, [settings]);
 
   // Subscribe to store updates and hydrate blueprints from IndexedDB
   useEffect(() => {
@@ -167,7 +206,10 @@ export const App: React.FC = () => {
   // Initial welcome log & check if first run onboarding is needed
   useEffect(() => {
     addLog('system', `Bubble.io Dev Studio v${APP_VERSION} initialized.`, 'success');
-    if (settings.projects.length === 0) {
+    const hasCompletedOnboarding = localStorage.getItem('bubble_dev_studio_onboarding_completed') === 'true';
+    if (!hasCompletedOnboarding && settings.projects.length === 0) {
+      setIsOnboardingOpen(true);
+    } else if (settings.projects.length === 0) {
       addLog('system', 'No Bubble application connected yet. Opening connection setup...', 'warn');
       setIsConnectModalOpen(true);
     }
@@ -242,6 +284,12 @@ export const App: React.FC = () => {
 
     setSettings(updated);
     addLog('system', `Successfully connected Bubble application: ${newProject.name} (${newProject.appId})`, 'success');
+    ActivityStore.record({
+      type: 'project',
+      title: 'Workspace Connected',
+      message: `Connected Bubble application: ${newProject.name} (${newProject.appId} - ${newProject.environment})`,
+      projectId: newProject.id
+    });
   };
 
   const handleConfirmDeleteProject = (id: string) => {
@@ -250,6 +298,12 @@ export const App: React.FC = () => {
     const updated = store.getSettings();
     setSettings(updated);
     addLog('system', `Removed Bubble application profile: ${proj?.name || id}`, 'warn');
+    ActivityStore.record({
+      type: 'project',
+      title: 'Workspace Removed',
+      message: `Removed Bubble application profile: ${proj?.name || id}`,
+      projectId: id
+    });
   };
 
   const handleSaveSettings = (newSettings: GlobalSettings) => {
@@ -271,6 +325,12 @@ export const App: React.FC = () => {
         toast.update(toastId, { message: msg });
       });
       addLog('devops', `[Quick Backup] Backup completed successfully (${result.backupId} • ${result.recordCount.toLocaleString()} records). View and manage in DevOps > Backup & Restore.`, 'success');
+      ActivityStore.record({
+        type: 'backup',
+        title: 'Quick Backup Completed',
+        message: `${result.backupId} • ${result.recordCount.toLocaleString()} records exported (${result.fileSizeKb} KB)`,
+        projectId: activeProject.id
+      });
       toast.update(toastId, {
         type: 'success',
         title: 'Quick Backup Completed!',
@@ -312,6 +372,12 @@ export const App: React.FC = () => {
       setHealthScore(report.score);
       setHealthGrade(report.grade);
       addLog('audit', `[Quick Audit] Completed: Health Score ${report.score}% (Grade ${report.grade}).`, 'success');
+      ActivityStore.record({
+        type: 'audit',
+        title: 'AST Audit Completed',
+        message: `Health Score ${report.score}% (Grade ${report.grade}) • ${report.deadElementsCount} dead elements, ${report.deadWorkflowsCount} dead workflows`,
+        projectId: activeProject?.id
+      });
       toast.update(toastId, {
         type: 'success',
         title: `AST Audit Complete (Score ${report.score}% • Grade ${report.grade})`,
@@ -367,6 +433,7 @@ export const App: React.FC = () => {
             logCount={logs.length}
             onToggleMobileSidebar={() => setIsMobileSidebarOpen(prev => !prev)}
             onOpenCopilot={() => setIsCopilotOpen(true)}
+            onNavigate={setCurrentTab}
           />
 
           {/* View Switcher */}
@@ -503,6 +570,8 @@ export const App: React.FC = () => {
             onTriggerAudit={handleQuickAudit}
             onToggleTerminal={() => setIsTerminalOpen(!isTerminalOpen)}
             onOpenCopilot={() => setIsCopilotOpen(true)}
+            onOpenShortcuts={() => setIsShortcutsOpen(true)}
+            onOpenOnboarding={() => setIsOnboardingOpen(true)}
           />
 
           {/* Bubble AI Copilot Modal (Ctrl+I) */}
@@ -586,6 +655,20 @@ export const App: React.FC = () => {
           onRestartLater={handleRestartLater}
         />
       )}
+
+      {/* Global Keyboard Shortcuts Help Modal */}
+      <KeyboardShortcutsModal
+        isOpen={isShortcutsOpen}
+        onClose={() => setIsShortcutsOpen(false)}
+        onNavigate={setCurrentTab}
+      />
+
+      {/* Interactive Onboarding Tour */}
+      <OnboardingTour
+        isOpen={isOnboardingOpen}
+        onClose={() => setIsOnboardingOpen(false)}
+        onNavigate={setCurrentTab}
+      />
     </div>
   );
 };

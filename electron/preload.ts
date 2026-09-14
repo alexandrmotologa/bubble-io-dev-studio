@@ -45,6 +45,21 @@ export interface ElectronAPI {
   onBubbleFileDetected: (callback: (data: { fileName: string; content: any; stats?: any }) => void) => () => void;
 }
 
+const ALLOWED_SEND_CHANNELS = new Set<string>([
+  'updater:check',
+  'updater:download',
+  'updater:install',
+  'bubbleSync:login',
+  'bubbleSync:logout'
+]);
+
+const ALLOWED_RECEIVE_CHANNELS = new Set<string>([
+  'menu:new-project',
+  'toast:show',
+  'updater:status',
+  'bubbleSync:fileDetected'
+]);
+
 const api: ElectronAPI = {
   platform: process.platform,
   versions: {
@@ -53,9 +68,17 @@ const api: ElectronAPI = {
     electron: process.versions.electron
   },
   sendToMain: (channel, data) => {
+    if (!ALLOWED_SEND_CHANNELS.has(channel)) {
+      console.warn(`[Electron IPC] Blocked unauthorized sendToMain channel: "${channel}"`);
+      return;
+    }
     ipcRenderer.send(channel, data);
   },
   receiveFromMain: (channel, func) => {
+    if (!ALLOWED_RECEIVE_CHANNELS.has(channel)) {
+      console.warn(`[Electron IPC] Blocked unauthorized receiveFromMain channel: "${channel}"`);
+      return () => {};
+    }
     const subscription = (_event: any, ...args: any[]) => func(...args);
     ipcRenderer.on(channel, subscription);
     return () => {

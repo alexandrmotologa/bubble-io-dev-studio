@@ -19,7 +19,9 @@ import {
   Globe,
   X,
   FileCode,
-  Radio
+  Radio,
+  Keyboard,
+  HelpCircle
 } from 'lucide-react';
 import { ProjectProfile, NavigationTab } from '../types';
 
@@ -36,6 +38,8 @@ interface CommandPaletteProps {
   onTriggerAudit: () => void;
   onToggleTerminal: () => void;
   onOpenCopilot?: () => void;
+  onOpenShortcuts?: () => void;
+  onOpenOnboarding?: () => void;
 }
 
 interface CommandItem {
@@ -60,7 +64,9 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
   onTriggerBackup,
   onTriggerAudit,
   onToggleTerminal,
-  onOpenCopilot
+  onOpenCopilot,
+  onOpenShortcuts,
+  onOpenOnboarding
 }) => {
   const [query, setQuery] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -218,10 +224,26 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
     {
       id: 'act-toggle-terminal',
       title: 'Toggle Developer Terminal Drawer',
-      subtitle: 'View live logs, CLI outputs, and execution errors',
+      subtitle: 'View live logs, CLI outputs, and execution errors (Ctrl+`)',
       category: 'Tools',
       icon: <Terminal size={16} color="var(--text-secondary)" />,
       action: () => { onToggleTerminal(); onClose(); }
+    },
+    {
+      id: 'act-shortcuts',
+      title: 'Show Keyboard Shortcuts',
+      subtitle: 'Quick reference for hotkeys and navigation (Ctrl+/)',
+      category: 'Tools',
+      icon: <Keyboard size={16} color="var(--primary)" />,
+      action: () => { if (onOpenShortcuts) onOpenShortcuts(); onClose(); }
+    },
+    {
+      id: 'act-onboarding',
+      title: 'Start Interactive Onboarding Tour',
+      subtitle: 'Guided walkthrough of all studio features and workflows',
+      category: 'Tools',
+      icon: <HelpCircle size={16} color="var(--accent-cyan)" />,
+      action: () => { if (onOpenOnboarding) onOpenOnboarding(); onClose(); }
     },
 
     // Switch Projects

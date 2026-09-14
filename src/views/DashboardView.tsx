@@ -24,6 +24,8 @@ import {
   ExternalLink
 } from 'lucide-react';
 import { NavigationTab, ProjectProfile } from '../types';
+import { ActivityFeed } from '../components/ActivityFeed';
+import { ApiPerformanceWidget } from '../components/ApiPerformanceWidget';
 
 interface DashboardViewProps {
   activeProject?: ProjectProfile;
@@ -432,6 +434,12 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             </div>
           </div>
         </div>
+      </div>
+
+      {/* Live Performance Probe & Activity Timeline */}
+      <div className="grid-2" style={{ marginTop: '16px' }}>
+        <ApiPerformanceWidget activeProject={activeProject} />
+        <ActivityFeed projectId={activeProject?.id} onNavigate={onNavigate} />
       </div>
     </div>
   );

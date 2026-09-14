@@ -51,6 +51,9 @@ export interface GlobalSettings {
   ollamaUrl?: string;
   defaultAiModel: string;
   autoSaveReports: boolean;
+  autoBackupInterval?: 'disabled' | '6h' | '12h' | '24h';
+  autoBackupRetention?: number;
+  autoBackupBeforeSync?: boolean;
   projects: ProjectProfile[];
 }
 

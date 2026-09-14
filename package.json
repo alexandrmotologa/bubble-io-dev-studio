@@ -1,7 +1,7 @@
 {
   "name": "bubble-io-dev-studio",
   "private": true,
-  "version": "3.3.15",
+  "version": "3.4.0",
   "description": "Bubble.io Developer Studio - Modern local companion suite for Bubble developers (DevOps, Schema, Dead Code Audit, AI Translation, Visual QA)",
   "main": "dist-electron/main.js",
   "author": {
@@ -35,7 +35,9 @@
     "dist:mac": "npm run build && electron-builder --mac",
     "dist:linux": "npm run build && electron-builder --linux",
     "dist:all": "npm run build && electron-builder -mwl",
-    "typecheck": "tsc --noEmit && tsc -p tsconfig.node.json --noEmit"
+    "typecheck": "tsc --noEmit && tsc -p tsconfig.node.json --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "axios": "^1.7.9",
@@ -63,6 +65,7 @@
     "electron-builder": "^25.1.8",
     "typescript": "^5.7.3",
     "vite": "^6.1.0",
+    "vitest": "^5.0.0",
     "wait-on": "^8.0.2"
   },
   "build": {

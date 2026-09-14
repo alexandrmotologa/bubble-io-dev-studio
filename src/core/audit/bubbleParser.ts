@@ -92,7 +92,7 @@ export class BubbleParser {
         }
 
         // Parse Database Types and Fields
-        const typesObj = rawJson.user_types || rawJson.custom_types || rawJson.types || rawJson.database_types;
+        const typesObj = rawJson.user_types || rawJson.custom_types || rawJson.types || rawJson.database_types || rawJson.data_types;
         if (typesObj && typeof typesObj === 'object') {
           for (const [typeKey, typeData] of Object.entries<any>(typesObj)) {
             const tableName = typeKey.replace(/^custom\./, '');

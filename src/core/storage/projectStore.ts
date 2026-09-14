@@ -9,6 +9,9 @@ const DEFAULT_SETTINGS: GlobalSettings = {
   defaultAiModel: 'llama3:8b',
   ollamaUrl: 'http://localhost:11434',
   autoSaveReports: true,
+  autoBackupInterval: 'disabled',
+  autoBackupRetention: 10,
+  autoBackupBeforeSync: true,
   projects: [],
   activeProjectId: undefined
 };

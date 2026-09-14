@@ -34,10 +34,13 @@ import {
   FileJson,
   Pencil,
   Package,
-  Zap
+  Zap,
+  Clock,
+  HardDriveDownload
 } from 'lucide-react';
 import { GlobalSettings, ProjectProfile, ThemeMode, UpdaterStatusData } from '../types';
 import { DevOpsEngine } from '../core/devops/devopsEngine';
+import { AutoBackupScheduler } from '../core/devops/autoBackupScheduler';
 import { TranslatorEngine } from '../core/translator/translatorEngine';
 import { ConfirmDeleteModal } from '../components/ConfirmDeleteModal';
 import { EditProjectModal } from '../components/EditProjectModal';
@@ -1476,6 +1479,84 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 <Trash2 size={13} />
                 <span>Purge Translation Cache</span>
               </button>
+            </div>
+          </div>
+
+          {/* Scheduled Auto-Backup & Retention Card */}
+          <div className="card" style={{ gridColumn: '1 / -1' }}>
+            <div className="card-header">
+              <div>
+                <div className="card-title">
+                  <Clock size={18} color="var(--primary)" />
+                  <span>Automated Scheduled Backups & Snapshot Retention</span>
+                </div>
+                <div className="card-subtitle">
+                  Configure automatic background snapshots and retention pruning for active workspaces
+                </div>
+              </div>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px' }}>
+              <div>
+                <label className="input-label">Auto-Backup Frequency</label>
+                <select
+                  value={formData.autoBackupInterval || 'disabled'}
+                  onChange={(e) => {
+                    const val = e.target.value as 'disabled' | '6h' | '12h' | '24h';
+                    const updated: GlobalSettings = { ...formData, autoBackupInterval: val };
+                    setFormData(updated);
+                    onSaveSettings(updated);
+                  }}
+                  className="select select-premium"
+                >
+                  <option value="disabled">Disabled (Manual Only)</option>
+                  <option value="6h">Every 6 Hours (High Frequency)</option>
+                  <option value="12h">Every 12 Hours</option>
+                  <option value="24h">Every 24 Hours (Daily Snapshot)</option>
+                </select>
+                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '4px' }}>
+                  Backups run silently in the background when Bubble Dev Studio is open.
+                </div>
+              </div>
+
+              <div>
+                <label className="input-label">Retention Policy (Max Backups Kept)</label>
+                <select
+                  value={formData.autoBackupRetention || 10}
+                  onChange={(e) => {
+                    const val = parseInt(e.target.value, 10);
+                    const updated: GlobalSettings = { ...formData, autoBackupRetention: val };
+                    setFormData(updated);
+                    onSaveSettings(updated);
+                  }}
+                  className="select select-premium"
+                >
+                  <option value={5}>Keep last 5 backups</option>
+                  <option value={10}>Keep last 10 backups (Recommended)</option>
+                  <option value={20}>Keep last 20 backups</option>
+                  <option value={50}>Keep last 50 backups</option>
+                </select>
+                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '4px' }}>
+                  Older snapshots beyond this limit will be automatically pruned.
+                </div>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '16px', paddingTop: '14px', borderTop: '1px solid var(--border-subtle)' }}>
+              <input
+                type="checkbox"
+                id="autobackup-sync"
+                checked={formData.autoBackupBeforeSync !== false}
+                onChange={(e) => {
+                  const updated: GlobalSettings = { ...formData, autoBackupBeforeSync: e.target.checked };
+                  setFormData(updated);
+                  onSaveSettings(updated);
+                }}
+                style={{ width: '16px', height: '16px', accentColor: 'var(--primary)' }}
+              />
+              <label htmlFor="autobackup-sync" style={{ fontSize: '0.85rem', color: 'var(--text-primary)', cursor: 'pointer' }}>
+                Automatically create safety backup before 1-Click Sync or database push
+              </label>
             </div>
           </div>
         </div>

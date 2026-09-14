@@ -1,3 +1,5 @@
+import { NotificationStore, NotificationType } from '../notifications/notificationStore';
+
 export interface ToastAction {
   label: string;
   onClick: () => void;
@@ -67,6 +69,17 @@ class ToastManager {
 
     this.notify();
 
+    // Persist completed notifications to NotificationStore
+    if (newToast.type !== 'loading') {
+      NotificationStore.add({
+        id,
+        type: newToast.type as NotificationType,
+        title: newToast.title,
+        message: newToast.message,
+        actionLabel: newToast.action?.label
+      });
+    }
+
     if (newToast.duration && newToast.duration !== Infinity) {
       setTimeout(() => {
         this.dismiss(id);
@@ -107,6 +120,18 @@ class ToastManager {
         duration
       };
       this.notify();
+
+      // If updated to a non-loading final state (e.g. success or error), record notification
+      const resolvedType = updates.type || current.type;
+      if (resolvedType !== 'loading') {
+        NotificationStore.add({
+          id,
+          type: resolvedType as NotificationType,
+          title: updates.title || current.title,
+          message: updates.message !== undefined ? updates.message : current.message,
+          actionLabel: updates.action?.label || current.action?.label
+        });
+      }
 
       if (duration && duration !== Infinity) {
         setTimeout(() => {
